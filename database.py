@@ -3,10 +3,19 @@ import streamlit as st
 
 
 def get_connection():
-    # Conecta ao banco de dados na nuvem buscando a URL secreta
-    return psycopg2.connect(st.secrets["DB_URL"])
+    # Puxa o bloco [supabase] do Secrets
+    db = st.secrets["supabase"]
 
-
+    # Conecta de forma nativa e segura, pedaço por pedaço
+    return psycopg2.connect(
+        host=db["host"],
+        port=db["port"],
+        dbname=db["dbname"],
+        user=db["user"],
+        password=db["password"],
+        sslmode=db["sslmode"]
+    )
+    
 def init_db():
     conn = get_connection()
     cursor = conn.cursor()
