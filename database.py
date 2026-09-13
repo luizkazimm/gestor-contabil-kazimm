@@ -1,6 +1,7 @@
 import psycopg2
 import streamlit as st
-
+import json
+import os
 
 def get_connection():
     # Puxa o bloco [supabase] do Secrets
@@ -15,7 +16,27 @@ def get_connection():
         password=db["password"],
         sslmode=db["sslmode"]
     )
-    
+def popular_plano_contas_inicial(conn):
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM plano_contas")
+    total = cursor.fetchone()[0]
+
+    if total == 0 and os.path.exists("plano_contas_inicial.json"):
+        with open("plano_contas_inicial.json", "r", encoding="utf-8") as file:
+            contas = json.load(file)
+            
+        for conta in contas:
+            descricao = conta.get("descricao") or conta.get("nome")
+            cursor.execute(
+                """
+                INSERT INTO plano_contas (codigo, descricao, tipo)
+                VALUES (%s, %s, %s)
+                """,
+                (conta["codigo"], descricao, conta["tipo"])
+            )
+        conn.commit()
+    cursor.close()    
+
 def init_db():
     conn = get_connection()
     cursor = conn.cursor()
@@ -54,6 +75,8 @@ def init_db():
     """)
 
     conn.commit()
+    popular_plano_contas_inicial(conn)
+    cursor.close()
     conn.close()
 
 
