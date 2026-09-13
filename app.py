@@ -155,7 +155,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
     st.write("### Plano de Contas Atual")
     conn = get_connection()
     df_plano = pd.read_sql_query(
-        'SELECT id, codigo as "Código", nome as "Nome da Conta", tipo as "Tipo" FROM plano_contas ORDER BY codigo ASC',
+        'SELECT id, codigo as "Código", descricao as "Nome da Conta", tipo as "Tipo" FROM plano_contas ORDER BY codigo ASC',
         conn,
     )
     conn.close()
