@@ -69,7 +69,7 @@ if opcao == "Cadastrar Cliente":
     st.write("### Clientes Cadastrados")
     conn = get_connection()
     df_clientes_cad = pd.read_sql_query(
-        "SELECT id, nome as 'Razão Social', cnpj_cpf as 'CNPJ/CPF', regime as 'Regime Contábil' FROM clientes ORDER BY nome ASC",
+        "SELECT id, nome as "Razão Social", cnpj_cpf as "CNPJ/CPF", regime as "Regime Contábil" FROM clientes ORDER BY nome ASC",
         conn,
     )
     conn.close()
@@ -155,7 +155,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
     st.write("### Plano de Contas Atual")
     conn = get_connection()
     df_plano = pd.read_sql_query(
-        "SELECT id, codigo as 'Código', nome as 'Nome da Conta', tipo as 'Tipo' FROM plano_contas ORDER BY codigo ASC",
+        "SELECT id, codigo as "Código", nome as "Nome da Conta", tipo as "Tipo" FROM plano_contas ORDER BY codigo ASC",
         conn,
     )
     conn.close()
@@ -272,7 +272,7 @@ elif opcao == "Plano de Contas":
 
     conn = get_connection()
     df_plano = pd.read_sql_query(
-        "SELECT codigo as 'Código', nome as 'Nome da Conta', tipo as 'Grupo / Tipo' FROM plano_contas ORDER BY codigo ASC",
+        "SELECT codigo as "Código", nome as "Nome da Conta", tipo as "Grupo / Tipo" FROM plano_contas ORDER BY codigo ASC",
         conn,
     )
     conn.close()
