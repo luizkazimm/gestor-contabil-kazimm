@@ -677,13 +677,13 @@ elif opcao == "Ver Lançamentos":
         if cliente_filtro == "Todos":
             query = """
                 SELECT 
-                    l.id as 'ID',
-                    c.nome as 'Cliente', 
-                    l.data as 'Data', 
-                    l.conta_debito as 'Conta Débito', 
-                    l.conta_credito as 'Conta Crédito', 
-                    l.valor as 'Valor', 
-                    l.historico as 'Histórico'
+                    l.id as "ID",
+                    c.nome as "Cliente", 
+                    l.data as "Data", 
+                    l.conta_debito as "Conta Débito", 
+                    l.conta_credito as "Conta Crédito", 
+                    l.valor as "Valor", 
+                    l.historico as "Histórico"
                 FROM lancamentos l
                 JOIN clientes c ON l.cliente_id = c.id
                 ORDER BY l.data DESC, l.id DESC
