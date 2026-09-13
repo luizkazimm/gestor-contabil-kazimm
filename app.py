@@ -690,7 +690,7 @@ elif opcao == "Ver Lançamentos":
             """
             df = pd.read_sql_query(query, conn)
         else:
-            cliente_id = dict(zip(clientes["discricao"], clientes["id"]))[
+            cliente_id = dict(zip(clientes["descricao"], clientes["id"]))[
                 cliente_filtro
             ]
             query = """
