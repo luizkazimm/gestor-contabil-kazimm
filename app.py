@@ -69,7 +69,7 @@ if opcao == "Cadastrar Cliente":
     st.write("### Clientes Cadastrados")
     conn = get_connection()
     df_clientes_cad = pd.read_sql_query(
-        "SELECT id, nome as "Razão Social", cnpj_cpf as "CNPJ/CPF", regime as "Regime Contábil" FROM clientes ORDER BY nome ASC",
+        'SELECT id, nome as "Razão Social", cnpj_cpf as "CNPJ/CPF", regime as "Regime Contábil" FROM clientes ORDER BY nome ASC',
         conn,
     )
     conn.close()
