@@ -50,7 +50,7 @@ if opcao == "Cadastrar Cliente":
                 cursor = conn.cursor()
                 try:
                     cursor.execute(
-                        "INSERT INTO clientes (nome, cnpj_cpf, regime) VALUES (?, ?, ?)",
+                        "INSERT INTO clientes (nome, cnpj_cpf, regime) VALUES (%s, %s, %s)",
                         (nome, cnpj_cpf, regime),
                     )
                     conn.commit()
@@ -106,7 +106,7 @@ if opcao == "Cadastrar Cliente":
                 conn = get_connection()
                 cursor = conn.cursor()
                 cursor.execute(
-                    "UPDATE clientes SET regime = ? WHERE id = ?",
+                    "UPDATE clientes SET regime = ? WHERE id = %s",
                     (novo_regime, id_cli_edit),
                 )
                 conn.commit()
@@ -136,7 +136,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                 cursor = conn.cursor()
                 try:
                     cursor.execute(
-                        "INSERT INTO plano_contas (codigo, nome, tipo) VALUES (?, ?, ?)",
+                        "INSERT INTO plano_contas (codigo, nome, tipo) VALUES (%s, %s, %s)",
                         (codigo, nome_conta, tipo_conta),
                     )
                     conn.commit()
@@ -187,7 +187,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT codigo, nome, tipo FROM plano_contas WHERE id = ?",
+            "SELECT codigo, nome, tipo FROM plano_contas WHERE id = %s",
             (id_conta_sel,),
         )
         reg_conta = cursor.fetchone()
@@ -233,7 +233,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                         cursor = conn.cursor()
                         try:
                             cursor.execute(
-                                "UPDATE plano_contas SET codigo = ?, nome = ?, tipo = ? WHERE id = ?",
+                                "UPDATE plano_contas SET codigo = %s, nome = %s, tipo = %s WHERE id = %s",
                                 (novo_codigo, novo_nome, novo_tipo, id_conta_sel),
                             )
                             conn.commit()
@@ -536,7 +536,7 @@ elif opcao == "Novo Lançamento":
                     cursor.execute(
                         """
                         INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        VALUES (%s, %s, %s, %s, %s, %s)
                     """,
                         (
                             dict_clientes_id[cliente_selecionado],
@@ -637,7 +637,7 @@ elif opcao == "Importar Extrato / Excel":
                             cursor.execute(
                                 """
                                 INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
-                                VALUES (?, ?, ?, ?, ?, ?)
+                                VALUES (%s, %s, %s, %s, %s, %s)
                             """,
                                 (
                                     dict_clientes[cliente_import],
@@ -757,7 +757,7 @@ elif opcao == "Ver Lançamentos":
             conn = get_connection()
             c = conn.cursor()
             c.execute(
-                "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE id = ?",
+                "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE id = %s",
                 (id_selecionado,),
             )
             reg_atual = c.fetchone()
@@ -831,8 +831,8 @@ elif opcao == "Ver Lançamentos":
                             cursor.execute(
                                 """
                                 UPDATE lancamentos 
-                                SET data = ?, conta_debito = ?, conta_credito = ?, valor = ?, historico = ?
-                                WHERE id = ?
+                                SET data = %s, conta_debito = %s, conta_credito = %s, valor = %s, historico = %s
+                                WHERE id = %s
                             """,
                                 (
                                     str(nova_data),
@@ -866,7 +866,7 @@ elif opcao == "Ver Lançamentos":
                         conn = get_connection()
                         cursor = conn.cursor()
                         cursor.execute(
-                            "DELETE FROM lancamentos WHERE id = ?",
+                            "DELETE FROM lancamentos WHERE id = %s",
                             (id_selecionado,),
                         )
                         conn.commit()
@@ -896,7 +896,7 @@ elif opcao == "Relatório por Categoria":
             cliente_id = dict(zip(clientes["nome"], clientes["id"]))[
                 cliente_filtro
             ]
-            query = "SELECT conta_debito, conta_credito, valor FROM lancamentos WHERE cliente_id = ?"
+            query = "SELECT conta_debito, conta_credito, valor FROM lancamentos WHERE cliente_id = %s"
             df = pd.read_sql_query(query, conn, params=(cliente_id,))
 
         conn.close()
