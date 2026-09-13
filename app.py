@@ -561,7 +561,7 @@ elif opcao == "Importar Extrato / Excel":
     conn = get_connection()
     clientes = pd.read_sql_query("SELECT id, nome FROM clientes", conn)
     df_contas = pd.read_sql_query(
-        "SELECT codigo, nome FROM plano_contas ORDER BY codigo ASC", conn
+        "SELECT codigo, descricao FROM plano_contas ORDER BY codigo ASC", conn
     )
     conn.close()
 
