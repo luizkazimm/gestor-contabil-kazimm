@@ -1,14 +1,16 @@
 import psycopg2
 import streamlit as st
 
+
 def get_connection():
     # Conecta ao banco de dados na nuvem buscando a URL secreta
     return psycopg2.connect(st.secrets["DB_URL"])
 
-def create_tables():
+
+def init_db():
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     # Cria a tabela de clientes
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
@@ -18,7 +20,7 @@ def create_tables():
             regime TEXT
         )
     """)
-    
+
     # Cria a tabela de plano de contas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS plano_contas (
@@ -28,7 +30,7 @@ def create_tables():
             tipo TEXT NOT NULL
         )
     """)
-    
+
     # Cria a tabela de lançamentos
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS lancamentos (
@@ -41,6 +43,10 @@ def create_tables():
             cliente_id INTEGER REFERENCES clientes(id)
         )
     """)
-    
+
     conn.commit()
     conn.close()
+
+
+# Mantém suporte para ambos os nomes
+create_tables = init_db
