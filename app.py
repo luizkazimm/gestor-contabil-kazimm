@@ -358,7 +358,7 @@ elif opcao == "Novo Lançamento":
         "SELECT codigo, descricao, tipo FROM plano_contas ORDER BY codigo ASC", conn
     )
     df_fornecedores_cad = pd.read_sql_query(
-        """SELECT nome FROM plano_contas WHERE tipo = 'Passivo' OR codigo LIKE '2.1.1%' ORDER BY descricao ASC""",
+        """SELECT descricao FROM plano_contas WHERE tipo = 'Passivo' OR codigo LIKE '2.1.1%' ORDER BY descricao ASC""",
         conn,
     )
     conn.close()
