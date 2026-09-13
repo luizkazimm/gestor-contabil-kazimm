@@ -272,7 +272,7 @@ elif opcao == "Plano de Contas":
 
     conn = get_connection()
     df_plano = pd.read_sql_query(
-        "SELECT codigo as "Código", nome as "Nome da Conta", tipo as "Grupo / Tipo" FROM plano_contas ORDER BY codigo ASC",
+        'SELECT codigo as "Código", nome as "Nome da Conta", tipo as "Grupo / Tipo" FROM plano_contas ORDER BY codigo ASC',
         conn,
     )
     conn.close()
