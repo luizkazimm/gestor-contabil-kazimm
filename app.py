@@ -399,7 +399,7 @@ elif opcao == "Novo Lançamento":
             "Droga Raia",
         ]
 
-        for forn in df_fornecedores_cad["nome"]:
+        for forn in df_fornecedores_cad["discricao"]:
             if forn not in estabelecimentos_frequentes:
                 estabelecimentos_frequentes.append(forn)
 
