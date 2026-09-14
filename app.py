@@ -1,7 +1,68 @@
 import streamlit as st
 from supabase import create_client
 
-st.set_page_config(page_title="Portal Kazimm", page_icon="🏢")
+st.set_page_config(
+    page_title="Kazimm Gestao", 
+    page_icon="🏢",
+    initial_sidebar_state="expanded"
+    )
+
+# 2. CSS CUSTOMIZADO GLOBAL
+st.markdown("""
+    <style>
+    /* Corrigido: CSS para Centralizar a Logo de forma Robusta */
+    div[data-testid="stImage"] img {
+        display: block !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        margin-bottom: 15px !important;
+    }
+
+    /* 2. Botão Principal (Entrar) */
+    div.stButton > button[kind="primary"] {
+        background-color: #1E3A8A; /* Azul marinho */
+        color: #FFFFFF;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 18px !important;
+        padding: 10px;
+        transition: background-color 0.3s ease;
+    }
+
+    /* 3. Efeito ao passar o mouse no botão (Hover) */
+    div.stButton > button[kind="primary"]:hover {
+        background-color: #2563EB; /* Azul de destaque */
+        color: #FFFFFF;
+    }
+
+    /* 4. Títulos (st.title) */
+    h1 {
+        font-size: 26px !important;
+    }
+
+    /* 5. Subtítulos e Seções (st.subheader e h2/h3) */
+    h2, h3 {
+        font-size: 20px !important;
+    }
+
+    /* 6. Rótulos dos Campos ("E-mail", "Senha") */
+    label[data-testid="stWidgetLabel"] p {
+        font-size: 15px !important;
+        font-weight: 600;
+    }
+
+    /* 7. Texto digitado nos campos */
+    input {
+        font-size: 16px !important;
+    }
+
+    /* 8. Legendas (st.caption) */
+    [data-testid="stCaptionContainer"] p {
+        font-size: 13px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # 1. CONEXÃO COM SUPABASE
 @st.cache_resource
@@ -32,14 +93,21 @@ def logout():
 
 # 4. TELA DE LOGIN
 def login_screen():
-    st.title("🔐 Portal Kazimm")
-    st.caption("Acesso restrito a clientes autorizados.")
+    #Cria 3 colunas e seleciona coluna central (col2)
+    col1, col2, col3 = st.columns([1,2,1])
+
+    with col2:
+        #Logo Kazimm Gestão
+        st.image("logo.png", width=180)
+
+        st.title("🔐 Kazimm Gestor Contabil")
+        st.caption("Acesso restrito a clientes autorizados.")
     
-    with st.form("login_form"):
-        email = st.text_input("E-mail")
-        senha = st.text_input("Senha", type="password")
-        if st.form_submit_button("Entrar", type="primary"):
-            login(email, senha)
+        with st.form("login_form"):
+            email = st.text_input("E-mail")
+            senha = st.text_input("Senha", type="password")
+            if st.form_submit_button("Entrar", type="primary", use_container_width=True):
+                login(email, senha)
 
 # 5. DEFINIÇÃO DAS PÁGINAS DO PORTAL
 login_page = st.Page(login_screen, title="Login", icon="🔐")
