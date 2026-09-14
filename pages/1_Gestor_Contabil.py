@@ -34,21 +34,37 @@ opcao = st.sidebar.selectbox(
 
 if opcao == "Cadastrar Cliente":
     st.subheader("Cadastro de Clientes")
-    with st.form("form_cliente"):
-        col_cli1, col_cli2 = st.columns(2)
-        with col_cli1:
-            nome = st.text_input("Nome/Razão Social da Empresa")
-            cnpj_cpf = st.text_input("CNPJ ou CPF")
-        with col_cli2:
-            regime = st.selectbox(
-                "Regime Contábil / Modelo de Digitação",
-                [
-                    "Partida Dupla (Contabilidade Completa)",
-                    "Lançamento Simples (MEI / Livro Caixa)",
-                ],
-            )
 
-        salvar = st.form_submit_button("Salvar Cliente")
+    # 1. Checa a quantidade de clientes já salvos para o usuário atual
+    user_id_atual = st.session_state.user.id
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM clientes WHERE user_id = %s", (user_id_atual,))
+    qtd_clientes = cursor.fetchone()[0]
+    conn.close()
+
+    # 2. Aplica a trava de 1 cliente
+    if qtd_clientes >= 1:
+        st.warning("⚠️ Seu plano atual permite o cadastro de apenas **1 cliente**.")
+        st.info("Para cadastrar um novo cliente, exclua o registro atual no painel de gerenciamento.")
+    else:
+
+
+        with st.form("form_cliente"):
+            col_cli1, col_cli2 = st.columns(2)
+            with col_cli1:
+                nome = st.text_input("Nome/Razão Social da Empresa")
+                cnpj_cpf = st.text_input("CNPJ ou CPF")
+            with col_cli2:
+                regime = st.selectbox(
+                    "Regime Contábil / Modelo de Digitação",
+                    [
+                        "Partida Dupla (Contabilidade Completa)",
+                        "Lançamento Simples (MEI / Livro Caixa)",
+                    ],
+                )
+
+            salvar = st.form_submit_button("Salvar Cliente")
 
         if salvar:
             if nome and cnpj_cpf:
@@ -56,21 +72,20 @@ if opcao == "Cadastrar Cliente":
                 cursor = conn.cursor()
                 try:
                     cursor.execute(
-                        "INSERT INTO clientes (nome, cnpj_cpf, regime) VALUES (%s, %s, %s)",
-                        (nome, cnpj_cpf, regime),
+                        "INSERT INTO clientes (nome, cnpj_cpf, regime) VALUES (%s, %s, %s, %s)",
+                        (nome, cnpj_cpf, regime, user_id_atual),
                     )
                     conn.commit()
-                    st.success(
-                        f"Cliente '{nome}' cadastrado com sucesso no regime {regime}!"
-                    )
+                    st.success(f"Cliente '{nome}' cadastrado com sucesso no regime {regime}!")
                     st.rerun()
-                except Exception:
-                    st.error("Erro: Este CNPJ/CPF já está cadastrado.")
+                except Exception as e:
+                    st.error("Erro: Este CNPJ/CPF já está cadastrado:{e}")
                 finally:
                     conn.close()
+            """
             else:
                 st.warning("Preencha todos os campos obrigatórios.")
-
+            """
     st.markdown("---")
     st.write("### Clientes Cadastrados")
     conn = get_connection()
@@ -108,6 +123,7 @@ if opcao == "Cadastrar Cliente":
                 "💾 Atualizar Regime do Cliente"
             )
 
+
             if salvar_regime:
                 conn = get_connection()
                 cursor = conn.cursor()
@@ -120,14 +136,34 @@ if opcao == "Cadastrar Cliente":
                 st.success(
                     f"Regime de '{cli_sel_edit}' atualizado para {novo_regime}!"
                 )
-                st.rerun()
+
+                st.divider()
+    st.subheader("🗑️ Excluir Cliente")
+
+    with st.form("form_excluir_cliente"):
+        st.warning("⚠️ Atenção: Esta ação é irreversível.")
+        confirmar = st.checkbox(f"Confirmo que desejo excluir o cliente '{cli_sel_edit}'")
+        btn_excluir = st.form_submit_button("Excluir Cliente")
+
+    if btn_excluir:
+        if confirmar:
+            conn = get_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM clientes WHERE id = %s", (id_cli_edit,))
+            conn.commit()
+            conn.close()
+            st.success(f"Cliente '{cli_sel_edit}' excluído com sucesso!")
+            st.rerun()
+        else:
+            st.error("Marque a caixa de seleção para confirmar a exclusão.")
+            
 
 elif opcao == "Cadastrar Conta / Fornecedor":
     st.subheader("Cadastro de Contas no Plano de Contas / Fornecedores")
 
     with st.form("form_plano_contas"):
         codigo = st.text_input("Código da Conta", placeholder="Ex: 2.1.1.01.001")
-        nome_conta = st.text_input(
+        descricao = st.text_input(
             "Nome da Conta / Fornecedor", placeholder="Ex: Ambev Brasil S.A."
         )
         tipo_conta = st.selectbox(
@@ -137,17 +173,17 @@ elif opcao == "Cadastrar Conta / Fornecedor":
         salvar_conta = st.form_submit_button("Cadastrar Conta")
 
         if salvar_conta:
-            if codigo and nome_conta:
+            if codigo and descricao:
                 conn = get_connection()
                 cursor = conn.cursor()
                 try:
                     cursor.execute(
                         "INSERT INTO plano_contas (codigo, nome, tipo) VALUES (%s, %s, %s)",
-                        (codigo, nome_conta, tipo_conta),
+                        (codigo, descricao, tipo_conta),
                     )
                     conn.commit()
                     st.success(
-                        f"Conta '{codigo} - {nome_conta}' inserida com sucesso!"
+                        f"Conta '{codigo} - {descricao}' inserida com sucesso!"
                     )
                     st.rerun()
                 except Exception:
@@ -193,7 +229,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT codigo, nome, tipo FROM plano_contas WHERE id = %s",
+            "SELECT codigo, descricao, tipo FROM plano_contas WHERE id = %s",
             (id_conta_sel,),
         )
         reg_conta = cursor.fetchone()
@@ -239,7 +275,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                         cursor = conn.cursor()
                         try:
                             cursor.execute(
-                                "UPDATE plano_contas SET codigo = %s, nome = %s, tipo = %s WHERE id = %s",
+                                "UPDATE plano_contas SET codigo = %s, descricao = %s, tipo = %s WHERE id = %s",
                                 (novo_codigo, novo_nome, novo_tipo, id_conta_sel),
                             )
                             conn.commit()
@@ -387,7 +423,7 @@ elif opcao == "Novo Lançamento":
         st.info(f"📋 Modelo de Digitação Ativo: **{regime_cliente}**")
 
         plano_de_contas_full = [""] + [
-            f"{row['codigo']} - {row['nome']}"
+            f"{row['codigo']} - {row['descricao']}"
             for _, row in df_contas.iterrows()
         ]
 
@@ -459,7 +495,7 @@ elif opcao == "Novo Lançamento":
                 )
 
                 opcoes_categoria = [""] + [
-                    f"{row['codigo']} - {row['nome']}"
+                    f"{row['codigo']} - {row['descricao']}"
                     for _, row in contas_disponiveis.iterrows()
                 ]
 
@@ -605,7 +641,7 @@ elif opcao == "Importar Extrato / Excel":
                 col_hist = st.selectbox("Coluna do Histórico / Descrição", colunas)
 
                 plano_de_contas = [""] + [
-                    f"{row['codigo']} - {row['nome']}"
+                    f"{row['codigo']} - {row['descricao']}"
                     for _, row in df_contas.iterrows()
                 ]
 
@@ -774,7 +810,7 @@ elif opcao == "Ver Lançamentos":
             conn.close()
 
             plano_de_contas = [""] + [
-                f"{row['codigo']} - {row['nome']}"
+                f"{row['codigo']} - {row['descricao']}"
                 for _, row in df_contas.iterrows()
             ]
 

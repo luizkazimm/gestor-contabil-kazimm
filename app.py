@@ -98,7 +98,7 @@ def login_screen():
 
     with col2:
         #Logo Kazimm Gestão
-        st.image("logo.png", width=180)
+        st.image("Logo.png", width=180)
 
         st.title("🔐 Kazimm Gestor Contabil")
         st.caption("Acesso restrito a clientes autorizados.")
@@ -108,7 +108,8 @@ def login_screen():
             senha = st.text_input("Senha", type="password")
             if st.form_submit_button("Entrar", type="primary", use_container_width=True):
                 login(email, senha)
-
+        st.caption("Versão - 1.01_a")
+        
 # 5. DEFINIÇÃO DAS PÁGINAS DO PORTAL
 login_page = st.Page(login_screen, title="Login", icon="🔐")
 gestor_page = st.Page("pages/1_Gestor_Contabil.py", title="Gestor Contábil", icon="📊")
