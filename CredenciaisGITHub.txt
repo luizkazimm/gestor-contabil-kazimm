@@ -1,0 +1,34 @@
+Link do GitHub
+https://github.com/luizkazimm/gestor-contabil-kazimm
+
+Usuário do GitHub: 	luizkazimm
+Repositório:		gestor-contabil-kazimm
+
+Link do aplicativo
+https://gestor-contabil-kazimm.streamlit.app/
+
+
+Banco de Dados (conta no Supabase)
+
+ORGANIZAÇÃO
+Nome:	Kazimm Gestor Financeiro
+
+PROJETO
+Nome:	gertor-contabil
+Senha:	KgFod2632Ka
+
+Link SUPBASE
+https://supabase.com/dashboard/project/nyifnzqqqzmqmlmqmudv
+
+
+Link StreamLit
+https://share.streamlit.io/?utm_source=streamlit&utm_medium=referral&utm_campaign=main&utm_content=-ss-streamlit-io-topright
+
+
+
+DB_URL = postgresql://postgres:KgFod2632Ka@db.nyifnzqqqzmqmlmqmudv.supabase.co:5432/postgres
+
+db.nyifnzqqqzmqmlmqmudv.supabase.co
+
+Link do REPOSITÓRIO no GitHub
+https://github.com/luizkazimm/gestor-contabil-kazimm.git

@@ -1,0 +1,17 @@
+# Segredos e credenciais de API (NUNCA enviar ao GitHub)
+.env
+.streamlit/secrets.toml
+
+# Ambientes virtuais Python
+.venv/
+venv/
+env/
+
+# Arquivos temporários e cache
+__pycache__/
+*.pyc
+
+# Dependências Node.js (se houver)
+node_modules/
+
+*.db
