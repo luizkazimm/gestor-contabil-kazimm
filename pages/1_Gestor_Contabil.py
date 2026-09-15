@@ -1,17 +1,38 @@
-import streamlit as at
-import pandas as pd
 import streamlit as st
+import pandas as pd
 from database import get_connection, init_db
+
+# 1. Configuração da página (DEVE SER O PRIMEIRO COMANDO STREAMLIT)
+st.set_page_config(page_title="Gestor Contábil Kazimm", layout="wide")
 
 # --- TRAVA DE SEGURANÇA ---
 if 'user' not in st.session_state or st.session_state.user is None:
     st.warning("🔒 Você precisa fazer login para acessar o Gestor Contábil.")
     st.stop()
     
-st.set_page_config(page_title="Gestor Contábil Kazimm", layout="wide")
+#Título de Inicialização
 st.title("Sistema de Gestão Contábil")
-
 init_db()
+
+# 4. Busca os Clientes do Usuário no Banco de Dados
+conn = get_connection()
+cursor = conn.cursor()
+cursor.execute("SELECT id, nome FROM clientes WHERE user_id = %s", (st.session_state.user.id,))
+clientes_cadastrados = cursor.fetchall()
+conn.close()
+
+# 5. Seletor do Cliente Ativo (Definição na Session State)
+if clientes_cadastrados:
+    opcoes_clientes = {cli[1]: cli[0] for cli in clientes_cadastrados}
+
+# Barra lateral (sidebar) deixa o seletor visível em qualquer tela
+    cliente_selecionado = st.sidebar.selectbox("🏢 Cliente em Atendimento", list(opcoes_clientes.keys()))
+
+# Armazena o ID do cliente selecionado no estado da sessão
+    st.session_state.cliente_id_ativo = opcoes_clientes[cliente_selecionado]
+else:
+    st.session_state.cliente_id_ativo = None
+    st.info("Nenhum cliente cadastrado. Cadastre uma empresa para começar os lançamentos.")
 
 
 def formatar_brl(valor):
@@ -87,91 +108,100 @@ if opcao == "Cadastrar Cliente":
             else:
                 st.warning("Preencha todos os campos obrigatórios.")
             
-    st.markdown("---")
-    st.write("### Clientes Cadastrados")
+    st.write("### Cliente Ativo")
     conn = get_connection()
     df_clientes_cad = pd.read_sql_query(
-        'SELECT id, nome as "Razão Social", cnpj_cpf as "CNPJ/CPF", regime as "Regime Contábil" FROM clientes ORDER BY nome ASC',
+        'SELECT id, nome as "Razão Social", cnpj_cpf as "CNPJ/CPF", regime as "Regime Contábil" FROM clientes WHERE user_id = %s AND id = %s',
         conn,
+        params=(st.session_state.user.id, st.session_state.cliente_id_ativo)
     )
     conn.close()
+
+# Bloco de Alteração de REGIME - Simples / Completo (Dashboard)
 
     if not df_clientes_cad.empty:
         st.dataframe(
             df_clientes_cad.drop(columns=["id"]), use_container_width=True
         )
-
-        st.markdown("---")
-        st.subheader("✏️ Alterar Regime de Cliente Existente")
-
-        dict_cli_edit = dict(
-            zip(df_clientes_cad["Razão Social"], df_clientes_cad["id"])
-        )
-        cli_sel_edit = st.selectbox(
-            "Selecione o Cliente:", list(dict_cli_edit.keys())
-        )
-        id_cli_edit = dict_cli_edit[cli_sel_edit]
-
-        with st.form("form_editar_regime_cliente"):
-            novo_regime = st.selectbox(
-                "Novo Regime Contábil",
-                [
-                    "Lançamento Simples (MEI / Livro Caixa)",
-                    "Partida Dupla (Contabilidade Completa)",
-                ],
-            )
-            salvar_regime = st.form_submit_button(
-                "💾 Atualizar Regime do Cliente"
-            )
-
-
-            if salvar_regime:
-                conn = get_connection()
-                cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE clientes SET regime = ? WHERE id = %s",
-                    (novo_regime, id_cli_edit),
-                )
-                conn.commit()
-                conn.close()
-                st.success(
-                    f"Regime de '{cli_sel_edit}' atualizado para {novo_regime}!"
-                )
-
-                st.divider()
-
+# =========================================================================
+# BLOCOS DESATIVADOS / COMENTADOS PARA LIMPEZA DA INTERFACE (FUTURO DASHBOARD)
+# =========================================================================
+    
+# --- BLOCO 1: ALTERAR REGIME DE CLIENTE EXISTENTE (DESATIVADO) ---
+#        st.markdown("---")
+#        st.subheader("✏️ Alterar Regime de Cliente Existente")
+#
+#        dict_cli_edit = dict(
+#            zip(df_clientes_cad["Razão Social"], df_clientes_cad["id"])
+#        )
+#        cli_sel_edit = st.selectbox(
+#            "Selecione o Cliente:", list(dict_cli_edit.keys())
+#        )
+#        id_cli_edit = dict_cli_edit[cli_sel_edit]
+#
+#        with st.form("form_editar_regime_cliente"):
+#            novo_regime = st.selectbox(
+#                "Novo Regime Contábil",
+#                [
+#                    "Lançamento Simples (MEI / Livro Caixa)",
+#                    "Partida Dupla (Contabilidade Completa)",
+#                ],
+#            )
+#            salvar_regime = st.form_submit_button(
+#                "💾 Atualizar Regime do Cliente"
+#            )
+#
+#            if salvar_regime:
+#                conn = get_connection()
+#                cursor = conn.cursor()
+#                cursor.execute(
+#                    "UPDATE clientes SET regime = ? WHERE id = %s",
+#                    (novo_regime, id_cli_edit),
+#                )
+#                conn.commit()
+#                conn.close()
+#                st.success(
+#                    f"Regime de '{cli_sel_edit}' atualizado para {novo_regime}!"
+#                )
+#
+#                st.divider()
+    
 # --- BLOCO DE EXCLUSÃO DE CLIENTE (CORRIGIDO) ---
-conn = get_connection()
-cursor = conn.cursor()
-cursor.execute("SELECT id, nome FROM clientes WHERE user_id = %s", (st.session_state.user.id,))
-clientes_cadastrados = cursor.fetchall()
-conn.close()
+#    conn = get_connection()
+#    cursor = conn.cursor()
+#    cursor.execute("SELECT id, nome FROM clientes WHERE user_id = %s", (st.session_state.user.id,))
+#    clientes_cadastrados = cursor.fetchall()
+#    conn.close()
 
-# Exibe a opção de exclusão apenas se existir ao menos 1 cliente
-if clientes_cadastrados:
-    st.divider()
-    st.subheader("🗑️ Excluir Cliente")
 
-    opcoes_clientes = {cli[1]: cli[0] for cli in clientes_cadastrados}
-    cli_sel_edit = st.selectbox("Selecione o cliente para excluir", list(opcoes_clientes.keys()))
-    id_cli_edit = opcoes_clientes[cli_sel_edit]
+# =========================================================================
+# BLOCOS DESATIVADOS / COMENTADOS PARA LIMPEZA DA INTERFACE (FUTURO DASHBOARD)
+# =========================================================================
 
-    with st.form("form_excluir_cliente"):
-        st.warning("⚠️ Atenção: Esta ação é irreversível.")
-        confirmar = st.checkbox(f"Confirmo que desejo excluir o cliente '{cli_sel_edit}'")
-        btn_excluir = st.form_submit_button("Excluir Cliente")
-
-    if btn_excluir:
-        if confirmar:
-            conn = get_connection()
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM clientes WHERE id = %s", (id_cli_edit,))
-            conn.commit()
-            conn.close()
-            st.success(f"Cliente '{cli_sel_edit}' excluído com sucesso!")
-            st.rerun()
-        else:
-            st.error("Marque a caixa de seleção para confirmar a exclusão.")            
+#    if clientes_cadastrados:
+#        st.divider()
+#        st.subheader("🗑️ Excluir Cliente")
+#
+#        opcoes_clientes = {cli[1]: cli[0] for cli in clientes_cadastrados}
+#        cli_sel_edit = st.selectbox("Selecione o cliente para excluir", list(opcoes_clientes.keys()))
+#        id_cli_edit = opcoes_clientes[cli_sel_edit]
+#
+#        with st.form("form_excluir_cliente"):
+#            st.warning("⚠️ Atenção: Esta ação é irreversível.")
+#            confirmar = st.checkbox(f"Confirmo que desejo excluir o cliente '{cli_sel_edit}'")
+#            btn_excluir = st.form_submit_button("Excluir Cliente")
+#
+#        if btn_excluir:
+#            if confirmar:
+#                conn = get_connection()
+#                cursor = conn.cursor()
+#                cursor.execute("DELETE FROM clientes WHERE id = %s", (id_cli_edit,))
+#                conn.commit()
+#                conn.close()
+#                st.success(f"Cliente '{cli_sel_edit}' excluído com sucesso!")
+#                st.rerun()
+#            else:
+#                st.error("Marque a caixa de seleção para confirmar a exclusão.")            
 
 # BLOCO CADASTRAR CONTAS
 
@@ -195,8 +225,8 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                 cursor = conn.cursor()
                 try:
                     cursor.execute(
-                        "INSERT INTO plano_contas (codigo, nome, tipo) VALUES (%s, %s, %s)",
-                        (codigo, descricao, tipo_conta),
+                        "INSERT INTO plano_contas (codigo, descricao, user_id, cliente_id) VALUES (%s, %s, %s, %s)",
+                        (codigo, descricao, st.session_state.user.id, st.session_state.cliente_id_ativo)
                     )
                     conn.commit()
                     st.success(
@@ -212,10 +242,11 @@ elif opcao == "Cadastrar Conta / Fornecedor":
 
     st.markdown("---")
     st.write("### Plano de Contas Atual")
+    #Trecho Modificado - 15/09/26 - Visualizar apenas o CLIENTE ativo
     conn = get_connection()
     df_plano = pd.read_sql_query(
         'SELECT id, codigo as "Código", descricao as "Nome da Conta", tipo as "Tipo" FROM plano_contas ORDER BY codigo ASC',
-        conn,
+        conn
     )
     conn.close()
 
