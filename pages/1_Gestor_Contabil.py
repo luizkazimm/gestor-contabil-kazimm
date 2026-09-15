@@ -32,6 +32,7 @@ opcao = st.sidebar.selectbox(
     ],
 )
 
+# BLOCO CADASTRAR CLIENTES
 if opcao == "Cadastrar Cliente":
     st.subheader("Cadastro de Clientes")
 
@@ -79,13 +80,13 @@ if opcao == "Cadastrar Cliente":
                     st.success(f"Cliente '{nome}' cadastrado com sucesso no regime {regime}!")
                     st.rerun()
                 except Exception as e:
-                    st.error("Erro: Este CNPJ/CPF já está cadastrado:{e}")
+                    st.error(f"Erro: Este CNPJ/CPF já está cadastrado:{e}")
                 finally:
                     conn.close()
-            """
+        #atenção a este campo, ele pode gerar erro    
             else:
                 st.warning("Preencha todos os campos obrigatórios.")
-            """
+            
     st.markdown("---")
     st.write("### Clientes Cadastrados")
     conn = get_connection()
@@ -138,7 +139,22 @@ if opcao == "Cadastrar Cliente":
                 )
 
                 st.divider()
+
+# --- BLOCO DE EXCLUSÃO DE CLIENTE (CORRIGIDO) ---
+conn = get_connection()
+cursor = conn.cursor()
+cursor.execute("SELECT id, nome FROM clientes WHERE user_id = %s", (st.session_state.user.id,))
+clientes_cadastrados = cursor.fetchall()
+conn.close()
+
+# Exibe a opção de exclusão apenas se existir ao menos 1 cliente
+if clientes_cadastrados:
+    st.divider()
     st.subheader("🗑️ Excluir Cliente")
+
+    opcoes_clientes = {cli[1]: cli[0] for cli in clientes_cadastrados}
+    cli_sel_edit = st.selectbox("Selecione o cliente para excluir", list(opcoes_clientes.keys()))
+    id_cli_edit = opcoes_clientes[cli_sel_edit]
 
     with st.form("form_excluir_cliente"):
         st.warning("⚠️ Atenção: Esta ação é irreversível.")
@@ -155,8 +171,9 @@ if opcao == "Cadastrar Cliente":
             st.success(f"Cliente '{cli_sel_edit}' excluído com sucesso!")
             st.rerun()
         else:
-            st.error("Marque a caixa de seleção para confirmar a exclusão.")
-            
+            st.error("Marque a caixa de seleção para confirmar a exclusão.")            
+
+# BLOCO CADASTRAR CONTAS
 
 elif opcao == "Cadastrar Conta / Fornecedor":
     st.subheader("Cadastro de Contas no Plano de Contas / Fornecedores")
@@ -201,6 +218,8 @@ elif opcao == "Cadastrar Conta / Fornecedor":
         conn,
     )
     conn.close()
+
+    #BLOCO DE EXCLUSÃO - Contas
 
     if not df_plano.empty:
         st.dataframe(
@@ -309,6 +328,8 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                     st.success("Conta excluída com sucesso!")
                     st.rerun()
 
+#bloco de plano de contas
+
 elif opcao == "Plano de Contas":
     st.subheader("📖 Visualização Estruturada do Plano de Contas")
 
@@ -391,6 +412,7 @@ elif opcao == "Plano de Contas":
             file_name="plano_de_contas.csv",
             mime="text/csv",
         )
+#BLOCO DE LANÇAMENTOS - Novo lançamento
 
 elif opcao == "Novo Lançamento":
     st.subheader("Registro de Lançamento Contábil")
@@ -596,6 +618,7 @@ elif opcao == "Novo Lançamento":
                     st.error(
                         "Selecione a categoria / contas contábeis e insira um valor válido maior que zero."
                     )
+#bloco de imprtação de extratos
 
 elif opcao == "Importar Extrato / Excel":
     st.subheader("📥 Importação de Lançamentos em Lote (Excel / CSV)")
@@ -703,7 +726,7 @@ elif opcao == "Importar Extrato / Excel":
                 st.error(
                     f"Erro ao ler o arquivo. Verifique se o formato está correto: {e}"
                 )
-
+# BLOCO VERIFICAÇÃO DE LANÇAMENTOS
 elif opcao == "Ver Lançamentos":
     st.subheader("Consulta e Relatório de Lançamentos")
     conn = get_connection()
@@ -917,6 +940,8 @@ elif opcao == "Ver Lançamentos":
                             f"Lançamento ID {id_selecionado} excluído com sucesso!"
                         )
                         st.rerun()
+
+# BLOCO GERAR RELATÓRIOS
 
 elif opcao == "Relatório por Categoria":
     st.subheader("📊 Relatório Agrupado por Conta / Categoria")
