@@ -441,212 +441,206 @@ elif opcao == "Plano de Contas":
             file_name="plano_de_contas.csv",
             mime="text/csv",
         )
-#BLOCO DE LANÇAMENTOS - Novo lançamento
-
+# BLOCO DE LANÇAMENTOS - Novo lançamento
 elif opcao == "Novo Lançamento":
     st.subheader("Registro de Lançamento Contábil")
     conn = get_connection()
-    df_clientes = pd.read_sql_query("SELECT id, nome, regime FROM clientes", conn)
-    df_contas = pd.read_sql_query(
-        "SELECT codigo, descricao, tipo FROM plano_contas ORDER BY codigo ASC", conn
+    df_clientes = pd.read_sql_query(
+        "SELECT id, nome, regime FROM clientes WHERE user_id = %s AND id = %s", 
+        conn, 
+        params=(st.session_state.user.id, st.session_state.cliente_id_ativo)
     )
-    df_fornecedores_cad = pd.read_sql_query(
-        """SELECT descricao FROM plano_contas WHERE tipo = 'Passivo' OR codigo LIKE '2.1.1%' ORDER BY descricao ASC""",
-        conn,
+    df_contas = pd.read_sql_query(
+        "SELECT codigo, descricao, tipo FROM plano_contas ORDER BY codigo ASC", 
+        conn
+    )
+    # Busca especificamente as contas do Grupo 4 (Despesas / Fornecedores 4.1.1...)
+    df_despesas_grupo4 = pd.read_sql_query(
+        "SELECT codigo, descricao FROM plano_contas WHERE tipo = 'Despesa' OR codigo LIKE '4.1%' ORDER BY codigo ASC",
+        conn
     )
     conn.close()
 
     if df_clientes.empty:
-        st.warning(
-            "Nenhum cliente encontrado. Cadastre um cliente primeiro no menu ao lado."
-        )
+        st.warning("Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral.")
     else:
         dict_clientes_id = dict(zip(df_clientes["nome"], df_clientes["id"]))
-        dict_clientes_regime = dict(
-            zip(df_clientes["nome"], df_clientes["regime"])
-        )
+        dict_clientes_regime = dict(zip(df_clientes["nome"], df_clientes["regime"]))
 
-        cliente_selecionado = st.selectbox(
-            "Selecione o Cliente", list(dict_clientes_id.keys())
-        )
+        cliente_selecionado = list(dict_clientes_id.keys())[0]
         regime_cliente = dict_clientes_regime[cliente_selecionado]
 
-        st.info(f"📋 Modelo de Digitação Ativo: **{regime_cliente}**")
+        st.info(f"📋 Cliente Ativo: **{cliente_selecionado}** | Regime: **{regime_cliente}**")
 
-        plano_de_contas_full = [""] + [
-            f"{row['codigo']} - {row['descricao']}"
-            for _, row in df_contas.iterrows()
+        # Monta a lista formatada de Fornecedores / Despesas (Grupo 4.1.1...)
+        opcoes_fornecedores_despesa = [""] + [
+            f"{row['codigo']} - {row['descricao']}" for _, row in df_despesas_grupo4.iterrows()
         ]
 
-        estabelecimentos_frequentes = [
-            "-- Digitar Outro / Nenhum --",
-            "Supermercado Guanabara",
-            "Supermarket",
-            "Atacadão",
-            "Assaí Atacadista",
-            "Ambev",
-            "Coca-Cola Femsa",
-            "Grupo Petrópolis",
-            "Heineken Brasil",
-            "Drogaria Pacheco",
-            "Droga Raia",
+        historicos_padrao = [
+            "Digitar Histórico do Zero",
+            "Compra de material de limpeza e consumo conf.",
+            "Compra de bebidas/estoque p/ revenda conf.",
+            "Compra de ingredientes e insumos p/ refeições conf.",
+            "Compra de embalagens e descartáveis conf.",
+            "Venda diária de mercadorias conf.",
+            "Pagamento de frete/carreto p/ entrega de bebidas conf.",
+            "Troca / Aquisição de garrafas e vasilhames retornáveis conf.",
+            "Pagamento de taxa de máquina de cartão ref. ao período",
         ]
 
-        for forn in df_fornecedores_cad["descricao"]:
-            if forn not in estabelecimentos_frequentes:
-                estabelecimentos_frequentes.append(forn)
+        # --- ESTRUTURA MEI / LIVRO CAIXA ---
+        if "Lançamento Simples" in regime_cliente:
+            tab_entrada, tab_saida = st.tabs([
+                "🟢 (+) ENTRADAS / RECEITAS", 
+                "🔴 (-) SAÍDAS / DESPESAS E ESTOQUE"
+            ])
 
-        with st.form("form_lancamento", clear_on_submit=True):
-            data = st.date_input("Data do Lançamento", format="DD/MM/YYYY")
+            # -----------------------------------------------------------------
+            # ABA 1: ENTRADAS / RECEITAS
+            # -----------------------------------------------------------------
+            with tab_entrada:
+                with st.form("form_entrada", clear_on_submit=True):
+                    st.markdown("##### ⚡ Registrar Entrada de Caixas / Receitas")
+                    data = st.date_input("Data do Lançamento", format="DD/MM/YYYY", key="dt_ent")
 
-            c_doc1, c_doc2, c_doc3 = st.columns(3)
-            with c_doc1:
-                tipo_doc = st.selectbox(
-                    "Tipo de Documento",
-                    [
-                        "Cupom Fiscal (NFC-e)",
-                        "Nota Fiscal (NF-e)",
-                        "Recibo / Comprovante",
-                        "Extrato / PIX",
-                        "Sem Documento",
-                    ],
-                )
-            with c_doc2:
-                num_doc = st.text_input(
-                    "Nº do Documento (Opcional)", placeholder="Ex: 1054"
-                )
-            with c_doc3:
-                estab_sel = st.selectbox(
-                    "Estabelecimento Recorrente", estabelecimentos_frequentes
-                )
-                estab_manual = st.text_input(
-                    "Se 'Outro', digite aqui:", placeholder="Ex: Hortifruti do Zé"
-                )
+                    c_doc1, c_doc2, c_doc3 = st.columns(3)
+                    with c_doc1:
+                        tipo_doc = st.selectbox(
+                            "Tipo de Documento",
+                            ["Cupom Fiscal (NFC-e)", "Nota Fiscal (NF-e)", "Recibo / Comprovante", "Extrato / PIX", "Sem Documento"],
+                            key="td_ent"
+                        )
+                    with c_doc2:
+                        num_doc = st.text_input("Nº do Documento (Opcional)", placeholder="Ex: 1054", key="nd_ent")
+                    with c_doc3:
+                        nome_cliente_rec = st.text_input("Cliente / Pagador (Opcional)", placeholder="Ex: Cliente João Silva", key="em_ent")
 
-            estabelecimento = (
-                estab_manual
-                if estab_sel == "-- Digitar Outro / Nenhum --"
-                else estab_sel
-            )
+                    col_s1, col_s2 = st.columns(2)
+                    with col_s1:
+                        conta_financeira = st.selectbox(
+                            "Conta de Destino (Onde o dinheiro entrou)",
+                            ["1.1.1.01 - Caixa Geral", "1.1.1.02 - Banco Conta Movimento"],
+                            key="cf_ent"
+                        )
+                    with col_s2:
+                        df_rec = df_contas[df_contas["tipo"] == "Receita"]
+                        opcoes_rec = [""] + [f"{r['codigo']} - {r['descricao']}" for _, r in df_rec.iterrows()]
+                        categoria = st.selectbox("Categoria da Receita", opcoes_rec, key="cat_ent")
 
-            # Interface dinâmicamente ajustada para o Regime do Cliente
-            if "Lançamento Simples" in regime_cliente:
-                st.markdown("---")
-                st.write("##### ⚡ Preenchimento Simplificado (Livro Caixa / MEI)")
-                tipo_operacao = st.radio(
-                    "Tipo de Lançamento",
-                    ["(+) Entrada / Receita", "(-) Saída / Despesa ou Estoque"],
-                    horizontal=True,
-                )
+                    valor = st.number_input("Valor da Receita (R$)", min_value=0.00, step=0.01, format="%.2f", key="val_ent")
+                    hist_sel = st.selectbox("Histórico Padrão", historicos_padrao, key="hp_ent")
+                    comp_hist = st.text_input("Complemento do Histórico", placeholder="Ex: Vendas do dia em cartão e dinheiro", key="ch_ent")
 
-                contas_disponiveis = (
-                    df_contas[df_contas["tipo"] == "Receita"]
-                    if "(+) Entrada" in tipo_operacao
-                    else df_contas[df_contas["tipo"].isin(["Despesa", "Ativo"])]
-                )
+                    salvar_ent = st.form_submit_button("🟢 Registrar Entrada")
 
-                opcoes_categoria = [""] + [
-                    f"{row['codigo']} - {row['descricao']}"
-                    for _, row in contas_disponiveis.iterrows()
-                ]
+                    if salvar_ent:
+                        if categoria and valor > 0:
+                            info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + (f" - {nome_cliente_rec.strip()}" if nome_cliente_rec.strip() else "") + "]"
+                            hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
 
-                col_s1, col_s2 = st.columns(2)
-                with col_s1:
-                    conta_financeira = st.selectbox(
-                        "Forma de Pagamento / Movimentação",
-                        [
-                            "1.1.1.01 - Caixa Geral",
-                            "1.1.1.02 - Banco Conta Movimento",
-                        ],
-                    )
-                with col_s2:
-                    categoria_selecionada = st.selectbox(
-                        "Categoria da Operação", opcoes_categoria
-                    )
+                            conn = get_connection()
+                            cursor = conn.cursor()
+                            cursor.execute(
+                                "INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) VALUES (%s, %s, %s, %s, %s, %s)",
+                                (dict_clientes_id[cliente_selecionado], str(data), conta_financeira, categoria, valor, hist_final.strip())
+                            )
+                            conn.commit()
+                            conn.close()
+                            st.success("Entrada registrada com sucesso!")
+                            st.rerun() #Limpa registro
+                        else:
+                            st.error("Selecione a Categoria da Receita e informe um valor maior que zero.")
 
-                if "(+) Entrada" in tipo_operacao:
-                    conta_debito = conta_financeira
-                    conta_credito = categoria_selecionada
-                else:
-                    conta_debito = categoria_selecionada
-                    conta_credito = conta_financeira
-            else:
-                st.markdown("---")
-                st.write("##### 🔄 Preenchimento por Partida Dupla")
+            # -----------------------------------------------------------------
+            # ABA 2: SAÍDAS / DESPESAS (Com lista do Grupo 4.1.1...)
+            # -----------------------------------------------------------------
+            with tab_saida:
+                with st.form("form_saida", clear_on_submit=True):
+                    st.markdown("##### ⚡ Registrar Pagamento de Despesa / Fornecedor")
+                    data = st.date_input("Data do Lançamento", format="DD/MM/YYYY", key="dt_sai")
+
+                    c_doc1, c_doc2 = st.columns(2)
+                    with c_doc1:
+                        tipo_doc = st.selectbox(
+                            "Tipo de Documento",
+                            ["Cupom Fiscal (NFC-e)", "Nota Fiscal (NF-e)", "Recibo / Comprovante", "Extrato / PIX", "Sem Documento"],
+                            key="td_sai"
+                        )
+                    with c_doc2:
+                        num_doc = st.text_input("Nº do Documento (Opcional)", placeholder="Ex: 1054", key="nd_sai")
+
+                    col_s1, col_s2 = st.columns(2)
+                    with col_s1:
+                        conta_financeira = st.selectbox(
+                            "Forma de Pagamento (De onde saiu o dinheiro)",
+                            ["1.1.1.01 - Caixa Geral", "1.1.1.02 - Banco Conta Movimento"],
+                            key="cf_sai"
+                        )
+                    with col_s2:
+                        # Seleção direta do Grupo 4.1.1...
+                        categoria = st.selectbox(
+                            "Fornecedor / Conta de Despesa (Grupo 4)", 
+                            opcoes_fornecedores_despesa, 
+                            key="cat_sai"
+                        )
+
+                    valor = st.number_input("Valor da Despesa (R$)", min_value=0.00, step=0.01, format="%.2f", key="val_sai")
+                    hist_sel = st.selectbox("Histórico Padrão", historicos_padrao, key="hp_sai")
+                    comp_hist = st.text_input("Complemento do Histórico", placeholder="Ex: Aquisição de combustíveis e insumos", key="ch_sai")
+
+                    salvar_sai = st.form_submit_button("🔴 Registrar Saída")
+
+                    if salvar_sai:
+                        if categoria and valor > 0:
+                            info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + "]"
+                            hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
+
+                            conn = get_connection()
+                            cursor = conn.cursor()
+                            cursor.execute(
+                                "INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) VALUES (%s, %s, %s, %s, %s, %s)",
+                                (dict_clientes_id[cliente_selecionado], str(data), categoria, conta_financeira, valor, hist_final.strip())
+                            )
+                            conn.commit()
+                            conn.close()
+                            st.success("Saída registrada com sucesso!")
+                            st.rerun() #Limpa campo
+                        else:
+                            st.error("Selecione o Fornecedor / Conta de Despesa e informe um valor maior que zero.")
+
+        # --- PARTIDA DUPLA COMPLETA ---
+        else:
+            with st.form("form_partida_dupla", clear_on_submit=True):
+                st.markdown("##### 🔄 Preenchimento por Partida Dupla")
+                data = st.date_input("Data do Lançamento", format="DD/MM/YYYY")
+
                 col1, col2 = st.columns(2)
                 with col1:
-                    conta_debito = st.selectbox(
-                        "Conta Débito", plano_de_contas_full
-                    )
+                    conta_debito = st.selectbox("Conta Débito", [""] + [f"{r['codigo']} - {r['descricao']}" for _, r in df_contas.iterrows()])
                 with col2:
-                    conta_credito = st.selectbox(
-                        "Conta Crédito", plano_de_contas_full
-                    )
+                    conta_credito = st.selectbox("Conta Crédito", [""] + [f"{r['codigo']} - {r['descricao']}" for _, r in df_contas.iterrows()])
 
-            valor = st.number_input(
-                "Valor (R$)", min_value=0.00, step=0.01, format="%.2f"
-            )
+                valor = st.number_input("Valor (R$)", min_value=0.00, step=0.01, format="%.2f")
+                hist_sel = st.selectbox("Histórico Padrão", historicos_padrao)
+                comp_hist = st.text_input("Complemento do Histórico")
 
-            historicos_padrao = [
-                "Digitar Histórico do Zero",
-                "Compra de material de limpeza e consumo conf.",
-                "Compra de bebidas/estoque p/ revenda conf.",
-                "Compra de ingredientes e insumos p/ refeições conf.",
-                "Compra de embalagens e descartáveis conf.",
-                "Venda diária de mercadorias conf.",
-                "Pagamento de frete/carreto p/ entrega de bebidas conf.",
-                "Troca / Aquisição de garrafas e vasilhames retornáveis conf.",
-                "Pagamento de taxa de máquina de cartão ref. ao período",
-            ]
+                salvar_pd = st.form_submit_button("Registrar Lançamento")
 
-            hist_selecionado = st.selectbox(
-                "Histórico Padrão", historicos_padrao
-            )
-            complemento_hist = st.text_input(
-                "Complemento / Detalhes do Histórico",
-                placeholder="Ex: Aquisição de carnes e legumes para marmitas",
-            )
+                if salvar_pd:
+                    if conta_debito and conta_credito and valor > 0:
+                        hist_final = comp_hist if hist_sel == "Digitar Histórico do Zero" else f"{hist_sel} {comp_hist}"
+                        conn = get_connection()
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            "INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) VALUES (%s, %s, %s, %s, %s, %s)",
+                            (dict_clientes_id[cliente_selecionado], str(data), conta_debito, conta_credito, valor, hist_final.strip())
+                        )
+                        conn.commit()
+                        conn.close()
+                        st.success("Lançamento em Partida Dupla registrado!")
+# Fim do BLOCO
 
-            salvar_lanc = st.form_submit_button("Registrar Lançamento")
-
-            if salvar_lanc:
-                if conta_debito and conta_credito and valor > 0:
-                    info_doc = tipo_doc
-                    if num_doc.strip():
-                        info_doc += f" nº {num_doc.strip()}"
-                    if estabelecimento.strip():
-                        info_doc += f" - {estabelecimento.strip()}"
-
-                    doc_str = f"[{info_doc}]"
-
-                    if hist_selecionado == "Digitar Histórico do Zero":
-                        historico_final = f"{doc_str} {complemento_hist}".strip()
-                    else:
-                        historico_final = f"{doc_str} {hist_selecionado} {complemento_hist}".strip()
-
-                    conn = get_connection()
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        """
-                        INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    """,
-                        (
-                            dict_clientes_id[cliente_selecionado],
-                            str(data),
-                            conta_debito,
-                            conta_credito,
-                            valor,
-                            historico_final,
-                        ),
-                    )
-                    conn.commit()
-                    conn.close()
-                    st.success("Lançamento registrado com sucesso!")
-                else:
-                    st.error(
-                        "Selecione a categoria / contas contábeis e insira um valor válido maior que zero."
-                    )
 #bloco de imprtação de extratos
 
 elif opcao == "Importar Extrato / Excel":
@@ -857,7 +851,7 @@ elif opcao == "Ver Lançamentos":
             reg_atual = c.fetchone()
 
             df_contas = pd.read_sql_query(
-                "SELECT codigo, nome FROM plano_contas ORDER BY codigo ASC", conn
+                "SELECT codigo, descricao FROM plano_contas ORDER BY codigo ASC", conn
             )
             conn.close()
 
