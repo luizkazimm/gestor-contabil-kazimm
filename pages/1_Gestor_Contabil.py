@@ -225,16 +225,14 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                 cursor = conn.cursor()
                 try:
                     cursor.execute(
-                        "INSERT INTO plano_contas (codigo, descricao, user_id, cliente_id) VALUES (%s, %s, %s, %s)",
-                        (codigo, descricao, st.session_state.user.id, st.session_state.cliente_id_ativo)
+                        "INSERT INTO plano_contas (codigo, descricao, tipo) VALUES (%s, %s, %s)",
+                        (codigo, descricao, tipo_conta)
                     )
                     conn.commit()
-                    st.success(
-                        f"Conta '{codigo} - {descricao}' inserida com sucesso!"
-                    )
+                    st.success(f"Conta '{codigo} - {descricao}' inserida com sucesso!")
                     st.rerun()
-                except Exception:
-                    st.error("Erro: Este código de conta já existe.")
+                except Exception as e:
+                    st.error(f"Erro ao cadastrar conta: {e}")
                 finally:
                     conn.close()
             else:
