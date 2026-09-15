@@ -73,7 +73,7 @@ if opcao == "Cadastrar Cliente":
                 cursor = conn.cursor()
                 try:
                     cursor.execute(
-                        "INSERT INTO clientes (nome, cnpj_cpf, regime) VALUES (%s, %s, %s, %s)",
+                        "INSERT INTO clientes (nome, cnpj_cpf, regime,user_id) VALUES (%s, %s, %s, %s)",
                         (nome, cnpj_cpf, regime, user_id_atual),
                     )
                     conn.commit()
