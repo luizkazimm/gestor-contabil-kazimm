@@ -53,25 +53,23 @@ opcao = st.sidebar.selectbox(
     ],
 )
 
-# BLOCO CADASTRAR CLIENTES
+# BLOCO CADASTRAR CLIENTES / DASHBOARD MEI
 if opcao == "Cadastrar Cliente":
-    st.subheader("Cadastro de Clientes")
+    st.subheader("🏢 Gestão do Cliente & Dashboard MEI")
 
-    # 1. Checa a quantidade de clientes já salvos para o usuário atual
     user_id_atual = st.session_state.user.id
+    cliente_ativo_id = st.session_state.get("cliente_id_ativo")
+
+    # 1. Verifica se o usuário já possui cliente cadastrado
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM clientes WHERE user_id = %s", (user_id_atual,))
     qtd_clientes = cursor.fetchone()[0]
     conn.close()
 
-    # 2. Aplica a trava de 1 cliente
-    if qtd_clientes >= 1:
-        st.warning("⚠️ Seu plano atual permite o cadastro de apenas **1 cliente**.")
-        st.info("Para cadastrar um novo cliente, exclua o registro atual no painel de gerenciamento.")
-    else:
-
-
+    # Se não houver cliente cadastrado, exibe o formulário de cadastro
+    if qtd_clientes < 1:
+        st.info("Cadastre os dados da sua empresa para ativar o sistema e o Dashboard.")
         with st.form("form_cliente"):
             col_cli1, col_cli2 = st.columns(2)
             with col_cli1:
@@ -79,13 +77,9 @@ if opcao == "Cadastrar Cliente":
                 cnpj_cpf = st.text_input("CNPJ ou CPF")
             with col_cli2:
                 regime = st.selectbox(
-                    "Regime Contábil / Modelo de Digitação",
-                    [
-                        "Partida Dupla (Contabilidade Completa)",
-                        "Lançamento Simples (MEI / Livro Caixa)",
-                    ],
+                    "Modelo de Digitação",
+                    ["Lançamento Simples (MEI / Livro Caixa)"],
                 )
-
             salvar = st.form_submit_button("Salvar Cliente")
 
         if salvar:
@@ -94,28 +88,119 @@ if opcao == "Cadastrar Cliente":
                 cursor = conn.cursor()
                 try:
                     cursor.execute(
-                        "INSERT INTO clientes (nome, cnpj_cpf, regime,user_id) VALUES (%s, %s, %s, %s)",
+                        "INSERT INTO clientes (nome, cnpj_cpf, regime, user_id) VALUES (%s, %s, %s, %s)",
                         (nome, cnpj_cpf, regime, user_id_atual),
                     )
                     conn.commit()
-                    st.success(f"Cliente '{nome}' cadastrado com sucesso no regime {regime}!")
+                    st.success(f"Cliente '{nome}' cadastrado com sucesso!")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Erro: Este CNPJ/CPF já está cadastrado:{e}")
+                    st.error(f"Erro ao cadastrar: {e}")
                 finally:
                     conn.close()
-        #atenção a este campo, ele pode gerar erro    
             else:
                 st.warning("Preencha todos os campos obrigatórios.")
-            
-    st.write("### Cliente Ativo")
-    conn = get_connection()
-    df_clientes_cad = pd.read_sql_query(
-        'SELECT id, nome as "Razão Social", cnpj_cpf as "CNPJ/CPF", regime as "Regime Contábil" FROM clientes WHERE user_id = %s AND id = %s',
-        conn,
-        params=(st.session_state.user.id, st.session_state.cliente_id_ativo)
-    )
-    conn.close()
+
+    # Se já existir cliente, exibe os Dados e o Dashboard MEI
+    else:
+        conn = get_connection()
+        df_clientes_cad = pd.read_sql_query(
+            'SELECT id, nome as "Razão Social", cnpj_cpf as "CNPJ/CPF", regime as "Regime Contábil" FROM clientes WHERE user_id = %s AND id = %s',
+            conn,
+            params=(user_id_atual, cliente_ativo_id),
+        )
+
+        # Busca todos os lançamentos do cliente ativo
+        df_lancamentos = pd.read_sql_query(
+            "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE cliente_id = %s",
+            conn,
+            params=(cliente_ativo_id,),
+        )
+        conn.close()
+
+        # Sanfona com os dados cadastrais do cliente
+        if not df_clientes_cad.empty:
+            with st.expander("📄 Ver Dados Cadastrais do Cliente Ativo", expanded=False):
+                st.dataframe(df_clientes_cad.drop(columns=["id"]), use_container_width=True)
+
+        st.markdown("---")
+
+        # --- PAINEL DASHBOARD FINANCEIRO ---
+        st.write("### 📊 Painel de Controle Financeiro (MEI)")
+
+        if df_lancamentos.empty:
+            st.info("💡 Nenhum lançamento encontrado. Faça alguns registros no menu **'Novo Lançamento'** para visualizar os gráficos e métricas.")
+        else:
+            # Identifica Entradas e Saídas com base no padrão Livro Caixa / MEI
+            mask_entrada = df_lancamentos["conta_debito"].str.contains("1.1.1", na=False) & ~df_lancamentos["conta_credito"].str.contains("1.1.1", na=False)
+            mask_saida = df_lancamentos["conta_credito"].str.contains("1.1.1", na=False) & ~df_lancamentos["conta_debito"].str.contains("1.1.1", na=False)
+
+            total_receitas = df_lancamentos[mask_entrada]["valor"].sum() if any(mask_entrada) else 0.0
+            total_despesas = df_lancamentos[mask_saida]["valor"].sum() if any(mask_saida) else 0.0
+
+            # Contingência caso os códigos das contas não iniciem por 1.1.1
+            if total_receitas == 0 and total_despesas == 0:
+                total_receitas = df_lancamentos[df_lancamentos["conta_credito"].str.contains("3\.|Receita", case=False, na=False)]["valor"].sum()
+                total_despesas = df_lancamentos[df_lancamentos["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)]["valor"].sum()
+
+            saldo_liquido = total_receitas - total_despesas
+
+            # 1. CARDS DE KPIS
+            kpi1, kpi2, kpi3 = st.columns(3)
+            kpi1.metric("🟢 Receita Total", formatar_brl(total_receitas))
+            kpi2.metric("🔴 Despesas Totais", formatar_brl(total_despesas))
+            kpi3.metric("⚖️ Lucro / Saldo Líquido", formatar_brl(saldo_liquido))
+
+            st.markdown("---")
+
+            # 2. TERMÔMETRO DE LIMITE ANUAL DO MEI (R$ 81.000,00)
+            st.write("##### 🎯 Acompanhamento do Limite Anual MEI")
+            limite_mei = 81000.00
+            percentual_mei = min(total_receitas / limite_mei, 1.0)
+            percentual_real = (total_receitas / limite_mei) * 100
+
+            col_m1, col_m2 = st.columns([3, 1])
+            with col_m1:
+                st.progress(percentual_mei)
+                st.caption(f"Faturado: **{formatar_brl(total_receitas)}** de **{formatar_brl(limite_mei)}** ({percentual_real:.1f}%)")
+            with col_m2:
+                if percentual_real < 80:
+                    st.success("🟢 Faturamento Regular")
+                elif percentual_real <= 100:
+                    st.warning("🟡 Atenção: Próximo ao Limite!")
+                else:
+                    st.error("🔴 Alerta: Limite Ultrapassado!")
+
+            st.markdown("---")
+
+            # 3. GRÁFICO DE DISTRIBUIÇÃO DE DESPESAS POR CATEGORIA
+            st.write("##### 📌 Para onde está indo o dinheiro? (Despesas por Categoria)")
+
+            df_despesas_cat = df_lancamentos[mask_saida].copy()
+            if df_despesas_cat.empty:
+                df_despesas_cat = df_lancamentos[df_lancamentos["conta_debito"].str.contains("4\.|Despesa", case=False, na=False)].copy()
+
+            if not df_despesas_cat.empty:
+                df_grafico = df_despesas_cat.groupby("conta_debito")["valor"].sum().reset_index()
+                df_grafico.columns = ["Categoria / Fornecedor", "Valor"]
+                df_grafico = df_grafico.sort_values(by="Valor", ascending=False)
+
+                try:
+                    import plotly.express as px
+                    fig = px.pie(
+                        df_grafico,
+                        names="Categoria / Fornecedor",
+                        values="Valor",
+                        hole=0.4,
+                        color_discrete_sequence=px.colors.qualitative.Set3,
+                    )
+                    fig.update_layout(margin=dict(t=20, b=20, l=20, r=20))
+                    st.plotly_chart(fig, use_container_width=True)
+                except ImportError:
+                    st.bar_chart(df_grafico.set_index("Categoria / Fornecedor"))
+            else:
+                st.caption("Nenhuma despesa registrada para montar o gráfico de distribuição.")
+# Fim do bloco - Cadastrar CLIENTES
 
 # Bloco de Alteração de REGIME - Simples / Completo (Dashboard)
 
