@@ -443,8 +443,6 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                     st.rerun()
 # fim do bloco
 
-#bloco de plano de contas
-
 # BLOCO DE PLANO DE CONTAS (FOCADO EM MEI / LIVRO CAIXA)
 elif opcao == "Plano de Contas":
     st.subheader("📖 Plano de Contas Simplificado (MEI)")
@@ -718,328 +716,248 @@ elif opcao == "Novo Lançamento":
                         st.success("Lançamento em Partida Dupla registrado!")
 # Fim do BLOCO
 
-#bloco de imprtação de extratos
+# BLOCO IMPORTAR EXTRATO
+elif "Importar Extrato" in opcao:
+    st.subheader("📥 Importação de Extrato Bancário")
 
-elif opcao == "Importar Extrato / Excel":
-    st.subheader("📥 Importação de Lançamentos em Lote (Excel / CSV)")
+    # Recupera o ID do cliente logado na sessão
+    cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
-    conn = get_connection()
-    clientes = pd.read_sql_query("SELECT id, nome FROM clientes", conn)
-    df_contas = pd.read_sql_query(
-        "SELECT codigo, descricao FROM plano_contas ORDER BY codigo ASC", conn
-    )
-    conn.close()
-
-    if clientes.empty:
-        st.warning(
-            "Nenhum cliente cadastrado. Cadastre um cliente antes de importar."
-        )
+    if not cliente_ativo_id:
+        st.warning("⚠️ Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
-        dict_clientes = dict(zip(clientes["nome"], clientes["id"]))
-        cliente_import = st.selectbox(
-            "Selecione o Cliente para Importação", list(dict_clientes.keys())
+        conn = get_connection()
+        # 1. Busca os dados do cliente ativo
+        df_cliente = pd.read_sql_query(
+            "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
+            conn, 
+            params=(cliente_ativo_id, st.session_state.user.id)
         )
-
-        arquivo = st.file_uploader(
-            "Envie o arquivo do extrato ou planilha (.csv ou .xlsx)",
-            type=["csv", "xlsx"],
+        # 2. Busca o plano de contas para preencher as opções de débito/crédito
+        df_contas = pd.read_sql_query(
+            "SELECT codigo, descricao FROM plano_contas ORDER BY codigo ASC",
+            conn
         )
+        conn.close()
 
-        if arquivo is not None:
-            try:
-                if arquivo.name.endswith(".csv"):
-                    df_imp = pd.read_csv(arquivo, sep=None, engine="python")
-                else:
-                    df_imp = pd.read_excel(arquivo)
+        if df_cliente.empty:
+            st.error("Erro de segurança: Cliente não encontrado ou sem permissão.")
+        else:
+            nome_cliente = df_cliente.iloc[0]["nome"]
+            regime_cliente = df_cliente.iloc[0]["regime"]
 
-                st.write("### Pré-visualização do Arquivo Enviado:")
-                st.dataframe(df_imp.head(5), use_container_width=True)
+            # Exibe o cliente travado na tela (sem caixa de seleção)
+            st.info(f"📋 Importando para o Cliente Ativo: **{nome_cliente}** | Regime: **{regime_cliente}**")
 
-                st.markdown("---")
-                st.subheader("Mapeamento das Colunas")
+            arquivo = st.file_uploader(
+                "Envie o arquivo do extrato ou planilha (.csv ou .xlsx)",
+                type=["csv", "xlsx"],
+            )
 
-                colunas = list(df_imp.columns)
-                col_data = st.selectbox("Coluna da Data", colunas)
-                col_valor = st.selectbox("Coluna do Valor", colunas)
-                col_hist = st.selectbox("Coluna do Histórico / Descrição", colunas)
-
-                plano_de_contas = [""] + [
-                    f"{row['codigo']} - {row['descricao']}"
-                    for _, row in df_contas.iterrows()
-                ]
-
-                col_deb, col_cred = st.columns(2)
-                with col_deb:
-                    conta_deb_padrao = st.selectbox(
-                        "Conta Débito Padrão para este arquivo", plano_de_contas
-                    )
-                with col_cred:
-                    conta_cred_padrao = st.selectbox(
-                        "Conta Crédito Padrão para este arquivo", plano_de_contas
-                    )
-
-                if st.button("🚀 Processar e Salvar Importação"):
-                    if conta_deb_padrao and conta_cred_padrao:
-                        conn = get_connection()
-                        cursor = conn.cursor()
-                        qtd = 0
-
-                        for _, row in df_imp.iterrows():
-                            dt_val = str(pd.to_datetime(row[col_data]).date())
-                            val_raw = (
-                                float(
-                                    str(row[col_valor])
-                                    .replace("R$", "")
-                                    .replace(".", "")
-                                    .replace(",", ".")
-                                )
-                                if isinstance(row[col_valor], str)
-                                else float(row[col_valor])
-                            )
-                            val_abs = abs(val_raw)
-                            hist_val = f"[Importado] {str(row[col_hist])}"
-
-                            cursor.execute(
-                                """
-                                INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
-                                VALUES (%s, %s, %s, %s, %s, %s)
-                            """,
-                                (
-                                    dict_clientes[cliente_import],
-                                    dt_val,
-                                    conta_deb_padrao,
-                                    conta_cred_padrao,
-                                    val_abs,
-                                    hist_val,
-                                ),
-                            )
-                            qtd += 1
-
-                        conn.commit()
-                        conn.close()
-                        st.success(
-                            f"{qtd} lançamentos importados com sucesso para {cliente_import}!"
-                        )
+            if arquivo is not None:
+                try:
+                    if arquivo.name.endswith(".csv"):
+                        df_imp = pd.read_csv(arquivo, sep=None, engine="python")
                     else:
-                        st.error("Selecione as contas de Débito e Crédito padrão.")
-            except Exception as e:
-                st.error(
-                    f"Erro ao ler o arquivo. Verifique se o formato está correto: {e}"
-                )
-# BLOCO VERIFICAÇÃO DE LANÇAMENTOS
-elif opcao == "Ver Lançamentos":
-    st.subheader("Consulta e Relatório de Lançamentos")
-    conn = get_connection()
-    clientes = pd.read_sql_query("SELECT id, nome FROM clientes", conn)
+                        df_imp = pd.read_excel(arquivo)
 
-    if clientes.empty:
-        st.info("Nenhum cliente cadastrado.")
-        conn.close()
+                    st.write("### Pré-visualização do Arquivo Enviado:")
+                    st.dataframe(df_imp.head(5), use_container_width=True)
+
+                    st.markdown("---")
+                    st.subheader("Mapeamento das Colunas")
+
+                    colunas = list(df_imp.columns)
+                    col_data = st.selectbox("Coluna da Data", colunas)
+                    col_valor = st.selectbox("Coluna do Valor", colunas)
+                    col_hist = st.selectbox("Coluna do Histórico / Descrição", colunas)
+
+                    plano_de_contas = [""] + [
+                        f"{row['codigo']} - {row['descricao']}"
+                        for _, row in df_contas.iterrows()
+                    ]
+
+                    col_deb, col_cred = st.columns(2)
+                    with col_deb:
+                        conta_deb_padrao = st.selectbox(
+                            "Conta Débito Padrão para este arquivo", plano_de_contas
+                        )
+                    with col_cred:
+                        conta_cred_padrao = st.selectbox(
+                            "Conta Crédito Padrão para este arquivo", plano_de_contas
+                        )
+
+                    if st.button("🚀 Processar e Salvar Importação"):
+                        if conta_deb_padrao and conta_cred_padrao:
+                            conn = get_connection()
+                            cursor = conn.cursor()
+                            qtd = 0
+
+                            for _, row in df_imp.iterrows():
+                                dt_val = str(pd.to_datetime(row[col_data]).date())
+                                val_raw = (
+                                    float(
+                                        str(row[col_valor])
+                                        .replace("R$", "")
+                                        .replace(".", "")
+                                        .replace(",", ".")
+                                    )
+                                    if isinstance(row[col_valor], str)
+                                    else float(row[col_valor])
+                                )
+                                val_abs = abs(val_raw)
+                                hist_val = f"[Importado] {str(row[col_hist])}"
+
+                                cursor.execute(
+                                    """
+                                    INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
+                                    VALUES (%s, %s, %s, %s, %s, %s)
+                                    """,
+                                    (
+                                        cliente_ativo_id,
+                                        dt_val,
+                                        conta_deb_padrao,
+                                        conta_cred_padrao,
+                                        val_abs,
+                                        hist_val,
+                                    ),
+                                )
+                                qtd += 1
+
+                            conn.commit()
+                            conn.close()
+                            st.success(
+                                f"{qtd} lançamentos importados com sucesso para {nome_cliente}!"
+                            )
+                            st.rerun()
+                        else:
+                            st.error("Selecione as contas de Débito e Crédito padrão.")
+                except Exception as e:
+                    st.error(
+                        f"Erro ao ler o arquivo. Verifique se o formato está correto: {e}"
+                    )
+#Fim do Bloco
+
+# BLOCO VER LANÇAMENTOS (RESTRIÇÃO STRICTA AO CLIENTE ATIVO)
+elif "Ver Lançamentos" in opcao:
+    st.subheader("📋 Consultar, Alterar e Excluir Lançamentos")
+
+    cliente_ativo_id = st.session_state.get("cliente_id_ativo")
+
+    if not cliente_ativo_id:
+        st.warning("⚠️ Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
-        opcoes_clientes = ["Todos"] + list(clientes["nome"])
-        cliente_filtro = st.selectbox("Filtrar por Cliente", opcoes_clientes)
-
-        if cliente_filtro == "Todos":
-            query = """
-                SELECT 
-                    l.id as "ID",
-                    c.nome as "Cliente", 
-                    l.data as "Data", 
-                    l.conta_debito as "Conta Débito", 
-                    l.conta_credito as "Conta Crédito", 
-                    l.valor as "Valor", 
-                    l.historico as "Histórico"
-                FROM lancamentos l
-                JOIN clientes c ON l.cliente_id = c.id
-                ORDER BY l.data DESC, l.id DESC
+        conn = get_connection()
+        
+        # 1. Consulta restrita ao cliente ativo da sessão
+        df_lancamentos = pd.read_sql_query(
             """
-            df = pd.read_sql_query(query, conn)
-        else:
-            cliente_id = dict(zip(clientes["descricao"], clientes["id"]))[
-                cliente_filtro
-            ]
-            query = """
-                SELECT 
-                    l.id as "ID",
-                    c.nome as "Cliente", 
-                    l.data as "Data", 
-                    l.conta_debito as "Conta Débito", 
-                    l.conta_credito as "Conta Crédito", 
-                    l.valor as "Valor", 
-                    l.historico as "Histórico"
-                FROM lancamentos l
-                JOIN clientes c ON l.cliente_id = c.id
-                WHERE l.cliente_id = ?
-                ORDER BY l.data DESC, l.id DESC
-            """
-            df = pd.read_sql_query(query, conn, params=(cliente_id,))
-
+            SELECT 
+                id, 
+                data as "Data", 
+                conta_debito as "Conta Débito", 
+                conta_credito as "Conta Crédito", 
+                valor as "Valor (R$)", 
+                historico as "Histórico" 
+            FROM lancamentos 
+            WHERE cliente_id = %s 
+            ORDER BY data DESC, id DESC
+            """,
+            conn,
+            params=(cliente_ativo_id,)
+        )
+        
+        # 2. Busca o plano de contas para popular os seletores de edição
+        df_contas = pd.read_sql_query(
+            "SELECT codigo, descricao FROM plano_contas ORDER BY codigo ASC", 
+            conn
+        )
         conn.close()
 
-        if df.empty:
-            st.warning("Nenhum lançamento encontrado para este cliente.")
+        if df_lancamentos.empty:
+            st.info("💡 Nenhum lançamento encontrado para o cliente ativo.")
         else:
-            df_exibicao = df.copy()
-            df_exibicao["Data"] = pd.to_datetime(df_exibicao["Data"]).dt.strftime(
-                "%d/%m/%Y"
-            )
-            df_exibicao["Valor"] = df_exibicao["Valor"].apply(formatar_brl)
-
-            st.dataframe(df_exibicao, use_container_width=True)
-
-            csv_data = df.to_csv(index=False, sep=";", decimal=",").encode(
-                "utf-8-sig"
-            )
-            st.download_button(
-                label="📥 Baixar Lançamentos em Excel (.csv)",
-                data=csv_data,
-                file_name=f"lancamentos_{cliente_filtro.lower().replace(' ', '_')}.csv",
-                mime="text/csv",
-            )
+            # Tabela de visualização dos lançamentos
+            st.write("##### 📑 Lançamentos Registrados")
+            st.dataframe(df_lancamentos, use_container_width=True, height=300)
 
             st.markdown("---")
-            st.subheader("✏️ Alterar ou Excluir Lançamento")
+            st.write("##### ✏️ Alterar ou Excluir Lançamento")
 
-            df_opcoes = df_exibicao.copy()
-            df_opcoes["label"] = (
-                "ID "
-                + df_opcoes["ID"].astype(str)
-                + " | "
-                + df_opcoes["Data"]
-                + " | "
-                + df_opcoes["Valor"]
-                + " | "
-                + df_opcoes["Histórico"].str.slice(0, 35)
+            # Formata rótulos amigáveis para a seleção do lançamento
+            df_lancamentos["label"] = (
+                "ID " + df_lancamentos["id"].astype(str) + " | " +
+                df_lancamentos["Data"].astype(str) + " | R$ " +
+                df_lancamentos["Valor (R$)"].apply(lambda x: f"{x:,.2f}") + " | " +
+                df_lancamentos["Histórico"]
             )
+            dict_lancamentos = dict(zip(df_lancamentos["label"], df_lancamentos["id"]))
 
-            dict_lancamentos = dict(zip(df_opcoes["label"], df_opcoes["ID"]))
-            opcao_edit = st.selectbox(
-                "Selecione o Lançamento que deseja modificar:",
-                list(dict_lancamentos.keys()),
-            )
-            id_selecionado = dict_lancamentos[opcao_edit]
+            lanc_sel_label = st.selectbox("Selecione o Lançamento para modificar:", list(dict_lancamentos.keys()))
+            id_lanc_sel = dict_lancamentos[lanc_sel_label]
 
+            # Busca os dados do lançamento específico para preencher o formulário de edição
             conn = get_connection()
-            c = conn.cursor()
-            c.execute(
-                "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE id = %s",
-                (id_selecionado,),
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE id = %s AND cliente_id = %s",
+                (id_lanc_sel, cliente_ativo_id)
             )
-            reg_atual = c.fetchone()
-
-            df_contas = pd.read_sql_query(
-                "SELECT codigo, descricao FROM plano_contas ORDER BY codigo ASC", conn
-            )
+            reg_lanc = cursor.fetchone()
             conn.close()
 
-            plano_de_contas = [""] + [
-                f"{row['codigo']} - {row['descricao']}"
-                for _, row in df_contas.iterrows()
-            ]
+            if reg_lanc:
+                dt_atu, deb_atu, cred_atu, val_atu, hist_atu = reg_lanc
+                plano_de_contas = [""] + [f"{r['codigo']} - {r['descricao']}" for _, r in df_contas.iterrows()]
 
-            if reg_atual:
-                data_db, debito_db, credito_db, valor_db, hist_db = reg_atual
-
-                with st.form("form_editar_lancamento"):
+                with st.form("form_editar_lancamento_ativo"):
                     col_ed1, col_ed2 = st.columns(2)
                     with col_ed1:
-                        dt_val = pd.to_datetime(data_db).date()
-                        nova_data = st.date_input(
-                            "Data", value=dt_val, format="DD/MM/YYYY"
-                        )
+                        nova_dt = st.date_input("Data", value=pd.to_datetime(dt_atu).date(), format="DD/MM/YYYY")
+                        
+                        idx_deb = plano_de_contas.index(deb_atu) if deb_atu in plano_de_contas else 0
+                        novo_deb = st.selectbox("Conta Débito", plano_de_contas, index=idx_deb)
+                        
+                        novo_val = st.number_input("Valor (R$)", value=float(val_atu), min_value=0.00, step=0.01, format="%.2f")
+
                     with col_ed2:
-                        novo_valor = st.number_input(
-                            "Valor (R$)",
-                            value=float(valor_db),
-                            min_value=0.01,
-                            step=0.01,
-                            format="%.2f",
-                        )
+                        idx_cred = plano_de_contas.index(cred_atu) if cred_atu in plano_de_contas else 0
+                        novo_cred = st.selectbox("Conta Crédito", plano_de_contas, index=idx_cred)
+                        
+                        novo_hist = st.text_input("Histórico", value=hist_atu)
 
-                    idx_deb = (
-                        plano_de_contas.index(debito_db)
-                        if debito_db in plano_de_contas
-                        else 0
-                    )
-                    idx_cred = (
-                        plano_de_contas.index(credito_db)
-                        if credito_db in plano_de_contas
-                        else 0
-                    )
+                    salvar_ed_lanc = st.form_submit_button("💾 Salvar Alterações", use_container_width=True)
 
-                    col_c1, col_c2 = st.columns(2)
-                    with col_c1:
-                        nova_conta_debito = st.selectbox(
-                            "Conta Débito", plano_de_contas, index=idx_deb
-                        )
-                    with col_c2:
-                        nova_conta_credito = st.selectbox(
-                            "Conta Crédito", plano_de_contas, index=idx_cred
-                        )
-
-                    novo_historico = st.text_area(
-                        "Histórico Completo", value=hist_db
-                    )
-
-                    salvar_alteracao = st.form_submit_button(
-                        "💾 Salvar Alterações"
-                    )
-
-                    if salvar_alteracao:
-                        if (
-                            nova_conta_debito
-                            and nova_conta_credito
-                            and novo_valor > 0
-                        ):
+                    if salvar_ed_lanc:
+                        if novo_deb and novo_cred and novo_val > 0:
                             conn = get_connection()
                             cursor = conn.cursor()
                             cursor.execute(
                                 """
                                 UPDATE lancamentos 
-                                SET data = %s, conta_debito = %s, conta_credito = %s, valor = %s, historico = %s
-                                WHERE id = %s
-                            """,
-                                (
-                                    str(nova_data),
-                                    nova_conta_debito,
-                                    nova_conta_credito,
-                                    novo_valor,
-                                    novo_historico,
-                                    id_selecionado,
-                                ),
+                                SET data = %s, conta_debito = %s, conta_credito = %s, valor = %s, historico = %s 
+                                WHERE id = %s AND cliente_id = %s
+                                """,
+                                (str(nova_dt), novo_deb, novo_cred, novo_val, novo_hist, id_lanc_sel, cliente_ativo_id)
                             )
                             conn.commit()
                             conn.close()
-                            st.success(
-                                f"Lançamento ID {id_selecionado} atualizado com sucesso!"
-                            )
+                            st.success("Lançamento atualizado com sucesso!")
                             st.rerun()
                         else:
-                            st.error(
-                                "Selecione as contas contábeis e informe um valor válido."
-                            )
+                            st.error("Preencha as contas e um valor maior que zero.")
 
                 with st.expander("🗑️ Excluir este Lançamento"):
-                    st.warning(
-                        f"Você tem certeza que deseja apagar o lançamento ID {id_selecionado}?"
-                    )
-                    if st.button(
-                        "Confirmar Exclusão",
-                        key=f"del_{id_selecionado}",
-                        type="primary",
-                    ):
+                    st.caption("Atenção: Esta ação removerá o registro do histórico.")
+                    if st.button("Confirmar Exclusão", key=f"del_l_m6_{id_lanc_sel}", type="primary", use_container_width=True):
                         conn = get_connection()
                         cursor = conn.cursor()
-                        cursor.execute(
-                            "DELETE FROM lancamentos WHERE id = %s",
-                            (id_selecionado,),
-                        )
+                        cursor.execute("DELETE FROM lancamentos WHERE id = %s AND cliente_id = %s", (id_lanc_sel, cliente_ativo_id))
                         conn.commit()
                         conn.close()
-                        st.success(
-                            f"Lançamento ID {id_selecionado} excluído com sucesso!"
-                        )
+                        st.success("Lançamento excluído com sucesso!")
                         st.rerun()
+#Fim do bloco
 
 # BLOCO GERAR RELATÓRIOS
 
