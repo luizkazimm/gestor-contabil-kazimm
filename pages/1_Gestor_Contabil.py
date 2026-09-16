@@ -200,7 +200,7 @@ if opcao == "Cadastrar Cliente":
                     st.bar_chart(df_grafico.set_index("Categoria / Fornecedor"))
             else:
                 st.caption("Nenhuma despesa registrada para montar o gráfico de distribuição.")
-# Fim do bloco - Cadastrar CLIENTES
+# Fim do bloco - Cadastrar
 
 # Bloco de Alteração de REGIME - Simples / Completo (Dashboard)
 
@@ -441,91 +441,83 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                     conn.close()
                     st.success("Conta excluída com sucesso!")
                     st.rerun()
+# fim do bloco
 
 #bloco de plano de contas
 
+# BLOCO DE PLANO DE CONTAS (FOCADO EM MEI / LIVRO CAIXA)
 elif opcao == "Plano de Contas":
-    st.subheader("📖 Visualização Estruturada do Plano de Contas")
+    st.subheader("📖 Plano de Contas Simplificado (MEI)")
 
     conn = get_connection()
     df_plano = pd.read_sql_query(
-        'SELECT codigo as "Código", descricao as "Nome da Conta", tipo as "Grupo / Tipo" FROM plano_contas ORDER BY codigo ASC',
+        'SELECT codigo as "Código", descricao as "Nome da Conta / Fornecedor", tipo as "Grupo / Tipo" FROM plano_contas ORDER BY codigo ASC',
         conn,
     )
     conn.close()
 
     if df_plano.empty:
-        st.info("Nenhuma conta cadastrada.")
+        st.info("Nenhuma conta cadastrada no Plano de Contas.")
     else:
+        # Barra de pesquisa para facilitar a vida do usuário
         busca = st.text_input(
-            "🔍 Buscar Conta por Código ou Nome", placeholder="Ex: Estoque ou 1.1.3"
+            "🔍 Buscar Conta ou Fornecedor", placeholder="Ex: Combustível, Ambev ou 4.1.1"
         )
         if busca:
             df_plano = df_plano[
-                df_plano["Código"].str.contains(busca, case=False)
-                | df_plano["Nome da Conta"].str.contains(busca, case=False)
+                df_plano["Código"].str.contains(busca, case=False, na=False)
+                | df_plano["Nome da Conta / Fornecedor"].str.contains(busca, case=False, na=False)
             ]
 
-        tab_geral, tab_ativo, tab_passivo, tab_receitas, tab_despesas = st.tabs(
+        # Divisão em abas para organizar a visualização
+        tab_geral, tab_receitas, tab_despesas, tab_financeiro = st.tabs(
             [
-                "📋 Visão Geral Completa",
-                "🟢 1. Ativo",
-                "🔴 2. Passivo & PL",
-                "🔵 3. Receitas",
-                "🟠 4. Despesas",
+                "📋 Visão Geral",
+                "🟢 Receitas (Entradas)",
+                "🔴 Despesas & Fornecedores (Saídas)",
+                "💼 Caixas e Bancos",
             ]
         )
 
         with tab_geral:
-            st.dataframe(df_plano, use_container_width=True, height=450)
-
-        with tab_ativo:
-            st.markdown("#### **Grupo 1 - ATIVO (Bens e Direitos)**")
-            st.dataframe(
-                df_plano[df_plano["Grupo / Tipo"] == "Ativo"],
-                use_container_width=True,
-            )
-
-        with tab_passivo:
-            st.markdown(
-                "#### **Grupo 2 - PASSIVO E PATRIMÔNIO LÍQUIDO (Obrigações e Capital)**"
-            )
-            st.dataframe(
-                df_plano[
-                    df_plano["Grupo / Tipo"].isin(
-                        ["Passivo", "Patrimônio Líquido"]
-                    )
-                ],
-                use_container_width=True,
-            )
+            st.dataframe(df_plano, use_container_width=True, height=400)
 
         with tab_receitas:
-            st.markdown(
-                "#### **Grupo 3 - RECEITAS (Faturamento da Operação)**"
-            )
+            st.markdown("##### 🟢 Contas de Receita (Faturamento MEI)")
             st.dataframe(
                 df_plano[df_plano["Grupo / Tipo"] == "Receita"],
                 use_container_width=True,
+                height=300
             )
 
         with tab_despesas:
-            st.markdown(
-                "#### **Grupo 4 - DESPESAS (Gastos Operacionais)**"
-            )
+            st.markdown("##### 🔴 Contas de Despesa e Fornecedores")
             st.dataframe(
-                df_plano[df_plano["Grupo / Tipo"] == "Despesa"],
+                df_plano[df_plano["Grupo / Tipo"].isin(["Despesa", "Passivo"])],
                 use_container_width=True,
+                height=300
             )
 
-        csv_plano = df_plano.to_csv(index=False, sep=";", decimal=",").encode(
-            "utf-8-sig"
-        )
+        with tab_financeiro:
+            st.markdown("##### 💼 Movimentação Financeira (Caixa / Contas Bancárias)")
+            st.dataframe(
+                df_plano[df_plano["Grupo / Tipo"] == "Ativo"],
+                use_container_width=True,
+                height=300
+            )
+
+        st.markdown("---")
+        
+        # Botão de download
+        csv_plano = df_plano.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
         st.download_button(
             label="📥 Baixar Plano de Contas em Excel (.csv)",
             data=csv_plano,
-            file_name="plano_de_contas.csv",
+            file_name="plano_de_contas_mei.csv",
             mime="text/csv",
         )
+# Fim do BLOCO
+
 # BLOCO DE LANÇAMENTOS - Novo lançamento
 elif opcao == "Novo Lançamento":
     st.subheader("Registro de Lançamento Contábil")
