@@ -976,80 +976,113 @@ elif "Ver Lançamentos" in opcao:
                             st.rerun()
 #Fim do bloco
 
-# BLOCO GERAR RELATÓRIOS
+# BLOCO RELATÓRIO POR CATEGORIA (RESTRIÇÃO STRICTA AO CLIENTE ATIVO + LADO A LADO)
+elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
+    st.subheader("📊 Relatório Financeiro por Categoria")
 
-elif opcao == "Relatório por Categoria":
-    st.subheader("📊 Relatório Agrupado por Conta / Categoria")
+    cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
-    conn = get_connection()
-    clientes = pd.read_sql_query("SELECT id, nome FROM clientes", conn)
-
-    if clientes.empty:
-        st.info("Nenhum cliente cadastrado.")
-        conn.close()
+    if not cliente_ativo_id:
+        st.warning("⚠️ Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
-        opcoes_clientes = ["Todos"] + list(clientes["nome"])
-        cliente_filtro = st.selectbox("Filtrar por Cliente", opcoes_clientes)
+        conn = get_connection()
+        # 1. Dados do cliente ativo para o banner
+        df_cliente = pd.read_sql_query(
+            "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
+            conn, 
+            params=(cliente_ativo_id, st.session_state.user.id)
+        )
 
-        if cliente_filtro == "Todos":
-            query = "SELECT conta_debito, conta_credito, valor FROM lancamentos"
-            df = pd.read_sql_query(query, conn)
+        if df_cliente.empty:
+            st.error("Erro de segurança: Cliente não encontrado ou sem permissão.")
+            conn.close()
         else:
-            cliente_id = dict(zip(clientes["nome"], clientes["id"]))[
-                cliente_filtro
-            ]
-            query = "SELECT conta_debito, conta_credito, valor FROM lancamentos WHERE cliente_id = %s"
-            df = pd.read_sql_query(query, conn, params=(cliente_id,))
+            nome_cliente = df_cliente.iloc[0]["nome"]
+            regime_cliente = df_cliente.iloc[0]["regime"]
 
-        conn.close()
+            # Banner Informativo do Cliente Ativo
+            st.info(f"📋 Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
 
-        if df.empty:
-            st.warning("Nenhum lançamento registrado para exibir no relatório.")
-        else:
-            df_deb = (
-                df.groupby("conta_debito")["valor"]
-                .sum()
-                .reset_index()
-                .rename(
-                    columns={
-                        "conta_debito": "Conta / Categoria",
-                        "valor": "Total Débitos (Entradas / Despesas)",
-                    }
+            # 2. Busca todos os lançamentos do cliente ativo
+            df_lancamentos = pd.read_sql_query(
+                "SELECT conta_debito, conta_credito, valor, data FROM lancamentos WHERE cliente_id = %s",
+                conn,
+                params=(cliente_ativo_id,)
+            )
+            conn.close()
+
+            if df_lancamentos.empty:
+                st.info("💡 Nenhum lançamento encontrado para montar o relatório do cliente ativo.")
+            else:
+                # Separa e agrupa Receitas (Entradas) e Despesas (Saídas)
+                df_entradas = (
+                    df_lancamentos[~df_lancamentos["conta_credito"].str.contains("1.1.1", na=False)]
+                    .groupby("conta_credito")["valor"]
+                    .sum()
+                    .reset_index()
                 )
-            )
+                df_entradas.columns = ["Categoria / Conta", "Total (R$)"]
+                df_entradas["Grupo"] = "🟢 Receitas"
 
-            df_cred = (
-                df.groupby("conta_credito")["valor"]
-                .sum()
-                .reset_index()
-                .rename(
-                    columns={
-                        "conta_credito": "Conta / Categoria",
-                        "valor": "Total Créditos (Saídas / Origens)",
-                    }
+                df_saidas = (
+                    df_lancamentos[~df_lancamentos["conta_debito"].str.contains("1.1.1", na=False)]
+                    .groupby("conta_debito")["valor"]
+                    .sum()
+                    .reset_index()
                 )
-            )
+                df_saidas.columns = ["Categoria / Conta", "Total (R$)"]
+                df_saidas["Grupo"] = "🔴 Despesas"
 
-            df_resumo = pd.merge(
-                df_deb, df_cred, on="Conta / Categoria", how="outer"
-            ).fillna(0)
+                df_agrupado = pd.concat([df_entradas, df_saidas], ignore_index=True)
 
-            df_resumo_exibicao = df_resumo.copy()
-            df_resumo_exibicao["Total Débitos (Entradas / Despesas)"] = df_resumo[
-                "Total Débitos (Entradas / Despesas)"
-            ].apply(formatar_brl)
-            df_resumo_exibicao["Total Créditos (Saídas / Origens)"] = df_resumo[
-                "Total Créditos (Saídas / Origens)"
-            ].apply(formatar_brl)
+                if df_agrupado.empty:
+                    df_agrupado = df_lancamentos.groupby("conta_debito")["valor"].sum().reset_index()
+                    df_agrupado.columns = ["Categoria / Conta", "Total (R$)"]
+                    df_agrupado["Grupo"] = "Movimentação"
 
-            st.dataframe(df_resumo_exibicao, use_container_width=True)
+                df_exibicao = df_agrupado.copy()
+                df_exibicao["Valor Formatado"] = df_exibicao["Total (R$)"].apply(formatar_brl)
 
-            csv_resumo = df_resumo.to_csv(index=False, sep=";", decimal=",").encode(
-                "utf-8-sig"
-            )
-            st.download_button(
-                label="📥 Baixar Relatório por Categoria em Excel (.csv)",
-                data=csv_resumo,
-                file_name="relatorio_por_categoria.csv",
-                mime="text/csv",
-            )
+                st.markdown("---")
+
+                # -----------------------------------------------------------------
+                # LAYOUT LADO A LADO: TABELA (ESQUERDA) VS GRÁFICO (DIREITA)
+                # -----------------------------------------------------------------
+                col_tabela, col_grafico = st.columns([1, 1])
+
+                with col_tabela:
+                    st.write("##### 📋 Acumulado por Categoria")
+                    st.dataframe(
+                        df_exibicao[["Grupo", "Categoria / Conta", "Valor Formatado"]],
+                        use_container_width=True,
+                        height=360
+                    )
+
+                with col_grafico:
+                    st.write("##### 📈 Distribuição Geral")
+                    try:
+                        import plotly.express as px
+                        fig = px.pie(
+                            df_agrupado,
+                            names="Categoria / Conta",
+                            values="Total (R$)",
+                            color="Grupo",
+                            color_discrete_map={"🟢 Receitas": "#2ca02c", "🔴 Despesas": "#d62728"},
+                            hole=0.35,
+                        )
+                        fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=360)
+                        st.plotly_chart(fig, use_container_width=True)
+                    except Exception:
+                        st.bar_chart(df_agrupado.set_index("Categoria / Conta")["Total (R$)"])
+
+                st.markdown("---")
+
+                # Botão para exportar o relatório consolidado
+                csv_rel = df_agrupado.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+                st.download_button(
+                    label="📥 Baixar Relatório por Categoria (.csv)",
+                    data=csv_rel,
+                    file_name=f"relatorio_categoria_{nome_cliente.replace(' ', '_').lower()}.csv",
+                    mime="text/csv",
+                )
+# Fim do Bloco                
