@@ -838,7 +838,7 @@ elif "Importar Extrato" in opcao:
                     )
 #Fim do Bloco
 
-# BLOCO VER LANÇAMENTOS (RESTRIÇÃO STRICTA AO CLIENTE ATIVO)
+# BLOCO VER LANÇAMENTOS (RESTRIÇÃO STRICTA AO CLIENTE ATIVO + BANNER)
 elif "Ver Lançamentos" in opcao:
     st.subheader("📋 Consultar, Alterar e Excluir Lançamentos")
 
@@ -849,114 +849,131 @@ elif "Ver Lançamentos" in opcao:
     else:
         conn = get_connection()
         
-        # 1. Consulta restrita ao cliente ativo da sessão
-        df_lancamentos = pd.read_sql_query(
-            """
-            SELECT 
-                id, 
-                data as "Data", 
-                conta_debito as "Conta Débito", 
-                conta_credito as "Conta Crédito", 
-                valor as "Valor (R$)", 
-                historico as "Histórico" 
-            FROM lancamentos 
-            WHERE cliente_id = %s 
-            ORDER BY data DESC, id DESC
-            """,
-            conn,
-            params=(cliente_ativo_id,)
+        # 1. Busca os dados do cliente ativo para exibição no banner
+        df_cliente = pd.read_sql_query(
+            "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
+            conn, 
+            params=(cliente_ativo_id, st.session_state.user.id)
         )
-        
-        # 2. Busca o plano de contas para popular os seletores de edição
-        df_contas = pd.read_sql_query(
-            "SELECT codigo, descricao FROM plano_contas ORDER BY codigo ASC", 
-            conn
-        )
-        conn.close()
 
-        if df_lancamentos.empty:
-            st.info("💡 Nenhum lançamento encontrado para o cliente ativo.")
+        if df_cliente.empty:
+            st.error("Erro de segurança: Cliente não encontrado ou sem permissão.")
+            conn.close()
         else:
-            # Tabela de visualização dos lançamentos
-            st.write("##### 📑 Lançamentos Registrados")
-            st.dataframe(df_lancamentos, use_container_width=True, height=300)
+            nome_cliente = df_cliente.iloc[0]["nome"]
+            regime_cliente = df_cliente.iloc[0]["regime"]
 
-            st.markdown("---")
-            st.write("##### ✏️ Alterar ou Excluir Lançamento")
+            # Caixa informativa do Cliente Ativo
+            st.info(f"📋 Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
 
-            # Formata rótulos amigáveis para a seleção do lançamento
-            df_lancamentos["label"] = (
-                "ID " + df_lancamentos["id"].astype(str) + " | " +
-                df_lancamentos["Data"].astype(str) + " | R$ " +
-                df_lancamentos["Valor (R$)"].apply(lambda x: f"{x:,.2f}") + " | " +
-                df_lancamentos["Histórico"]
+            # 2. Consulta de lançamentos restrita ao cliente ativo da sessão
+            df_lancamentos = pd.read_sql_query(
+                """
+                SELECT 
+                    id, 
+                    data as "Data", 
+                    conta_debito as "Conta Débito", 
+                    conta_credito as "Conta Crédito", 
+                    valor as "Valor (R$)", 
+                    historico as "Histórico" 
+                FROM lancamentos 
+                WHERE cliente_id = %s 
+                ORDER BY data DESC, id DESC
+                """,
+                conn,
+                params=(cliente_ativo_id,)
             )
-            dict_lancamentos = dict(zip(df_lancamentos["label"], df_lancamentos["id"]))
-
-            lanc_sel_label = st.selectbox("Selecione o Lançamento para modificar:", list(dict_lancamentos.keys()))
-            id_lanc_sel = dict_lancamentos[lanc_sel_label]
-
-            # Busca os dados do lançamento específico para preencher o formulário de edição
-            conn = get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE id = %s AND cliente_id = %s",
-                (id_lanc_sel, cliente_ativo_id)
+            
+            # 3. Busca o plano de contas para popular os seletores de edição
+            df_contas = pd.read_sql_query(
+                "SELECT codigo, descricao FROM plano_contas ORDER BY codigo ASC", 
+                conn
             )
-            reg_lanc = cursor.fetchone()
             conn.close()
 
-            if reg_lanc:
-                dt_atu, deb_atu, cred_atu, val_atu, hist_atu = reg_lanc
-                plano_de_contas = [""] + [f"{r['codigo']} - {r['descricao']}" for _, r in df_contas.iterrows()]
+            if df_lancamentos.empty:
+                st.info("💡 Nenhum lançamento encontrado para o cliente ativo.")
+            else:
+                # Tabela de visualização dos lançamentos
+                st.write("##### 📑 Lançamentos Registrados")
+                st.dataframe(df_lancamentos, use_container_width=True, height=300)
 
-                with st.form("form_editar_lancamento_ativo"):
-                    col_ed1, col_ed2 = st.columns(2)
-                    with col_ed1:
-                        nova_dt = st.date_input("Data", value=pd.to_datetime(dt_atu).date(), format="DD/MM/YYYY")
-                        
-                        idx_deb = plano_de_contas.index(deb_atu) if deb_atu in plano_de_contas else 0
-                        novo_deb = st.selectbox("Conta Débito", plano_de_contas, index=idx_deb)
-                        
-                        novo_val = st.number_input("Valor (R$)", value=float(val_atu), min_value=0.00, step=0.01, format="%.2f")
+                st.markdown("---")
+                st.write("##### ✏️ Alterar ou Excluir Lançamento")
 
-                    with col_ed2:
-                        idx_cred = plano_de_contas.index(cred_atu) if cred_atu in plano_de_contas else 0
-                        novo_cred = st.selectbox("Conta Crédito", plano_de_contas, index=idx_cred)
-                        
-                        novo_hist = st.text_input("Histórico", value=hist_atu)
+                # Formata rótulos para a seleção do lançamento
+                df_lancamentos["label"] = (
+                    "ID " + df_lancamentos["id"].astype(str) + " | " +
+                    df_lancamentos["Data"].astype(str) + " | R$ " +
+                    df_lancamentos["Valor (R$)"].apply(lambda x: f"{x:,.2f}") + " | " +
+                    df_lancamentos["Histórico"]
+                )
+                dict_lancamentos = dict(zip(df_lancamentos["label"], df_lancamentos["id"]))
 
-                    salvar_ed_lanc = st.form_submit_button("💾 Salvar Alterações", use_container_width=True)
+                lanc_sel_label = st.selectbox("Selecione o Lançamento para modificar:", list(dict_lancamentos.keys()))
+                id_lanc_sel = dict_lancamentos[lanc_sel_label]
 
-                    if salvar_ed_lanc:
-                        if novo_deb and novo_cred and novo_val > 0:
+                # Busca os dados do lançamento para preencher o formulário
+                conn = get_connection()
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE id = %s AND cliente_id = %s",
+                    (id_lanc_sel, cliente_ativo_id)
+                )
+                reg_lanc = cursor.fetchone()
+                conn.close()
+
+                if reg_lanc:
+                    dt_atu, deb_atu, cred_atu, val_atu, hist_atu = reg_lanc
+                    plano_de_contas = [""] + [f"{r['codigo']} - {r['descricao']}" for _, r in df_contas.iterrows()]
+
+                    with st.form("form_editar_lancamento_ativo"):
+                        col_ed1, col_ed2 = st.columns(2)
+                        with col_ed1:
+                            nova_dt = st.date_input("Data", value=pd.to_datetime(dt_atu).date(), format="DD/MM/YYYY")
+                            
+                            idx_deb = plano_de_contas.index(deb_atu) if deb_atu in plano_de_contas else 0
+                            novo_deb = st.selectbox("Conta Débito", plano_de_contas, index=idx_deb)
+                            
+                            novo_val = st.number_input("Valor (R$)", value=float(val_atu), min_value=0.00, step=0.01, format="%.2f")
+
+                        with col_ed2:
+                            idx_cred = plano_de_contas.index(cred_atu) if cred_atu in plano_de_contas else 0
+                            novo_cred = st.selectbox("Conta Crédito", plano_de_contas, index=idx_cred)
+                            
+                            novo_hist = st.text_input("Histórico", value=hist_atu)
+
+                        salvar_ed_lanc = st.form_submit_button("💾 Salvar Alterações", use_container_width=True)
+
+                        if salvar_ed_lanc:
+                            if novo_deb and novo_cred and novo_val > 0:
+                                conn = get_connection()
+                                cursor = conn.cursor()
+                                cursor.execute(
+                                    """
+                                    UPDATE lancamentos 
+                                    SET data = %s, conta_debito = %s, conta_credito = %s, valor = %s, historico = %s 
+                                    WHERE id = %s AND cliente_id = %s
+                                    """,
+                                    (str(nova_dt), novo_deb, novo_cred, novo_val, novo_hist, id_lanc_sel, cliente_ativo_id)
+                                )
+                                conn.commit()
+                                conn.close()
+                                st.success("Lançamento atualizado com sucesso!")
+                                st.rerun()
+                            else:
+                                st.error("Preencha as contas e um valor maior que zero.")
+
+                    with st.expander("🗑️ Excluir este Lançamento"):
+                        st.caption("Atenção: Esta ação removerá o registro do histórico.")
+                        if st.button("Confirmar Exclusão", key=f"del_l_m6_{id_lanc_sel}", type="primary", use_container_width=True):
                             conn = get_connection()
                             cursor = conn.cursor()
-                            cursor.execute(
-                                """
-                                UPDATE lancamentos 
-                                SET data = %s, conta_debito = %s, conta_credito = %s, valor = %s, historico = %s 
-                                WHERE id = %s AND cliente_id = %s
-                                """,
-                                (str(nova_dt), novo_deb, novo_cred, novo_val, novo_hist, id_lanc_sel, cliente_ativo_id)
-                            )
+                            cursor.execute("DELETE FROM lancamentos WHERE id = %s AND cliente_id = %s", (id_lanc_sel, cliente_ativo_id))
                             conn.commit()
                             conn.close()
-                            st.success("Lançamento atualizado com sucesso!")
+                            st.success("Lançamento excluído com sucesso!")
                             st.rerun()
-                        else:
-                            st.error("Preencha as contas e um valor maior que zero.")
-
-                with st.expander("🗑️ Excluir este Lançamento"):
-                    st.caption("Atenção: Esta ação removerá o registro do histórico.")
-                    if st.button("Confirmar Exclusão", key=f"del_l_m6_{id_lanc_sel}", type="primary", use_container_width=True):
-                        conn = get_connection()
-                        cursor = conn.cursor()
-                        cursor.execute("DELETE FROM lancamentos WHERE id = %s AND cliente_id = %s", (id_lanc_sel, cliente_ativo_id))
-                        conn.commit()
-                        conn.close()
-                        st.success("Lançamento excluído com sucesso!")
-                        st.rerun()
 #Fim do bloco
 
 # BLOCO GERAR RELATÓRIOS
