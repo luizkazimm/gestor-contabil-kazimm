@@ -45,42 +45,42 @@ opcao = st.sidebar.selectbox(
     [
         "Cadastrar Cliente",
         "Cadastrar Conta / Fornecedor",
-        "Plano de Contas",
         "Novo Lançamento",
+        "Provisões (Contas a Pagar)",  # <-- NOVO MENU ADICIONADO AQUI
         "Importar Extrato / Excel",
         "Ver Lançamentos",
-        "Relatório por Categoria",
-    ],
+        "Plano de Contas",
+        "Relatório por Categoria"
+    ]
 )
-
-# BLOCO CADASTRAR CLIENTES / DASHBOARD MEI
+# BLOCO CADASTRAR CLIENTE & DASHBOARD MEI
 if opcao == "Cadastrar Cliente":
     st.subheader("🏢 Gestão do Cliente & Dashboard MEI")
 
     user_id_atual = st.session_state.user.id
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
-    # 1. Verifica se o usuário já possui cliente cadastrado
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM clientes WHERE user_id = %s", (user_id_atual,))
     qtd_clientes = cursor.fetchone()[0]
     conn.close()
 
-    # Se não houver cliente cadastrado, exibe o formulário de cadastro
+    # FORMULÁRIO DE PRIMEIRO CADASTRO (SE NÃO HOUVER CLIENTE REGISTRADO)
     if qtd_clientes < 1:
         st.info("Cadastre os dados da sua empresa para ativar o sistema e o Dashboard.")
         with st.form("form_cliente"):
             col_cli1, col_cli2 = st.columns(2)
             with col_cli1:
-                nome = st.text_input("Nome/Razão Social da Empresa")
+                nome = st.text_input("Nome / Razão Social")
                 cnpj_cpf = st.text_input("CNPJ ou CPF")
+                telefone = st.text_input("Telefone de Contato", placeholder="(00) 00000-0000")
             with col_cli2:
-                regime = st.selectbox(
-                    "Modelo de Digitação",
-                    ["Lançamento Simples (MEI / Livro Caixa)"],
-                )
-            salvar = st.form_submit_button("Salvar Cliente")
+                regime = st.selectbox("Regime Contábil", ["MEI (Microempreendedor Individual)", "Simples Nacional"])
+                limite_fat = st.selectbox("Limite de Faturamento Anual", [81000.00, 246000.00], format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
+                cnae = st.text_input("Código de Atividade (CNAE)", placeholder="Ex: 47.12-1-00")
+
+            salvar = st.form_submit_button("💾 Salvar Cadastro Inicial", use_container_width=True)
 
         if salvar:
             if nome and cnpj_cpf:
@@ -88,8 +88,11 @@ if opcao == "Cadastrar Cliente":
                 cursor = conn.cursor()
                 try:
                     cursor.execute(
-                        "INSERT INTO clientes (nome, cnpj_cpf, regime, user_id) VALUES (%s, %s, %s, %s)",
-                        (nome, cnpj_cpf, regime, user_id_atual),
+                        """
+                        INSERT INTO clientes (nome, cnpj_cpf, regime, limite_faturamento, telefone, cnae_atividade, user_id) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (nome, cnpj_cpf, regime, limite_fat, telefone, cnae, user_id_atual),
                     )
                     conn.commit()
                     st.success(f"Cliente '{nome}' cadastrado com sucesso!")
@@ -99,18 +102,48 @@ if opcao == "Cadastrar Cliente":
                 finally:
                     conn.close()
             else:
-                st.warning("Preencha todos os campos obrigatórios.")
+                st.warning("Preencha o Nome e o CNPJ/CPF.")
 
-    # Se já existir cliente, exibe os Dados e o Dashboard MEI
+    # DASHBOARD + DADOS COMPLETO DO CLIENTE
     else:
         conn = get_connection()
-        df_clientes_cad = pd.read_sql_query(
-            'SELECT id, nome as "Razão Social", cnpj_cpf as "CNPJ/CPF", regime as "Regime Contábil" FROM clientes WHERE user_id = %s AND id = %s',
-            conn,
-            params=(user_id_atual, cliente_ativo_id),
-        )
+        
+        # CONSULTA COM TRATAMENTO DE FALLBACK SEGURA
+        try:
+            df_clientes_cad = pd.read_sql_query(
+                """
+                SELECT 
+                    id, 
+                    nome as "Razão Social", 
+                    cnpj_cpf as "CNPJ/CPF", 
+                    regime as "Regime Contábil",
+                    COALESCE(limite_faturamento, 81000.00) as "Limite Faturamento (R$)",
+                    COALESCE(telefone, '-') as "Telefone",
+                    COALESCE(cnae_atividade, '-') as "CNAE / Atividade"
+                FROM clientes 
+                WHERE user_id = %s AND id = %s
+                """,
+                conn,
+                params=(user_id_atual, cliente_ativo_id),
+            )
+        except Exception:
+            df_clientes_cad = pd.read_sql_query(
+                """
+                SELECT 
+                    id, 
+                    nome as "Razão Social", 
+                    cnpj_cpf as "CNPJ/CPF", 
+                    regime as "Regime Contábil",
+                    81000.00 as "Limite Faturamento (R$)",
+                    '-' as "Telefone",
+                    '-' as "CNAE / Atividade"
+                FROM clientes 
+                WHERE user_id = %s AND id = %s
+                """,
+                conn,
+                params=(user_id_atual, cliente_ativo_id),
+            )
 
-        # Busca todos os lançamentos do cliente ativo
         df_lancamentos = pd.read_sql_query(
             "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE cliente_id = %s",
             conn,
@@ -118,44 +151,46 @@ if opcao == "Cadastrar Cliente":
         )
         conn.close()
 
-        # Sanfona com os dados cadastrais do cliente
-        if not df_clientes_cad.empty:
-            with st.expander("📄 Ver Dados Cadastrais do Cliente Ativo", expanded=False):
-                st.dataframe(df_clientes_cad.drop(columns=["id"]), use_container_width=True)
-
-        st.markdown("---")
-
-        # --- PAINEL DASHBOARD FINANCEIRO ---
         st.write("### 📊 Painel de Controle Financeiro (MEI)")
 
         if df_lancamentos.empty:
-            st.info("💡 Nenhum lançamento encontrado. Faça alguns registros no menu **'Novo Lançamento'** para visualizar os gráficos e métricas.")
+            st.info("💡 Nenhum lançamento encontrado no momento.")
         else:
-            # Identifica Entradas e Saídas com base no padrão Livro Caixa / MEI
             mask_entrada = df_lancamentos["conta_debito"].str.contains("1.1.1", na=False) & ~df_lancamentos["conta_credito"].str.contains("1.1.1", na=False)
             mask_saida = df_lancamentos["conta_credito"].str.contains("1.1.1", na=False) & ~df_lancamentos["conta_debito"].str.contains("1.1.1", na=False)
 
             total_receitas = df_lancamentos[mask_entrada]["valor"].sum() if any(mask_entrada) else 0.0
             total_despesas = df_lancamentos[mask_saida]["valor"].sum() if any(mask_saida) else 0.0
 
-            # Contingência caso os códigos das contas não iniciem por 1.1.1
             if total_receitas == 0 and total_despesas == 0:
                 total_receitas = df_lancamentos[df_lancamentos["conta_credito"].str.contains("3\.|Receita", case=False, na=False)]["valor"].sum()
                 total_despesas = df_lancamentos[df_lancamentos["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)]["valor"].sum()
 
             saldo_liquido = total_receitas - total_despesas
 
-            # 1. CARDS DE KPIS
-            kpi1, kpi2, kpi3 = st.columns(3)
-            kpi1.metric("🟢 Receita Total", formatar_brl(total_receitas))
-            kpi2.metric("🔴 Despesas Totais", formatar_brl(total_despesas))
-            kpi3.metric("⚖️ Lucro / Saldo Líquido", formatar_brl(saldo_liquido))
+            # Busca o total de provisões pendentes (Contas a Pagar) - abrindo uma ligação rápida
+            conn_prov = get_connection()
+            cursor_prov = conn_prov.cursor()
+            cursor_prov.execute(
+                "SELECT COALESCE(SUM(valor), 0.0) FROM provisoes WHERE cliente_id = %s AND status = 'Pendente'",
+                (cliente_ativo_id,)
+            )
+            res_provisao = cursor_prov.fetchone()
+            total_a_pagar = float(res_provisao[0]) if res_provisao else 0.0
+
+            st.write("##### 💡 Resumo Financeiro & Compromissos")
+            c_kpi1, c_kpi2, c_kpi3, c_kpi4 = st.columns(4)
+            c_kpi1.metric("🟢 Receita Realizada", formatar_brl(total_receitas))
+            c_kpi2.metric("🔴 Despesas Pagas", formatar_brl(total_despesas))
+            c_kpi3.metric("⚖️ Saldo em Caixa", formatar_brl(saldo_liquido))
+            c_kpi4.metric("🟡 A Pagar (Provisões)", formatar_brl(total_a_pagar))
 
             st.markdown("---")
 
-            # 2. TERMÔMETRO DE LIMITE ANUAL DO MEI (R$ 81.000,00)
-            st.write("##### 🎯 Acompanhamento do Limite Anual MEI")
-            limite_mei = 81000.00
+            # BUSCA LIMITE CADASTRADO DO CLIENTE ATIVO
+            limite_mei = float(df_clientes_cad.iloc[0]["Limite Faturamento (R$)"]) if not df_clientes_cad.empty and df_clientes_cad.iloc[0]["Limite Faturamento (R$)"] else 81000.00
+            
+            st.write(f"##### 🎯 Acompanhamento do Limite Anual MEI (Teto: {formatar_brl(limite_mei)})")
             percentual_mei = min(total_receitas / limite_mei, 1.0)
             percentual_real = (total_receitas / limite_mei) * 100
 
@@ -172,10 +207,7 @@ if opcao == "Cadastrar Cliente":
                     st.error("🔴 Alerta: Limite Ultrapassado!")
 
             st.markdown("---")
-
-            # 3. GRÁFICO DE DISTRIBUIÇÃO DE DESPESAS POR CATEGORIA
-            st.write("##### 📌 Para onde está indo o dinheiro? (Despesas por Categoria)")
-
+            st.write("##### 📌 Despesas por Categoria")
             df_despesas_cat = df_lancamentos[mask_saida].copy()
             if df_despesas_cat.empty:
                 df_despesas_cat = df_lancamentos[df_lancamentos["conta_debito"].str.contains("4\.|Despesa", case=False, na=False)].copy()
@@ -194,20 +226,16 @@ if opcao == "Cadastrar Cliente":
                         hole=0.4,
                         color_discrete_sequence=px.colors.qualitative.Set3,
                     )
-                    fig.update_layout(margin=dict(t=20, b=20, l=20, r=20))
+                    fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300)
                     st.plotly_chart(fig, use_container_width=True)
                 except ImportError:
                     st.bar_chart(df_grafico.set_index("Categoria / Fornecedor"))
-            else:
-                st.caption("Nenhuma despesa registrada para montar o gráfico de distribuição.")
-# Fim do bloco - Cadastrar
 
-# Bloco de Alteração de REGIME - Simples / Completo (Dashboard)
+        st.markdown("---")
+        if not df_clientes_cad.empty:
+            with st.expander("📄 Ver Dados Cadastrais da Empresa Ativa", expanded=False):
+                st.dataframe(df_clientes_cad.drop(columns=["id"]), use_container_width=True)# Fim do bloco - CADASTRAR CLIENTE
 
-    if not df_clientes_cad.empty:
-        st.dataframe(
-            df_clientes_cad.drop(columns=["id"]), use_container_width=True
-        )
 # =========================================================================
 # BLOCOS DESATIVADOS / COMENTADOS PARA LIMPEZA DA INTERFACE (FUTURO DASHBOARD)
 # =========================================================================
@@ -727,6 +755,136 @@ elif opcao == "Novo Lançamento":
                         conn.close()
                         st.success("Lançamento em Partida Dupla registrado!")
 # Fim do BLOCO
+
+# BLOCO PROVISÕES / CONTAS A PAGAR (COM BAIXA AUTOMÁTICA)
+elif "Provisões" in opcao:
+    st.subheader("📌 Provisões / Contas a Pagar")
+
+    cliente_ativo_id = st.session_state.get("cliente_id_ativo")
+
+    if not cliente_ativo_id:
+        st.warning("⚠️ Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
+    else:
+        conn = get_connection()
+        # 1. Dados do cliente ativo para o banner
+        df_cliente = pd.read_sql_query(
+            "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
+            conn, 
+            params=(cliente_ativo_id, st.session_state.user.id)
+        )
+
+        if df_cliente.empty:
+            st.error("Erro de segurança: Cliente não encontrado ou sem permissão.")
+            conn.close()
+        else:
+            nome_cliente = df_cliente.iloc[0]["nome"]
+            regime_cliente = df_cliente.iloc[0]["regime"]
+
+            st.info(f"📋 Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
+
+            # -----------------------------------------------------------------
+            # FORMULÁRIO DE CADASTRO DE PROVISÃO
+            # -----------------------------------------------------------------
+            with st.expander("➕ Agendar Nova Guia / Conta a Pagar", expanded=True):
+                with st.form("form_nova_provisao", clear_on_submit=True):
+                    col_p1, col_p2, col_p3 = st.columns([2, 1, 1])
+                    
+                    with col_p1:
+                        desc_provisao = st.text_input("Descrição da Obrigação", placeholder="Ex: Guia DAS Mensal - 10/2026 ou Parcelamento RFB 02/10")
+                    with col_p2:
+                        tipo_provisao = st.selectbox("Tipo de Conta", ["Guia DAS", "Parcelamento RFB", "Aluguel", "Fornecedor / Compra", "Outros"])
+                        valor_provisao = st.number_input("Valor R$", min_value=0.01, step=10.0, format="%.2f")
+                    with col_p3:
+                        data_venc = st.date_input("Data de Vencimento")
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        salvar_prov = st.form_submit_button("💾 Agendar Provisão", use_container_width=True)
+
+                    if salvar_prov:
+                        if desc_provisao and valor_provisao > 0:
+                            cursor = conn.cursor()
+                            cursor.execute(
+                                """
+                                INSERT INTO provisoes (cliente_id, descricao, tipo, valor, data_vencimento, status)
+                                VALUES (%s, %s, %s, %s, %s, 'Pendente')
+                                """,
+                                (cliente_ativo_id, desc_provisao, tipo_provisao, valor_provisao, data_venc)
+                            )
+                            conn.commit()
+                            st.success(f"Provisão '{desc_provisao}' agendada com sucesso!")
+                            st.rerun()
+                        else:
+                            st.warning("Preencha a descrição e um valor válido.")
+
+            st.markdown("---")
+
+            # 2. Busca provisões cadastradas
+            df_provisoes = pd.read_sql_query(
+                """
+                SELECT id, descricao, tipo, valor, data_vencimento, status 
+                FROM provisoes 
+                WHERE cliente_id = %s 
+                ORDER BY status DESC, data_vencimento ASC
+                """,
+                conn,
+                params=(cliente_ativo_id,)
+            )
+            conn.close()
+
+            if df_provisoes.empty:
+                st.info("💡 Nenhuma conta a pagar agendada para este cliente.")
+            else:
+                df_pendentes = df_provisoes[df_provisoes["status"] == "Pendente"]
+                df_pagas = df_provisoes[df_provisoes["status"] == "Pago"]
+
+                # KPIs Rápidos
+                total_pendente = df_pendentes["valor"].sum() if not df_pendentes.empty else 0.0
+                st.write(f"##### ⌛ Guias e Contas Pendentes (Total: **{formatar_brl(total_pendente)}**)")
+
+                if df_pendentes.empty:
+                    st.success("🎉 Nenhuma conta pendente no momento!")
+                else:
+                    for idx, row in df_pendentes.iterrows():
+                        col_info, col_acao = st.columns([3, 1])
+                        
+                        with col_info:
+                            venc_formatado = pd.to_datetime(row['data_vencimento']).strftime('%d/%m/%Y')
+                            st.write(f"🗓️ **Vencimento: {venc_formatado}** | **{row['descricao']}** ({row['tipo']})")
+                            st.caption(f"Valor a Pagar: **{formatar_brl(row['valor'])}** | Status: 🟡 **{row['status']}**")
+
+                        with col_acao:
+                            # Botão de baixa rápida que liquida e lança no caixa
+                            if st.button("✅ Pagar / Dar Baixa", key=f"btn_pago_{row['id']}", use_container_width=True):
+                                conn_baixa = get_connection()
+                                cursor_baixa = conn_baixa.cursor()
+                                
+                                # Atualiza status na tabela de provisões
+                                cursor_baixa.execute("UPDATE provisoes SET status = 'Pago' WHERE id = %s", (row['id'],))
+                                
+                                # Gera lançamento automático de saída no Livro Caixa
+                                cursor_baixa.execute(
+                                    """
+                                    INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
+                                    VALUES (%s, CURRENT_DATE, '4.1.1 - Despesas Operacionais', '1.1.1 - Caixa Geral', %s, %s)
+                                    """,
+                                    (cliente_ativo_id, row['valor'], f"Pagamento baixado de provisão: {row['descricao']}")
+                                )
+                                conn_baixa.commit()
+                                conn_baixa.close()
+                                
+                                st.success(f"Conta '{row['descricao']}' baixada e registrada no Livro Caixa!")
+                                st.rerun()
+                        st.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
+
+                # Histórico de Contas Pagas
+                if not df_pagas.empty:
+                    with st.expander("✅ Ver Histórico de Contas Já Pagas", expanded=False):
+                        df_pagas_exib = df_pagas.copy()
+                        df_pagas_exib["valor"] = df_pagas_exib["valor"].apply(formatar_brl)
+                        st.dataframe(
+                            df_pagas_exib[["data_vencimento", "descricao", "tipo", "valor", "status"]],
+                            use_container_width=True
+                        )
+#Fim do Bloco
 
 # BLOCO IMPORTAR EXTRATO
 elif "Importar Extrato" in opcao:
