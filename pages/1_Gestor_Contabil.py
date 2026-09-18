@@ -151,7 +151,7 @@ if opcao == "Cadastrar Cliente":
         )
         conn.close()
 
-        st.write("### 📊 Painel de Controle Financeiro (MEI)")
+        st.subheader("### 📊 Painel de Controle Financeiro (MEI)")
 
         if df_lancamentos.empty:
             st.info("💡 Nenhum lançamento encontrado no momento.")
@@ -177,15 +177,18 @@ if opcao == "Cadastrar Cliente":
             )
             res_provisao = cursor_prov.fetchone()
             total_a_pagar = float(res_provisao[0]) if res_provisao else 0.0
+            conn_prov.close()
 
-            st.write("##### 💡 Resumo Financeiro & Compromissos")
-            c_kpi1, c_kpi2, c_kpi3, c_kpi4 = st.columns(4)
-            c_kpi1.metric("🟢 Receita Realizada", formatar_brl(total_receitas))
-            c_kpi2.metric("🔴 Despesas Pagas", formatar_brl(total_despesas))
-            c_kpi3.metric("⚖️ Saldo em Caixa", formatar_brl(saldo_liquido))
-            c_kpi4.metric("🟡 A Pagar (Provisões)", formatar_brl(total_a_pagar))
+            #---BLOCO DE CARTÕES COM MOLDURA ELEGANTE ---
+            with st.container(border=True):
+                st.write("##### 💡 Resumo Financeiro & Compromissos")
+                c_kpi1, c_kpi2, c_kpi3, c_kpi4 = st.columns(4)
+                c_kpi1.metric("🟢 Receita Realizada", formatar_brl(total_receitas))
+                c_kpi2.metric("🔴 Despesas Pagas", formatar_brl(total_despesas))
+                c_kpi3.metric("⚖️ Saldo em Caixa", formatar_brl(saldo_liquido))
+                c_kpi4.metric("🟡 A Pagar (Provisões)", formatar_brl(total_a_pagar))
 
-            st.markdown("---")
+            st.markdown("<br>", unsafe_allow_html=True)
 
             # BUSCA LIMITE CADASTRADO DO CLIENTE ATIVO
             limite_mei = float(df_clientes_cad.iloc[0]["Limite Faturamento (R$)"]) if not df_clientes_cad.empty and df_clientes_cad.iloc[0]["Limite Faturamento (R$)"] else 81000.00
