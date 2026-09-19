@@ -5,6 +5,84 @@ from database import get_connection, init_db
 # 1. Configuração da página (DEVE SER O PRIMEIRO COMANDO STREAMLIT)
 st.set_page_config(page_title="Gestor Contábil Kazimm", layout="wide")
 
+#Bloco CSS de estilização
+# -----------------------------------------------------------------------------
+# ESTILO GLOBAL - GESTOR CONTÁBIL (COM CONTROLE DE MÉTRICAS)
+# -----------------------------------------------------------------------------
+st.markdown("""
+    <!-- Carrega Montserrat e Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+    /* 1. TÍTULOS EM MONTSERRAT */
+    h1, h2, h3, h4, h5, h6,
+    [data-testid="stHeader"], [data-testid="stSubheader"],
+    [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2,
+    [data-testid="stMarkdownContainer"] h3, [data-testid="stMarkdownContainer"] h4 {
+        font-family: 'Montserrat', sans-serif !important;
+        color: #0F172A !important;
+        font-weight: 700 !important;
+    }
+
+    /* 2. CONTROLE DIRETO DOS CARTÕES FINANCEIROS (st.metric) */
+    /* VALOR (R$ 78.115,00) - AQUI VOCÊ CONTROLA O TAMANHO DO NÚMERO */
+    [data-testid="stMetricValue"] {
+        font-family: 'Montserrat', sans-serif !important;
+        font-size: 1.75rem !important; /* <--- ALTERE AQUI PARA AUMENTAR OU DIMINUIR O NÚMERO */
+        font-weight: 700 !important;
+        color: #0F172A !important;
+    }
+
+    /* RÓTULO (Receita Realizada, Despesas, etc.) - AQUI VOCÊ CONTROLA O TEXTO ACIMA DO NÚMERO */
+    [data-testid="stMetricLabel"] {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.85rem !important; /* <--- ALTERE AQUI O TAMANHO DO RÓTULO */
+        font-weight: 600 !important;
+        color: #334155 !important;
+    }
+
+    /* 3. BORDAS E CONTRASTE REFORÇADO NAS CAIXAS E FORMULÁRIOS */
+    div[data-baseweb="input"], 
+    div[data-baseweb="select"] > div {
+        background-color: #F8FAFC !important;
+        border: 1.5px solid #CBD5E1 !important;
+        border-radius: 8px !important;
+    }
+
+    div[data-baseweb="input"]:focus-within, 
+    div[data-baseweb="select"] > div:focus-within {
+        border-color: #1E3A8A !important;
+        background-color: #FFFFFF !important;
+        box-shadow: 0px 0px 0px 3px rgba(30, 58, 138, 0.15) !important;
+    }
+
+    /* 4. BOTÕES NO AZUL DA MARCA (#1E3A8A) COM TEXTO BRANCO */
+    div.stButton > button, 
+    div.stFormSubmitButton > button,
+    div.stButton > button *, 
+    div.stFormSubmitButton > button * {
+        background-color: #1E3A8A !important;
+        color: #FFFFFF !important;
+        border-radius: 8px !important;
+        border: none !important;
+        font-family: 'Montserrat', sans-serif !important;
+        font-weight: 600 !important;
+        font-size: 0.9rem !important;
+    }
+
+    div.stButton > button:hover, 
+    div.stFormSubmitButton > button:hover {
+        background-color: #2563EB !important;
+        color: #FFFFFF !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+#Fim do Bloco
+
+
 # --- TRAVA DE SEGURANÇA ---
 if 'user' not in st.session_state or st.session_state.user is None:
     st.warning("🔒 Você precisa fazer login para acessar o Gestor Contábil.")

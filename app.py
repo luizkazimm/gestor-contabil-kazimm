@@ -7,62 +7,91 @@ st.set_page_config(
     initial_sidebar_state="expanded"
     )
 
-# 2. CSS CUSTOMIZADO GLOBAL
+# -----------------------------------------------------------------------------
+# ESTILO ELEGANTE E PROPORCIONAL DA TELA DE LOGIN (APP.PY)
+# -----------------------------------------------------------------------------
 st.markdown("""
+    <!-- Carregamento das Fontes Montserrat e Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+
     <style>
-    /* Corrigido: CSS para Centralizar a Logo de forma Robusta */
-    div[data-testid="stImage"] img {
-        display: block !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-        margin-bottom: 15px !important;
+    /* 1. TÍTULO PRINCIPAL DE LOGIN */
+    h1, [data-testid="stMarkdownContainer"] h1, .stApp h1 {
+        font-family: 'Montserrat', sans-serif !important;
+        font-size: 1.35rem !important;
+        font-weight: 700 !important;
+        color: #0F172A !important;
+        margin-bottom: 0.25rem !important;
+        letter-spacing: -0.02em !important;
     }
 
-    /* 2. Botão Principal (Entrar) */
-    div.stButton > button[kind="primary"] {
-        background-color: #1E3A8A; /* Azul marinho */
-        color: #FFFFFF;
-        border: none;
-        border-radius: 8px;
-        font-weight: bold;
-        font-size: 18px !important;
-        padding: 10px;
-        transition: background-color 0.3s ease;
+    /* Subtítulo e descrições */
+    p, [data-testid="stMarkdownContainer"] p {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.85rem !important;
+        color: #64748B !important;
     }
 
-    /* 3. Efeito ao passar o mouse no botão (Hover) */
-    div.stButton > button[kind="primary"]:hover {
-        background-color: #2563EB; /* Azul de destaque */
-        color: #FFFFFF;
+    /* 2. RÓTULOS DOS CAMPOS (E-mail / Senha) */
+    label, [data-testid="stWidgetLabel"] p {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        color: #1E293B !important;
     }
 
-    /* 4. Títulos (st.title) */
-    h1 {
-        font-size: 26px !important;
+    /* 3. CAIXAS DE DADOS (Com borda visível e fundo grafite suave) */
+    div[data-baseweb="input"] {
+        background-color: #F8FAFC !important;
+        border: 1.5px solid #CBD5E1 !important;
+        border-radius: 8px !important;
+        transition: all 0.2s ease-in-out !important;
     }
 
-    /* 5. Subtítulos e Seções (st.subheader e h2/h3) */
-    h2, h3 {
-        font-size: 20px !important;
+    div[data-baseweb="input"]:focus-within {
+        border-color: #1E3A8A !important;
+        background-color: #FFFFFF !important;
+        box-shadow: 0px 0px 0px 3px rgba(30, 58, 138, 0.15) !important;
     }
 
-    /* 6. Rótulos dos Campos ("E-mail", "Senha") */
-    label[data-testid="stWidgetLabel"] p {
-        font-size: 15px !important;
-        font-weight: 600;
+    /* 4. BOTÃO ENTRAR COM ALTURA FIXA E PROPORCIONAL (42px) */
+    div.stButton > button, 
+    div.stFormSubmitButton > button {
+        background-color: #1E3A8A !important;
+        color: #FFFFFF !important;
+        border-radius: 8px !important;
+        border: none !important;
+        font-family: 'Montserrat', sans-serif !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+        height: 42px !important;
+        min-height: 42px !important;
+        max-height: 42px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 1rem !important;
+        transition: all 0.25s ease-in-out !important;
     }
 
-    /* 7. Texto digitado nos campos */
-    input {
-        font-size: 16px !important;
+    /* Texto interno do botão em branco */
+    div.stButton > button *, 
+    div.stFormSubmitButton > button * {
+        color: #FFFFFF !important;
     }
 
-    /* 8. Legendas (st.caption) */
-    [data-testid="stCaptionContainer"] p {
-        font-size: 13px !important;
+    /* Efeito de destaque no Hover */
+    div.stButton > button:hover, 
+    div.stFormSubmitButton > button:hover {
+        background-color: #2563EB !important;
+        color: #FFFFFF !important;
+        box-shadow: 0px 4px 12px rgba(37, 99, 235, 0.35) !important;
     }
     </style>
 """, unsafe_allow_html=True)
+
 
 # 1. CONEXÃO COM SUPABASE
 @st.cache_resource
