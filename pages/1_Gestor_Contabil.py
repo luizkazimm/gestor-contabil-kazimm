@@ -305,8 +305,8 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
                 st.markdown(
                     f"""
                     <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
-                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569 !important; margin: 0 0 6px 0;">🟢 Receita Realizada</p>
-                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #059669 !important; margin: 0;">{formatar_brl(rec_tot)}</div>
+                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; margin: 0 0 6px 0;">🟢 Receita Realizada</p>
+                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #059669; margin: 0;">{formatar_brl(rec_tot)}</div>
                     </div>
                     """,
                     unsafe_allow_html=True
@@ -316,8 +316,8 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
                 st.markdown(
                     f"""
                     <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
-                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569 !important; margin: 0 0 6px 0;">🔴 Despesas Pagas</p>
-                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #DC2626 !important; margin: 0;">{formatar_brl(desp_tot)}</div>
+                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; margin: 0 0 6px 0;">🔴 Despesas Pagas</p>
+                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #DC2626; margin: 0;">{formatar_brl(desp_tot)}</div>
                     </div>
                     """,
                     unsafe_allow_html=True
@@ -327,8 +327,8 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
                 st.markdown(
                     f"""
                     <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
-                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569 !important; margin: 0 0 6px 0;">⚖️ Saldo em Caixa</p>
-                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #0F172A !important; margin: 0;">{formatar_brl(saldo_caixa)}</div>
+                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; margin: 0 0 6px 0;">⚖️ Saldo em Caixa</p>
+                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #0F172A; margin: 0;">{formatar_brl(saldo_caixa)}</div>
                     </div>
                     """,
                     unsafe_allow_html=True
@@ -338,8 +338,8 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
                 st.markdown(
                     f"""
                     <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
-                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569 !important; margin: 0 0 6px 0;">🟡 A Pagar (Provisões)</p>
-                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #D97706 !important; margin: 0;">{formatar_brl(a_pagar_tot)}</div>
+                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; margin: 0 0 6px 0;">🟡 A Pagar (Provisões)</p>
+                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #D97706; margin: 0;">{formatar_brl(a_pagar_tot)}</div>
                     </div>
                     """,
                     unsafe_allow_html=True
