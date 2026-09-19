@@ -22,25 +22,27 @@ st.markdown("""
     [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2,
     [data-testid="stMarkdownContainer"] h3, [data-testid="stMarkdownContainer"] h4 {
         font-family: 'Montserrat', sans-serif !important;
-        color: #0F172A !important;
-        font-weight: 700 !important;
+        color: #0176A1 !important;
+        font-weight: 300 !important;
     }
 
     /* 2. CONTROLE DIRETO DOS CARTÕES FINANCEIROS (st.metric) */
-    /* VALOR (R$ 78.115,00) - AQUI VOCÊ CONTROLA O TAMANHO DO NÚMERO */
-    [data-testid="stMetricValue"] {
-        font-family: 'Montserrat', sans-serif !important;
-        font-size: 1.75rem !important; /* <--- ALTERE AQUI PARA AUMENTAR OU DIMINUIR O NÚMERO */
-        font-weight: 700 !important;
-        color: #0F172A !important;
+    /* O seletor '*' força a aplicação no texto interno do Streamlit */
+    [data-testid="stMetricValue"],
+    [data-testid="stMetricValue"] * {
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 3.5rem !important;  /* <- Altere o tamanho do número aqui */
+    font-weight: 700 !important;    /* <- Altere o peso (400, 600, 700, 800) */
+    color: #0176A1 !important;     /* <- Altere a cor do valor aqui */
     }
 
-    /* RÓTULO (Receita Realizada, Despesas, etc.) - AQUI VOCÊ CONTROLA O TEXTO ACIMA DO NÚMERO */
-    [data-testid="stMetricLabel"] {
-        font-family: 'Inter', sans-serif !important;
-        font-size: 0.85rem !important; /* <--- ALTERE AQUI O TAMANHO DO RÓTULO */
-        font-weight: 600 !important;
-        color: #334155 !important;
+    /* Rótulos dos cartões (Receita Realizada, Despesas, etc.) */
+    [data-testid="stMetricLabel"],
+    [data-testid="stMetricLabel"] * {
+    font-family: 'Inter', sans-serif !important;
+    font-size: 1.03rem !important;  /* <- Altere o tamanho do título aqui */
+    font-weight: 600 !important;
+    color: #334155 !important;
     }
 
     /* 3. BORDAS E CONTRASTE REFORÇADO NAS CAIXAS E FORMULÁRIOS */
@@ -287,21 +289,61 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
             st.divider()
 
             # -----------------------------------------------------------------
-            # PAINEL DE MÉTRICAS (KPIS)
+            # PAINEL DE MÉTRICAS (KPIS) - COM CÁLCULOS E CARTÕES HTML
             # -----------------------------------------------------------------
             st.markdown("##### 📊 Painel de Controle Financeiro (MEI)")
-            
+
+            # 1. CÁLCULOS FINANCEIROS (MANTIDOS)
             rec_tot = df_lancamentos[df_lancamentos["conta_credito"].str.contains("3\.|Receita", case=False, na=False)]["valor"].sum() if not df_lancamentos.empty else 0.0
             desp_tot = df_lancamentos[df_lancamentos["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)]["valor"].sum() if not df_lancamentos.empty else 0.0
             saldo_caixa = rec_tot - desp_tot
 
-            with st.container(border=True):
-                st.caption("💡 Resumo Financeiro & Compromissos")
-                c_kpi1, c_kpi2, c_kpi3, c_kpi4 = st.columns(4)
-                c_kpi1.metric("🟢 Receita Realizada", formatar_brl(rec_tot))
-                c_kpi2.metric("🔴 Despesas Pagas", formatar_brl(desp_tot))
-                c_kpi3.metric("⚖️ Saldo em Caixa", formatar_brl(saldo_caixa))
-                c_kpi4.metric("🟡 A Pagar (Provisões)", formatar_brl(a_pagar_tot))
+            # 2. EXIBIÇÃO DOS CARTÕES EM HTML/CSS
+            col_k1, col_k2, col_k3, col_k4 = st.columns(4)
+
+            with col_k1:
+                st.markdown(
+                    f"""
+                    <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
+                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569 !important; margin: 0 0 6px 0;">🟢 Receita Realizada</p>
+                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #059669 !important; margin: 0;">{formatar_brl(rec_tot)}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+            with col_k2:
+                st.markdown(
+                    f"""
+                    <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
+                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569 !important; margin: 0 0 6px 0;">🔴 Despesas Pagas</p>
+                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #DC2626 !important; margin: 0;">{formatar_brl(desp_tot)}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+            with col_k3:
+                st.markdown(
+                    f"""
+                    <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
+                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569 !important; margin: 0 0 6px 0;">⚖️ Saldo em Caixa</p>
+                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #0F172A !important; margin: 0;">{formatar_brl(saldo_caixa)}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            
+            with col_k4:
+                st.markdown(
+                    f"""
+                    <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
+                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569 !important; margin: 0 0 6px 0;">🟡 A Pagar (Provisões)</p>
+                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #D97706 !important; margin: 0;">{formatar_brl(a_pagar_tot)}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
             st.divider()
 
