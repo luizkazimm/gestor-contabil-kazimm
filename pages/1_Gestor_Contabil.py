@@ -1098,141 +1098,241 @@ elif opcao == "Importar Extrato / Excel":
             except Exception as e:
                 st.error(f"Erro ao processar o arquivo Excel: {e}")#Fim do Bloco
 
-# BLOCO VER LANÇAMENTOS (RESTRIÇÃO STRICTA AO CLIENTE ATIVO + BANNER)
-elif "Ver Lançamentos" in opcao:
-    st.subheader("📋 Consultar, Alterar e Excluir Lançamentos")
+# BLOCO VER, FILTRAR, EDITAR E EXCLUIR LANÇAMENTOS
+elif opcao == "Ver Lançamentos":
+    st.subheader("📋 Livro Caixa - Consulta, Edição & Exclusão")
 
+    user_id_atual = st.session_state.user.id
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
     if not cliente_ativo_id:
-        st.warning("⚠️ Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
+        st.warning("⚠️ Selecione um cliente ativo na barra lateral para visualizar os lançamentos.")
     else:
         conn = get_connection()
         
-        # 1. Busca os dados do cliente ativo para exibição no banner
-        df_cliente = pd.read_sql_query(
-            "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
-            conn, 
-            params=(cliente_ativo_id, st.session_state.user.id)
-        )
-
-        if df_cliente.empty:
-            st.error("Erro de segurança: Cliente não encontrado ou sem permissão.")
-            conn.close()
-        else:
-            nome_cliente = df_cliente.iloc[0]["nome"]
-            regime_cliente = df_cliente.iloc[0]["regime"]
-
-            # Caixa informativa do Cliente Ativo
-            st.info(f"📋 Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
-
-            # 2. Consulta de lançamentos restrita ao cliente ativo da sessão
-            df_lancamentos = pd.read_sql_query(
+        # 1. BUSCA DADOS CADASTRAIS DO CLIENTE ATIVO PARA O CABEÇALHO
+        try:
+            df_clientes_cad = pd.read_sql_query(
                 """
                 SELECT 
                     id, 
-                    data as "Data", 
-                    conta_debito as "Conta Débito", 
-                    conta_credito as "Conta Crédito", 
-                    valor as "Valor (R$)", 
-                    historico as "Histórico" 
-                FROM lancamentos 
-                WHERE cliente_id = %s 
-                ORDER BY data DESC, id DESC
+                    nome as "Razão Social", 
+                    cnpj_cpf as "CNPJ/CPF", 
+                    regime as "Regime Contábil",
+                    COALESCE(limite_faturamento, 81000.00) as "Limite Faturamento (R$)",
+                    COALESCE(telefone, '-') as "Telefone",
+                    COALESCE(cnae_atividade, '-') as "CNAE / Atividade"
+                FROM clientes 
+                WHERE user_id = %s AND id = %s
                 """,
                 conn,
-                params=(cliente_ativo_id,)
+                params=(user_id_atual, cliente_ativo_id),
             )
+        except Exception:
+            df_clientes_cad = pd.read_sql_query(
+                "SELECT id, nome as 'Razão Social', cnpj_cpf as 'CNPJ/CPF', regime as 'Regime Contábil', 81000.00 as 'Limite Faturamento (R$)', '-' as 'Telefone', '-' as 'CNAE / Atividade' FROM clientes WHERE user_id = %s AND id = %s",
+                conn,
+                params=(user_id_atual, cliente_ativo_id),
+            )
+
+        # 2. BUSCA LANÇAMENTOS DO CLIENTE
+        df_lancamentos = pd.read_sql_query(
+            """
+            SELECT id, data, conta_debito, conta_credito, valor, historico 
+            FROM lancamentos 
+            WHERE cliente_id = %s 
+            ORDER BY data DESC
+            """,
+            conn,
+            params=(cliente_ativo_id,),
+        )
+        conn.close()
+
+        # -----------------------------------------------------------------
+        # CABEÇALHO: FICHA CADASTRAL DO CLIENTE ATIVO
+        # -----------------------------------------------------------------
+        if not df_clientes_cad.empty:
+            row_cli = df_clientes_cad.iloc[0]
+            with st.container(border=True):
+                st.caption("📋 Ficha Cadastral do Cliente Ativo")
+                col_c1, col_c2, col_c3 = st.columns([2, 1.5, 1.5])
+                with col_c1:
+                    st.write(f"**Empresa:** {row_cli['Razão Social']}")
+                    st.write(f"**CNPJ/CPF:** {row_cli['CNPJ/CPF']}")
+                with col_c2:
+                    st.write(f"**Regime:** {row_cli['Regime Contábil']}")
+                    st.write(f"**Telefone:** {row_cli['Telefone']}")
+                with col_c3:
+                    st.write(f"**CNAE:** {row_cli['CNAE / Atividade']}")
+                    limite_val = float(row_cli['Limite Faturamento (R$)']) if row_cli['Limite Faturamento (R$)'] else 81000.0
+                    st.write(f"**Teto MEI:** {formatar_brl(limite_val)}")
+
+        st.divider()
+
+        # -----------------------------------------------------------------
+        # FILTROS E EXIBIÇÃO DA TABELA
+        # -----------------------------------------------------------------
+        if df_lancamentos.empty:
+            st.info("💡 Nenhum lançamento encontrado para este cliente.")
+        else:
+            df_lancamentos["data_dt"] = pd.to_datetime(df_lancamentos["data"]).dt.date
+
+            with st.expander("🔍 Filtros de Busca e Auditoria", expanded=True):
+                col_f1, col_f2, col_f3 = st.columns(3)
+
+                min_data = df_lancamentos["data_dt"].min()
+                max_data = df_lancamentos["data_dt"].max()
+
+                with col_f1:
+                    datas_sel = st.date_input(
+                        "📅 Período",
+                        value=(min_data, max_data),
+                        format="DD/MM/YYYY"
+                    )
+                    if isinstance(datas_sel, (tuple, list)) and len(datas_sel) == 2:
+                        data_inicio, data_fim = datas_sel
+                    else:
+                        data_inicio, data_fim = min_data, max_data
+
+                with col_f2:
+                    tipo_sel = st.selectbox(
+                        "📊 Tipo de Operação",
+                        ["Todos", "🟢 Receitas (Entradas)", "🔴 Despesas (Saídas)"]
+                    )
+
+                contas_unicas = sorted(list(
+                    set(df_lancamentos["conta_debito"].dropna().unique()).union(
+                    set(df_lancamentos["conta_credito"].dropna().unique()))
+                ))
+                
+                with col_f3:
+                    conta_sel = st.selectbox(
+                        "🏦 Conta / Categoria",
+                        ["Todas"] + contas_unicas
+                    )
+
+            # Aplicação dos Filtros
+            df_filtrado = df_lancamentos.copy()
+
+            df_filtrado = df_filtrado[
+                (df_filtrado["data_dt"] >= data_inicio) & 
+                (df_filtrado["data_dt"] <= data_fim)
+            ]
+
+            if tipo_sel == "🟢 Receitas (Entradas)":
+                df_filtrado = df_filtrado[
+                    df_filtrado["conta_credito"].str.contains("3\.|Receita", case=False, na=False)
+                ]
+            elif tipo_sel == "🔴 Despesas (Saídas)":
+                df_filtrado = df_filtrado[
+                    df_filtrado["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)
+                ]
+
+            if conta_sel != "Todas":
+                df_filtrado = df_filtrado[
+                    (df_filtrado["conta_debito"] == conta_sel) | 
+                    (df_filtrado["conta_credito"] == conta_sel)
+                ]
+
+            # Exibição dos resultados
+            total_registros = len(df_filtrado)
+            soma_valor = df_filtrado["valor"].sum() if not df_filtrado.empty else 0.0
+
+            col_r1, col_r2 = st.columns([2, 1])
+            with col_r1:
+                st.caption(f"Exibindo **{total_registros}** lançamento(s) encontrado(s)")
+            with col_r2:
+                st.markdown(f"**Total do Período Filtrado:** `{formatar_brl(soma_valor)}`")
+
+            df_exibir = df_filtrado.copy()
+            df_exibir["Data"] = df_exibir["data_dt"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notna(x) else "")
+            df_exibir["Valor"] = df_exibir["valor"].apply(formatar_brl)
+
+            cols_exibicao = ["id", "Data", "conta_debito", "conta_credito", "Valor", "historico"]
             
-            # 3. Busca o plano de contas para popular os seletores de edição
-            df_contas = pd.read_sql_query(
-                "SELECT codigo, descricao FROM plano_contas ORDER BY codigo ASC", 
-                conn
+            st.dataframe(
+                df_exibir[cols_exibicao].rename(columns={
+                    "id": "ID",
+                    "conta_debito": "Conta Débito",
+                    "conta_credito": "Conta Crédito",
+                    "historico": "Histórico / Documento"
+                }),
+                use_container_width=True,
+                hide_index=True
             )
-            conn.close()
 
-            if df_lancamentos.empty:
-                st.info("💡 Nenhum lançamento encontrado para o cliente ativo.")
-            else:
-                # Tabela de visualização dos lançamentos
-                st.write("##### 📑 Lançamentos Registrados")
-                st.dataframe(df_lancamentos, use_container_width=True, height=300)
+            # -----------------------------------------------------------------
+            # AÇÕES: EDITAR OU EXCLUIR LANÇAMENTO SELECIONADO
+            # -----------------------------------------------------------------
+            st.divider()
+            with st.expander("🛠️ Ações: Alterar ou Excluir um Lançamento", expanded=True):
+                if df_filtrado.empty:
+                    st.info("💡 Nenhum lançamento disponível para alteração/exclusão com os filtros atuais.")
+                else:
+                    # Mapeia os lançamentos filtrados para a seleção
+                    dict_lancamentos = {}
+                    for _, r in df_filtrado.iterrows():
+                        dt_fmt = r["data_dt"].strftime("%d/%m/%Y") if pd.notna(r["data_dt"]) else ""
+                        v_fmt = formatar_brl(r["valor"])
+                        rotulo = f"ID #{r['id']} | {dt_fmt} | {v_fmt} | {str(r['historico'])[:40]}"
+                        dict_lancamentos[rotulo] = r["id"]
 
-                st.markdown("---")
-                st.write("##### ✏️ Alterar ou Excluir Lançamento")
+                    item_selecionado_rotulo = st.selectbox(
+                        "Selecione o lançamento que deseja Alterar ou Excluir:",
+                        options=list(dict_lancamentos.keys())
+                    )
 
-                # Formata rótulos para a seleção do lançamento
-                df_lancamentos["label"] = (
-                    "ID " + df_lancamentos["id"].astype(str) + " | " +
-                    df_lancamentos["Data"].astype(str) + " | R$ " +
-                    df_lancamentos["Valor (R$)"].apply(lambda x: f"{x:,.2f}") + " | " +
-                    df_lancamentos["Histórico"]
-                )
-                dict_lancamentos = dict(zip(df_lancamentos["label"], df_lancamentos["id"]))
+                    id_alvo = dict_lancamentos[item_selecionado_rotulo]
+                    row_alvo = df_lancamentos[df_lancamentos["id"] == id_alvo].iloc[0]
 
-                lanc_sel_label = st.selectbox("Selecione o Lançamento para modificar:", list(dict_lancamentos.keys()))
-                id_lanc_sel = dict_lancamentos[lanc_sel_label]
+                    tab_alt, tab_exc = st.tabs(["✏️ Alterar Lançamento", "🗑️ Excluir Lançamento"])
 
-                # Busca os dados do lançamento para preencher o formulário
-                conn = get_connection()
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE id = %s AND cliente_id = %s",
-                    (id_lanc_sel, cliente_ativo_id)
-                )
-                reg_lanc = cursor.fetchone()
-                conn.close()
+                    # ABA ALTERAR
+                    with tab_alt:
+                        with st.form("form_editar_lancamento"):
+                            col_e1, col_e2 = st.columns(2)
+                            with col_e1:
+                                data_edit = st.date_input("Data do Lançamento", value=row_alvo["data_dt"], format="DD/MM/YYYY")
+                                c_deb_edit = st.text_input("Conta Débito", value=str(row_alvo["conta_debito"]))
+                                val_edit = st.number_input("Valor (R$)", value=float(row_alvo["valor"]), step=0.01)
+                            with col_e2:
+                                c_cred_edit = st.text_input("Conta Crédito", value=str(row_alvo["conta_credito"]))
+                                hist_edit = st.text_area("Histórico / Documento", value=str(row_alvo["historico"]))
 
-                if reg_lanc:
-                    dt_atu, deb_atu, cred_atu, val_atu, hist_atu = reg_lanc
-                    plano_de_contas = [""] + [f"{r['codigo']} - {r['descricao']}" for _, r in df_contas.iterrows()]
+                            btn_salvar_edit = st.form_submit_button("💾 Salvar Alterações", use_container_width=True)
 
-                    with st.form("form_editar_lancamento_ativo"):
-                        col_ed1, col_ed2 = st.columns(2)
-                        with col_ed1:
-                            nova_dt = st.date_input("Data", value=pd.to_datetime(dt_atu).date(), format="DD/MM/YYYY")
-                            
-                            idx_deb = plano_de_contas.index(deb_atu) if deb_atu in plano_de_contas else 0
-                            novo_deb = st.selectbox("Conta Débito", plano_de_contas, index=idx_deb)
-                            
-                            novo_val = st.number_input("Valor (R$)", value=float(val_atu), min_value=0.00, step=0.01, format="%.2f")
-
-                        with col_ed2:
-                            idx_cred = plano_de_contas.index(cred_atu) if cred_atu in plano_de_contas else 0
-                            novo_cred = st.selectbox("Conta Crédito", plano_de_contas, index=idx_cred)
-                            
-                            novo_hist = st.text_input("Histórico", value=hist_atu)
-
-                        salvar_ed_lanc = st.form_submit_button("💾 Salvar Alterações", use_container_width=True)
-
-                        if salvar_ed_lanc:
-                            if novo_deb and novo_cred and novo_val > 0:
-                                conn = get_connection()
-                                cursor = conn.cursor()
-                                cursor.execute(
+                            if btn_salvar_edit:
+                                conn_act = get_connection()
+                                cursor_act = conn_act.cursor()
+                                cursor_act.execute(
                                     """
                                     UPDATE lancamentos 
-                                    SET data = %s, conta_debito = %s, conta_credito = %s, valor = %s, historico = %s 
+                                    SET data = %s, conta_debito = %s, conta_credito = %s, valor = %s, historico = %s
                                     WHERE id = %s AND cliente_id = %s
                                     """,
-                                    (str(nova_dt), novo_deb, novo_cred, novo_val, novo_hist, id_lanc_sel, cliente_ativo_id)
+                                    (data_edit.strftime("%Y-%m-%d"), c_deb_edit, c_cred_edit, val_edit, hist_edit, id_alvo, cliente_ativo_id)
                                 )
-                                conn.commit()
-                                conn.close()
-                                st.success("Lançamento atualizado com sucesso!")
+                                conn_act.commit()
+                                conn_act.close()
+                                st.success(f"Lançamento ID #{id_alvo} atualizado com sucesso!")
                                 st.rerun()
-                            else:
-                                st.error("Preencha as contas e um valor maior que zero.")
 
-                    with st.expander("🗑️ Excluir este Lançamento"):
-                        st.caption("Atenção: Esta ação removerá o registro do histórico.")
-                        if st.button("Confirmar Exclusão", key=f"del_l_m6_{id_lanc_sel}", type="primary", use_container_width=True):
-                            conn = get_connection()
-                            cursor = conn.cursor()
-                            cursor.execute("DELETE FROM lancamentos WHERE id = %s AND cliente_id = %s", (id_lanc_sel, cliente_ativo_id))
-                            conn.commit()
-                            conn.close()
-                            st.success("Lançamento excluído com sucesso!")
+                    # ABA EXCLUIR
+                    with tab_exc:
+                        st.warning(f"⚠️ Tem certeza que deseja excluir o lançamento **ID #{id_alvo}**?")
+                        st.write(f"**Data:** {row_alvo['data_dt'].strftime('%d/%m/%Y') if pd.notna(row_alvo['data_dt']) else ''} | **Valor:** {formatar_brl(row_alvo['valor'])}")
+                        st.write(f"**Histórico:** {row_alvo['historico']}")
+
+                        if st.button("🚨 Confirmar Exclusão do Lançamento", use_container_width=True, type="primary"):
+                            conn_del = get_connection()
+                            cursor_del = conn_del.cursor()
+                            cursor_del.execute(
+                                "DELETE FROM lancamentos WHERE id = %s AND cliente_id = %s",
+                                (id_alvo, cliente_ativo_id)
+                            )
+                            conn_del.commit()
+                            conn_del.close()
+                            st.success(f"Lançamento ID #{id_alvo} excluído com sucesso!")
                             st.rerun()
 #Fim do bloco
 
