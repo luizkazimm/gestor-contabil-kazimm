@@ -53,8 +53,10 @@ opcao = st.sidebar.selectbox(
         "Relatório por Categoria"
     ]
 )
-# BLOCO CADASTRAR / GERENCIAR CLIENTES (PAINEL DO ADMINISTRADOR)
-if opcao == "Cadastrar Cliente":
+# =============================================================================
+# BLOCO CADASTRAR / GERENCIAR CLIENTES E DASHBOARD MEI
+# =============================================================================
+if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente":
     st.subheader("🏢 Gestão do Cliente & Dashboard MEI")
 
     user_id_atual = st.session_state.user.id
@@ -70,15 +72,19 @@ if opcao == "Cadastrar Cliente":
     if qtd_clientes < 1:
         st.info("👋 Bem-vindo, Administrador! Cadastre a primeira empresa para ativar o sistema.")
         with st.form("form_cliente_inicial"):
-            col_cli1, col_cli2 = st.columns(2)
+            col_cli1, col_cli2, col_cli3 = st.columns(3)
             with col_cli1:
-                nome = st.text_input("Nome / Razão Social")
-                cnpj_cpf = st.text_input("CNPJ ou CPF")
-                telefone = st.text_input("Telefone de Contato", placeholder="(00) 00000-0000")
+                nome = st.text_input("Razão Social / Nome")
+                cnpj_cpf = st.text_input("CNPJ")
+                cpf = st.text_input("CPF Titular")
             with col_cli2:
                 regime = st.selectbox("Regime Contábil", ["MEI (Microempreendedor Individual)", "Simples Nacional"])
-                limite_fat = st.selectbox("Limite de Faturamento Anual", [81000.00, 246000.00], format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
-                cnae = st.text_input("Código de Atividade (CNAE)", placeholder="Ex: 47.12-1-00")
+                limite_fat = st.selectbox("Limite Faturamento Anual", [81000.00, 246000.00], format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
+                cap_social = st.number_input("Capital Social (R$)", value=1000.00, step=100.0)
+            with col_cli3:
+                dt_abertura = st.date_input("Data de Abertura", value=datetime.today().date(), format="DD/MM/YYYY")
+                telefone = st.text_input("Telefone de Contato", placeholder="(00) 00000-0000")
+                cnae = st.text_input("Código de Atividade (CNAE)")
 
             salvar = st.form_submit_button("💾 Cadastrar Primeira Empresa", use_container_width=True)
 
@@ -89,10 +95,10 @@ if opcao == "Cadastrar Cliente":
                 try:
                     cursor.execute(
                         """
-                        INSERT INTO clientes (nome, cnpj_cpf, regime, limite_faturamento, telefone, cnae_atividade, user_id) 
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        INSERT INTO clientes (nome, cnpj_cpf, cpf, regime, capital_social, data_abertura, limite_faturamento, telefone, cnae_atividade, user_id) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """,
-                        (nome, cnpj_cpf, regime, limite_fat, telefone, cnae, user_id_atual),
+                        (nome, cnpj_cpf, cpf, regime, cap_social, dt_abertura.strftime("%Y-%m-%d"), limite_fat, telefone, cnae, user_id_atual),
                     )
                     conn.commit()
                     st.success(f"Empresa '{nome}' cadastrada com sucesso!")
@@ -102,162 +108,240 @@ if opcao == "Cadastrar Cliente":
                 finally:
                     conn.close()
             else:
-                st.warning("Preencha a Razão Social e o CNPJ/CPF.")
+                st.warning("Preencha a Razão Social e o CNPJ.")
 
     # DASHBOARD + PAINEL DE CONTROLE DO ADMINISTRADOR
     else:
-        conn = get_connection()
-        try:
-            df_clientes_cad = pd.read_sql_query(
-                """
-                SELECT 
-                    id, 
-                    nome as "Razão Social", 
-                    cnpj_cpf as "CNPJ/CPF", 
-                    regime as "Regime Contábil",
-                    COALESCE(limite_faturamento, 81000.00) as "Limite Faturamento (R$)",
-                    COALESCE(telefone, '-') as "Telefone",
-                    COALESCE(cnae_atividade, '-') as "CNAE / Atividade"
-                FROM clientes 
-                WHERE user_id = %s AND id = %s
-                """,
-                conn,
-                params=(user_id_atual, cliente_ativo_id),
-            )
-        except Exception:
-            df_clientes_cad = pd.read_sql_query(
-                "SELECT id, nome as 'Razão Social', cnpj_cpf as 'CNPJ/CPF', regime as 'Regime Contábil', 81000.00 as 'Limite Faturamento (R$)', '-' as 'Telefone', '-' as 'CNAE / Atividade' FROM clientes WHERE user_id = %s AND id = %s",
-                conn,
-                params=(user_id_atual, cliente_ativo_id),
-            )
-
-        df_lancamentos = pd.read_sql_query(
-            "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE cliente_id = %s",
-            conn,
-            params=(cliente_ativo_id,),
-        )
-        conn.close()
-
-        # 1. FICHA TÉCNICA DO CLIENTE ATIVO
-        if not df_clientes_cad.empty:
-            row_cli = df_clientes_cad.iloc[0]
-            with st.container(border=True):
-                st.caption("📋 Ficha Cadastral do Cliente Ativo")
-                col_c1, col_c2, col_c3 = st.columns([2, 1.5, 1.5])
-                with col_c1:
-                    st.write(f"**Empresa:** {row_cli['Razão Social']}")
-                    st.write(f"**CNPJ/CPF:** {row_cli['CNPJ/CPF']}")
-                with col_c2:
-                    st.write(f"**Regime:** {row_cli['Regime Contábil']}")
-                    st.write(f"**Telefone:** {row_cli['Telefone']}")
-                with col_c3:
-                    st.write(f"**CNAE:** {row_cli['CNAE / Atividade']}")
-                    limite_val = float(row_cli['Limite Faturamento (R$)']) if row_cli['Limite Faturamento (R$)'] else 81000.0
-                    st.write(f"**Teto MEI:** {formatar_brl(limite_val)}")
-
-        st.divider()
-
-        # 2. PAINEL DE METRICAS (KPIS)
-        st.subheader("📊 Painel de Controle Financeiro (MEI)")
-        if df_lancamentos.empty:
-            st.info("💡 Nenhum lançamento encontrado no momento.")
+        if not cliente_ativo_id:
+            st.warning("⚠️ Selecione um cliente ativo na barra lateral para visualizar o Dashboard.")
         else:
-            mask_entrada = df_lancamentos["conta_debito"].str.contains("1.1.1", na=False) & ~df_lancamentos["conta_credito"].str.contains("1.1.1", na=False)
-            mask_saida = df_lancamentos["conta_credito"].str.contains("1.1.1", na=False) & ~df_lancamentos["conta_debito"].str.contains("1.1.1", na=False)
+            conn = get_connection()
+            
+            # 1. CONSULTA DADOS CADASTRAIS COMPLETOS (DADOS CCMEI)
+            try:
+                df_clientes_cad = pd.read_sql_query(
+                    """
+                    SELECT 
+                        id, 
+                        nome as "Razão Social", 
+                        cnpj_cpf as "CNPJ", 
+                        COALESCE(cpf, '-') as "CPF Titular",
+                        regime as "Regime Contábil",
+                        COALESCE(capital_social, 0.00) as "Capital Social",
+                        data_abertura as "Data Abertura",
+                        COALESCE(limite_faturamento, 81000.00) as "Limite Faturamento (R$)",
+                        COALESCE(telefone, '-') as "Telefone",
+                        COALESCE(cnae_atividade, '-') as "CNAE / Atividade"
+                    FROM clientes 
+                    WHERE id = %s
+                    """,
+                    conn,
+                    params=(cliente_ativo_id,),
+                )
+            except Exception:
+                df_clientes_cad = pd.read_sql_query(
+                    """
+                    SELECT 
+                        id, 
+                        nome as "Razão Social", 
+                        cnpj_cpf as "CNPJ", 
+                        '-' as "CPF Titular",
+                        regime as "Regime Contábil",
+                        0.00 as "Capital Social",
+                        NULL as "Data Abertura",
+                        81000.00 as "Limite Faturamento (R$)",
+                        '-' as "Telefone",
+                        '-' as "CNAE / Atividade"
+                    FROM clientes 
+                    WHERE id = %s
+                    """,
+                    conn,
+                    params=(cliente_ativo_id,),
+                )
 
-            total_receitas = df_lancamentos[mask_entrada]["valor"].sum() if any(mask_entrada) else 0.0
-            total_despesas = df_lancamentos[mask_saida]["valor"].sum() if any(mask_saida) else 0.0
+            # 2. CONSULTA LANÇAMENTOS DO LIVRO CAIXA
+            df_lancamentos = pd.read_sql_query(
+                "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE cliente_id = %s",
+                conn,
+                params=(cliente_ativo_id,)
+            )
 
-            if total_receitas == 0 and total_despesas == 0:
-                total_receitas = df_lancamentos[df_lancamentos["conta_credito"].str.contains("3\.|Receita", case=False, na=False)]["valor"].sum()
-                total_despesas = df_lancamentos[df_lancamentos["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)]["valor"].sum()
+            # 3. CONSULTA PROVISÕES (CONTAS A PAGAR)
+            try:
+                df_provisoes = pd.read_sql_query(
+                    "SELECT valor FROM provisoes WHERE cliente_id = %s AND status = 'Pendente'",
+                    conn,
+                    params=(cliente_ativo_id,)
+                )
+                a_pagar_tot = df_provisoes["valor"].sum() if not df_provisoes.empty else 0.0
+            except Exception:
+                a_pagar_tot = 0.0
 
-            saldo_liquido = total_receitas - total_despesas
+            conn.close()
 
-            conn_prov = get_connection()
-            cursor_prov = conn_prov.cursor()
-            cursor_prov.execute("SELECT COALESCE(SUM(valor), 0.0) FROM provisoes WHERE cliente_id = %s AND status = 'Pendente'", (cliente_ativo_id,))
-            res_provisao = cursor_prov.fetchone()
-            total_a_pagar = float(res_provisao[0]) if res_provisao else 0.0
-            conn_prov.close()
+            # -----------------------------------------------------------------
+            # FICHA CADASTRAL UNIFICADA (DADOS DO CCMEI)
+            # -----------------------------------------------------------------
+            if not df_clientes_cad.empty:
+                row_cli = df_clientes_cad.iloc[0]
+                
+                dt_abertura_str = row_cli['Data Abertura'].strftime('%d/%m/%Y') if pd.notna(row_cli['Data Abertura']) else '-'
+                cap_social_val = float(row_cli['Capital Social']) if row_cli['Capital Social'] else 0.0
+                limite_val = float(row_cli['Limite Faturamento (R$)']) if row_cli['Limite Faturamento (R$)'] else 81000.0
+
+                with st.container(border=True):
+                    st.caption("📋 Ficha Cadastral do Cliente Ativo (Dados CCMEI)")
+                    col_c1, col_c2, col_c3 = st.columns(3)
+                    
+                    with col_c1:
+                        st.write(f"**Empresa:** {row_cli['Razão Social']}")
+                        st.write(f"**CNPJ:** {row_cli['CNPJ']}")
+                        st.write(f"**CPF Titular:** {row_cli['CPF Titular']}")
+                    with col_c2:
+                        st.write(f"**Regime:** {row_cli['Regime Contábil']}")
+                        st.write(f"**Capital Social:** {formatar_brl(cap_social_val)}")
+                        st.write(f"**Data de Abertura:** {dt_abertura_str}")
+                    with col_c3:
+                        st.write(f"**Telefone:** {row_cli['Telefone']}")
+                        st.write(f"**CNAE:** {row_cli['CNAE / Atividade']}")
+                        st.write(f"**Teto MEI:** {formatar_brl(limite_val)}")
+
+            st.divider()
+
+            # -----------------------------------------------------------------
+            # PAINEL DE MÉTRICAS (KPIS)
+            # -----------------------------------------------------------------
+            st.markdown("##### 📊 Painel de Controle Financeiro (MEI)")
+            
+            rec_tot = df_lancamentos[df_lancamentos["conta_credito"].str.contains("3\.|Receita", case=False, na=False)]["valor"].sum() if not df_lancamentos.empty else 0.0
+            desp_tot = df_lancamentos[df_lancamentos["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)]["valor"].sum() if not df_lancamentos.empty else 0.0
+            saldo_caixa = rec_tot - desp_tot
 
             with st.container(border=True):
                 st.caption("💡 Resumo Financeiro & Compromissos")
                 c_kpi1, c_kpi2, c_kpi3, c_kpi4 = st.columns(4)
-                c_kpi1.metric("🟢 Receita Realizada", formatar_brl(total_receitas))
-                c_kpi2.metric("🔴 Despesas Pagas", formatar_brl(total_despesas))
-                c_kpi3.metric("⚖️ Saldo em Caixa", formatar_brl(saldo_liquido))
-                c_kpi4.metric("🟡 A Pagar (Provisões)", formatar_brl(total_a_pagar))
+                c_kpi1.metric("🟢 Receita Realizada", formatar_brl(rec_tot))
+                c_kpi2.metric("🔴 Despesas Pagas", formatar_brl(desp_tot))
+                c_kpi3.metric("⚖️ Saldo em Caixa", formatar_brl(saldo_caixa))
+                c_kpi4.metric("🟡 A Pagar (Provisões)", formatar_brl(a_pagar_tot))
 
             st.divider()
 
-            # TETO MEI
-            limite_mei = float(df_clientes_cad.iloc[0]["Limite Faturamento (R$)"]) if not df_clientes_cad.empty and df_clientes_cad.iloc[0]["Limite Faturamento (R$)"] else 81000.00
-            st.write(f"##### 🎯 Acompanhamento do Limite Anual MEI (Teto: {formatar_brl(limite_mei)})")
-            percentual_mei = min(total_receitas / limite_mei, 1.0)
-            percentual_real = (total_receitas / limite_mei) * 100
-
+            # -----------------------------------------------------------------
+            # ACOMPANHAMENTO DO LIMITE ANUAL MEI
+            # -----------------------------------------------------------------
+            percentual_real = (rec_tot / limite_val) * 100 if limite_val > 0 else 0.0
+            st.markdown(f"##### 🎯 Acompanhamento do Limite Anual MEI (Teto: {formatar_brl(limite_val)})")
+            
             col_m1, col_m2 = st.columns([3, 1])
             with col_m1:
-                st.progress(percentual_mei)
-                st.caption(f"Faturado: **{formatar_brl(total_receitas)}** de **{formatar_brl(limite_mei)}** ({percentual_real:.1f}%)")
+                st.progress(min(percentual_real / 100.0, 1.0))
+                st.caption(f"Faturado: **{formatar_brl(rec_tot)}** de **{formatar_brl(limite_val)}** ({percentual_real:.1f}%)")
             with col_m2:
-                if percentual_real < 80:
+                if percentual_real <= 80:
                     st.success("🟢 Faturamento Regular")
                 elif percentual_real <= 100:
-                    st.warning("🟡 Atenção: Próximo ao Limite!")
+                    st.warning("⚠️ Próximo ao Teto MEI")
                 else:
-                    st.error("🔴 Alerta: Limite Ultrapassado!")
+                    st.error("🚨 Teto MEI Excedido")
 
             st.divider()
-            st.write("##### 📌 Despesas por Categoria")
-            df_despesas_cat = df_lancamentos[mask_saida].copy()
-            if df_despesas_cat.empty:
-                df_despesas_cat = df_lancamentos[df_lancamentos["conta_debito"].str.contains("4\.|Despesa", case=False, na=False)].copy()
 
-            if not df_despesas_cat.empty:
-                df_grafico = df_despesas_cat.groupby("conta_debito")["valor"].sum().reset_index()
-                df_grafico.columns = ["Categoria / Fornecedor", "Valor"]
-                df_grafico = df_grafico.sort_values(by="Valor", ascending=False)
+            # -----------------------------------------------------------------
+            # DESPESAS POR CATEGORIA (GRÁFICO)
+            # -----------------------------------------------------------------
+            st.markdown("##### 📌 Despesas por Categoria")
+            if not df_lancamentos.empty:
+                df_despesas = df_lancamentos[df_lancamentos["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)].copy()
+                if not df_despesas.empty:
+                    df_cat = df_despesas.groupby("conta_debito")["valor"].sum().reset_index()
+                    df_cat.columns = ["Categoria / Fornecedor", "Valor"]
+                    df_cat = df_cat.sort_values(by="Valor", ascending=False)
 
-                try:
-                    import plotly.express as px
-                    fig = px.pie(df_grafico, names="Categoria / Fornecedor", values="Valor", hole=0.4, color_discrete_sequence=px.colors.qualitative.Set3)
-                    fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300)
-                    st.plotly_chart(fig, use_container_width=True)
-                except ImportError:
-                    st.bar_chart(df_grafico.set_index("Categoria / Fornecedor"))
+                    try:
+                        import plotly.express as px
+                        fig = px.pie(
+                            df_cat, 
+                            names="Categoria / Fornecedor", 
+                            values="Valor", 
+                            hole=0.4, 
+                            color_discrete_sequence=px.colors.qualitative.Set3
+                        )
+                        fig.update_traces(textposition='inside', textinfo='percent')
+                        fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=300)
+                        st.plotly_chart(fig, use_container_width=True)
+                    except Exception:
+                        st.bar_chart(df_cat.set_index("Categoria / Fornecedor"))
+                else:
+                    st.info("💡 Nenhuma despesa registrada para exibir no gráfico.")
+            else:
+                st.info("💡 Nenhum lançamento registrado.")
 
         # -----------------------------------------------------------------
-        # 3. FERRAMENTAS DO ADMINISTRADOR (EXIBIDO APENAS PARA O CONTADOR)
+        # FERRAMENTAS DO ADMINISTRADOR (EXPANDER EXCLUSIVO)
         # -----------------------------------------------------------------
-        # Insira aqui os e-mails com permissão total no sistema
         EMAILS_ADMIN = [
-            "luizcasemiro@kazimm.com.br","luizti.kazimm@gmail.com"  # Seu e-mail de Administrador
+            "luizcasemiro@kazimm.com.br",
+            "luizti.kazimm@gmail.com"
         ]
 
-        # A aba só será desenhada na tela se o e-mail logado estiver na lista acima
         if st.session_state.user.email in EMAILS_ADMIN:
             st.divider()
             with st.expander("⚙️ Painel de Administração de Clientes (Exclusivo Contador)", expanded=False):
-                tab_edit, tab_novo, tab_usuario, tab_lista = st.tabs(["✏️ Editar Cliente Ativo", "➕ Cadastrar Novo Cliente", "👤 Criar Acesso (Login)", "📋 Carteira de Clientes"])
+                tab_edit, tab_novo, tab_usuario, tab_lista = st.tabs([
+                    "✏️ Editar Cliente", 
+                    "➕ Cadastrar Novo Cliente", 
+                    "👤 Criar Acesso (Login)", 
+                    "📋 Carteira de Clientes"
+                ])
 
-                # ABA 1: EDITAR CLIENTE SELECIONADO
+                # ABA 1: EDITAR QUALQUER CLIENTE DA CARTEIRA
                 with tab_edit:
-                    if not df_clientes_cad.empty:
-                        row_edit = df_clientes_cad.iloc[0]
+                    conn_sel = get_connection()
+                    df_todos_cli = pd.read_sql_query(
+                        """
+                        SELECT id, nome, cnpj_cpf, COALESCE(cpf, '') as cpf, regime, 
+                               COALESCE(capital_social, 0.00) as capital_social, data_abertura,
+                               COALESCE(limite_faturamento, 81000.00) as limite, 
+                               COALESCE(telefone, '') as telefone, COALESCE(cnae_atividade, '') as cnae 
+                        FROM clientes ORDER BY nome ASC
+                        """,
+                        conn_sel
+                    )
+                    conn_sel.close()
+
+                    if df_todos_cli.empty:
+                        st.info("💡 Nenhum cliente cadastrado para edição.")
+                    else:
+                        dict_cli_edit = {
+                            f"ID #{row['id']} - {row['nome']} ({row['cnpj_cpf']})": row['id'] 
+                            for _, row in df_todos_cli.iterrows()
+                        }
+                        cli_sel_rotulo = st.selectbox("🔍 Selecione o cliente para alterar dados:", options=list(dict_cli_edit.keys()))
+                        id_cli_editar = dict_cli_edit[cli_sel_rotulo]
+                        row_edit = df_todos_cli[df_todos_cli["id"] == id_cli_editar].iloc[0]
+
                         with st.form("form_editar_cliente_admin"):
-                            st.markdown(f"##### Alterar dados de: **{row_edit['Razão Social']}**")
-                            col_e1, col_e2 = st.columns(2)
+                            st.markdown(f"##### Alterando dados do Cliente **ID #{id_cli_editar}**")
+                            col_e1, col_e2, col_e3 = st.columns(3)
                             with col_e1:
-                                e_nome = st.text_input("Razão Social / Nome", value=str(row_edit['Razão Social']))
-                                e_cnpj = st.text_input("CNPJ / CPF", value=str(row_edit['CNPJ/CPF']))
-                                e_tel = st.text_input("Telefone", value=str(row_edit['Telefone']))
+                                e_nome = st.text_input("Razão Social / Nome", value=str(row_edit['nome']))
+                                e_cnpj = st.text_input("CNPJ", value=str(row_edit['cnpj_cpf']))
+                                e_cpf = st.text_input("CPF Titular", value=str(row_edit['cpf']))
                             with col_e2:
-                                e_regime = st.selectbox("Regime Contábil", ["MEI (Microempreendedor Individual)", "Simples Nacional"], index=0 if "MEI" in str(row_edit['Regime Contábil']) else 1)
-                                lim_atual = float(row_edit['Limite Faturamento (R$)']) if row_edit['Limite Faturamento (R$)'] else 81000.0
-                                e_limite = st.selectbox("Limite Faturamento", [81000.00, 246000.00], index=0 if lim_atual == 81000 else 1, format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
-                                e_cnae = st.text_input("CNAE", value=str(row_edit['CNAE / Atividade']))
+                                reg_index = 0 if "MEI" in str(row_edit['regime']) else 1
+                                e_regime = st.selectbox("Regime Contábil", ["MEI (Microempreendedor Individual)", "Simples Nacional"], index=reg_index)
+                                
+                                lim_val = float(row_edit['limite'])
+                                lim_index = 0 if lim_val == 81000.0 else 1
+                                e_limite = st.selectbox("Limite Faturamento", [81000.00, 246000.00], index=lim_index, format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
+                                
+                                e_cap_social = st.number_input("Capital Social (R$)", value=float(row_edit['capital_social']), step=100.0)
+                            with col_e3:
+                                dt_abert_val = pd.to_datetime(row_edit['data_abertura']).date() if pd.notna(row_edit['data_abertura']) else datetime.today().date()
+                                e_dt_abertura = st.date_input("Data de Abertura", value=dt_abert_val, format="DD/MM/YYYY")
+                                e_tel = st.text_input("Telefone", value=str(row_edit['telefone']))
+                                e_cnae = st.text_input("CNAE / Atividade", value=str(row_edit['cnae']))
 
                             btn_atualizar = st.form_submit_button("💾 Salvar Alterações do Cliente", use_container_width=True)
 
@@ -267,28 +351,32 @@ if opcao == "Cadastrar Cliente":
                                 cursor_up.execute(
                                     """
                                     UPDATE clientes 
-                                    SET nome = %s, cnpj_cpf = %s, regime = %s, limite_faturamento = %s, telefone = %s, cnae_atividade = %s
-                                    WHERE id = %s AND user_id = %s
+                                    SET nome = %s, cnpj_cpf = %s, cpf = %s, regime = %s, capital_social = %s, data_abertura = %s, limite_faturamento = %s, telefone = %s, cnae_atividade = %s
+                                    WHERE id = %s
                                     """,
-                                    (e_nome, e_cnpj, e_regime, e_limite, e_tel, e_cnae, cliente_ativo_id, user_id_atual)
+                                    (e_nome, e_cnpj, e_cpf, e_regime, e_cap_social, e_dt_abertura.strftime("%Y-%m-%d"), e_limite, e_tel, e_cnae, id_cli_editar)
                                 )
                                 conn_up.commit()
                                 conn_up.close()
-                                st.success("Dados do cliente atualizados!")
+                                st.success(f"Dados do cliente '{e_nome}' atualizados!")
                                 st.rerun()
 
                 # ABA 2: CADASTRAR UM NOVO CLIENTE NA CARTEIRA
                 with tab_novo:
                     with st.form("form_novo_cliente_admin"):
                         st.markdown("##### Adicionar Novo MEI à sua Carteira")
-                        col_n1, col_n2 = st.columns(2)
+                        col_n1, col_n2, col_n3 = st.columns(3)
                         with col_n1:
-                            n_nome = st.text_input("Razão Social")
-                            n_cnpj = st.text_input("CNPJ ou CPF")
-                            n_tel = st.text_input("Telefone")
+                            n_nome = st.text_input("Razão Social / Nome")
+                            n_cnpj = st.text_input("CNPJ")
+                            n_cpf = st.text_input("CPF Titular")
                         with col_n2:
                             n_regime = st.selectbox("Regime", ["MEI (Microempreendedor Individual)", "Simples Nacional"], key="n_reg")
                             n_limite = st.selectbox("Limite Faturamento", [81000.00, 246000.00], key="n_lim", format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
+                            n_cap_social = st.number_input("Capital Social (R$)", value=1000.00, step=100.0)
+                        with col_n3:
+                            n_dt_abertura = st.date_input("Data de Abertura", value=datetime.today().date(), format="DD/MM/YYYY")
+                            n_tel = st.text_input("Telefone")
                             n_cnae = st.text_input("CNAE / Atividade")
 
                         btn_cad_novo = st.form_submit_button("➕ Adicionar Empresa", use_container_width=True)
@@ -299,17 +387,18 @@ if opcao == "Cadastrar Cliente":
                                 cursor_add = conn_add.cursor()
                                 cursor_add.execute(
                                     """
-                                    INSERT INTO clientes (nome, cnpj_cpf, regime, limite_faturamento, telefone, cnae_atividade, user_id)
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                    INSERT INTO clientes (nome, cnpj_cpf, cpf, regime, capital_social, data_abertura, limite_faturamento, telefone, cnae_atividade, user_id)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                                     """,
-                                    (n_nome, n_cnpj, n_regime, n_limite, n_tel, n_cnae, user_id_atual)
+                                    (n_nome, n_cnpj, n_cpf, n_regime, n_cap_social, n_dt_abertura.strftime("%Y-%m-%d"), n_limite, n_tel, n_cnae, user_id_atual)
                                 )
                                 conn_add.commit()
                                 conn_add.close()
-                                st.success(f"Empresa '{n_nome}' adicionada! Selecione-a na barra lateral.")
+                                st.success(f"Empresa '{n_nome}' adicionada com sucesso!")
                                 st.rerun()
                             else:
-                                st.warning("Preencha Razão Social e CNPJ/CPF.")
+                                st.warning("Preencha Razão Social e CNPJ.")
+
                 # ABA 3: CRIAR NOVO LOGIN DE USUÁRIO
                 with tab_usuario:
                     with st.form("form_criar_usuario_admin"):
@@ -332,15 +421,17 @@ if opcao == "Cadastrar Cliente":
                 # ABA 4: LISTA COMPLETA DA CARTEIRA DE CLIENTES
                 with tab_lista:
                     st.markdown("##### 🏢 Carteira de Clientes Cadastrados")
-                
                     conn_lista = get_connection()
                     df_todos_clientes = pd.read_sql_query(
                         """
                         SELECT 
                             id as "ID",
-                            nome as "Razão Social / Nome", 
-                            cnpj_cpf as "CNPJ / CPF", 
+                            nome as "Razão Social", 
+                            cnpj_cpf as "CNPJ", 
+                            COALESCE(cpf, '-') as "CPF Titular",
                             regime as "Regime Contábil",
+                            COALESCE(capital_social, 0.00) as "Capital Social",
+                            data_abertura as "Abertura",
                             COALESCE(limite_faturamento, 81000.00) as "Teto (R$)",
                             COALESCE(telefone, '-') as "Telefone",
                             COALESCE(cnae_atividade, '-') as "CNAE"
@@ -354,12 +445,8 @@ if opcao == "Cadastrar Cliente":
                     if df_todos_clientes.empty:
                         st.info("💡 Nenhum cliente cadastrado até o momento.")
                     else:
-                        st.dataframe(
-                            df_todos_clientes, 
-                            use_container_width=True,
-                            hide_index=True
-                        )
-# Fim do bloco Cadastrar Clientes
+                        st.dataframe(df_todos_clientes, use_container_width=True, hide_index=True)
+#fim do bloco
 
 # =========================================================================
 # BLOCOS DESATIVADOS / COMENTADOS PARA LIMPEZA DA INTERFACE (FUTURO DASHBOARD)
