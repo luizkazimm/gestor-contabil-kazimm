@@ -7,7 +7,7 @@ st.set_page_config(page_title="Gestor Contábil Kazimm", layout="wide")
 
 #Bloco CSS de estilização
 # -----------------------------------------------------------------------------
-# ESTILO GLOBAL - GESTOR CONTÁBIL (COM CONTROLE DE MÉTRICAS)
+# ESTILO GLOBAL & RESPONSIVIDADE MOBILE ISOLADA (GESTOR CONTÁBIL)
 # -----------------------------------------------------------------------------
 st.markdown("""
     <!-- Carrega Montserrat e Inter -->
@@ -22,30 +22,44 @@ st.markdown("""
     [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2,
     [data-testid="stMarkdownContainer"] h3, [data-testid="stMarkdownContainer"] h4 {
         font-family: 'Montserrat', sans-serif !important;
-        color: #0176A1 !important;
-        font-weight: 300 !important;
+        color: #0F172A !important;
+        font-weight: 700 !important;
     }
 
-    /* 2. CONTROLE DIRETO DOS CARTÕES FINANCEIROS (st.metric) */
-    /* O seletor '*' força a aplicação no texto interno do Streamlit */
-    [data-testid="stMetricValue"],
-    [data-testid="stMetricValue"] * {
-    font-family: 'Montserrat', sans-serif !important;
-    font-size: 3.5rem !important;  /* <- Altere o tamanho do número aqui */
-    font-weight: 700 !important;    /* <- Altere o peso (400, 600, 700, 800) */
-    color: #0176A1 !important;     /* <- Altere a cor do valor aqui */
+    /* 2. ESTILO DOS CARTÕES KPI (DESKTOP PADRÃO - PERFEITO) */
+    .kpi-card {
+        background-color: #FFFFFF;
+        border: 1.5px solid #CBD5E1;
+        border-radius: 10px;
+        padding: 14px 16px;
+        text-align: left;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        margin-bottom: 8px;
     }
 
-    /* Rótulos dos cartões (Receita Realizada, Despesas, etc.) */
-    [data-testid="stMetricLabel"],
-    [data-testid="stMetricLabel"] * {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 1.03rem !important;  /* <- Altere o tamanho do título aqui */
-    font-weight: 600 !important;
-    color: #334155 !important;
+    .kpi-label {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        color: #475569 !important;
+        margin: 0 0 6px 0 !important;
     }
 
-    /* 3. BORDAS E CONTRASTE REFORÇADO NAS CAIXAS E FORMULÁRIOS */
+    .kpi-value {
+        font-family: 'Montserrat', sans-serif !important;
+        font-size: 2.0rem !important;
+        font-weight: 700 !important;
+        margin: 0 !important;
+        line-height: 1.2 !important;
+    }
+
+    /* Cores dos Valores */
+    .kpi-value.receita { color: #059669 !important; }
+    .kpi-value.despesa { color: #DC2626 !important; }
+    .kpi-value.saldo   { color: #0F172A !important; }
+    .kpi-value.prov    { color: #D97706 !important; }
+
+    /* 3. BORDAS E CONTRASTE REFORÇADO NAS CAIXAS E BOTÕES */
     div[data-baseweb="input"], 
     div[data-baseweb="select"] > div {
         background-color: #F8FAFC !important;
@@ -60,7 +74,6 @@ st.markdown("""
         box-shadow: 0px 0px 0px 3px rgba(30, 58, 138, 0.15) !important;
     }
 
-    /* 4. BOTÕES NO AZUL DA MARCA (#1E3A8A) COM TEXTO BRANCO */
     div.stButton > button, 
     div.stFormSubmitButton > button,
     div.stButton > button *, 
@@ -78,6 +91,44 @@ st.markdown("""
     div.stFormSubmitButton > button:hover {
         background-color: #2563EB !important;
         color: #FFFFFF !important;
+    }
+
+    /* ----------------------------------------------------------------- */
+    /* 4. REGRAS EXCLUSIVAS PARA DISPOSITIVOS MÓVEIS (MAX-WIDTH: 768PX)  */
+    /* ----------------------------------------------------------------- */
+    @media (max-width: 768px) {
+        /* Força as colunas do Streamlit a empilharem verticalmente */
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+            gap: 0.5rem !important;
+        }
+
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+        }
+
+        /* Ajustes dos Cartões no Telemóvel */
+        .kpi-card {
+            padding: 12px 14px !important;
+            margin-bottom: 8px !important;
+        }
+
+        .kpi-label {
+            font-size: 0.8rem !important;
+        }
+
+        .kpi-value {
+            font-size: 1.5rem !important; /* Tamanho proporcional ao ecrã */
+            white-space: nowrap !important; /* Impede a quebra de linha no número */
+        }
+
+        /* Botões em largura total para facilitar o toque */
+        div.stButton > button, div.stFormSubmitButton > button {
+            width: 100% !important;
+            min-height: 44px !important;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -304,9 +355,9 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
             with col_k1:
                 st.markdown(
                     f"""
-                    <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
-                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; margin: 0 0 6px 0;">🟢 Receita Realizada</p>
-                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #059669; margin: 0;">{formatar_brl(rec_tot)}</div>
+                    <div class="kpi-card">
+                        <p class="kpi-label">🟢 Receita Realizada</p>
+                        <div class="kpi-value receita">{formatar_brl(rec_tot)}</div>
                     </div>
                     """,
                     unsafe_allow_html=True
@@ -315,9 +366,9 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
             with col_k2:
                 st.markdown(
                     f"""
-                    <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
-                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; margin: 0 0 6px 0;">🔴 Despesas Pagas</p>
-                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #DC2626; margin: 0;">{formatar_brl(desp_tot)}</div>
+                    <div class="kpi-card">
+                        <p class="kpi-label">🔴 Despesas Pagas</p>
+                        <div class="kpi-value despesa">{formatar_brl(desp_tot)}</div>
                     </div>
                     """,
                     unsafe_allow_html=True
@@ -326,20 +377,20 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
             with col_k3:
                 st.markdown(
                     f"""
-                    <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
-                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; margin: 0 0 6px 0;">⚖️ Saldo em Caixa</p>
-                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #0F172A; margin: 0;">{formatar_brl(saldo_caixa)}</div>
+                    <div class="kpi-card">
+                        <p class="kpi-label">⚖️ Saldo em Caixa</p>
+                        <div class="kpi-value saldo">{formatar_brl(saldo_caixa)}</div>
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
-            
+
             with col_k4:
                 st.markdown(
                     f"""
-                    <div style="background-color: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 16px; text-align: left; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
-                        <p style="font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: #475569; margin: 0 0 6px 0;">🟡 A Pagar (Provisões)</p>
-                        <div style="font-family: 'Montserrat', sans-serif; font-size: 2.0rem; font-weight: 700; color: #D97706; margin: 0;">{formatar_brl(a_pagar_tot)}</div>
+                    <div class="kpi-card">
+                        <p class="kpi-label">🟡 A Pagar (Provisões)</p>
+                        <div class="kpi-value prov">{formatar_brl(a_pagar_tot)}</div>
                     </div>
                     """,
                     unsafe_allow_html=True
