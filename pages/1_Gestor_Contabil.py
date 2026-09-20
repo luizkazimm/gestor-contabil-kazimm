@@ -1,3 +1,4 @@
+from datetime import datetime, date
 import streamlit as st
 import pandas as pd
 from database import get_connection, init_db
@@ -22,7 +23,7 @@ st.markdown("""
     [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2,
     [data-testid="stMarkdownContainer"] h3, [data-testid="stMarkdownContainer"] h4 {
         font-family: 'Montserrat', sans-serif !important;
-        color: #0F172A !important;
+        color: #0176A1 !important;
         font-weight: 700 !important;
     }
 
@@ -135,14 +136,13 @@ st.markdown("""
 
 #Fim do Bloco
 
-
 # --- TRAVA DE SEGURANÇA ---
 if 'user' not in st.session_state or st.session_state.user is None:
     st.warning("🔒 Você precisa fazer login para acessar o Gestor Contábil.")
     st.stop()
     
 #Título de Inicialização
-st.title("Sistema de Gestão Contábil")
+st.title("Kazimm - Sistema de Gestão Contábil")
 init_db()
 
 # 4. Busca os Clientes do Usuário no Banco de Dados
@@ -157,7 +157,7 @@ if clientes_cadastrados:
     opcoes_clientes = {cli[1]: cli[0] for cli in clientes_cadastrados}
 
 # Barra lateral (sidebar) deixa o seletor visível em qualquer tela
-    cliente_selecionado = st.sidebar.selectbox("🏢 Cliente em Atendimento", list(opcoes_clientes.keys()))
+    cliente_selecionado = st.sidebar.selectbox("Cliente em Atendimento", list(opcoes_clientes.keys()))
 
 # Armazena o ID do cliente selecionado no estado da sessão
     st.session_state.cliente_id_ativo = opcoes_clientes[cliente_selecionado]
@@ -177,7 +177,7 @@ opcao = st.sidebar.selectbox(
         "Cadastrar Cliente",
         "Cadastrar Conta / Fornecedor",
         "Novo Lançamento",
-        "Provisões (Contas a Pagar)",  # <-- NOVO MENU ADICIONADO AQUI
+        "Provisões (Contas a Pagar)",
         "Importar Extrato / Excel",
         "Ver Lançamentos",
         "Plano de Contas",
@@ -188,7 +188,7 @@ opcao = st.sidebar.selectbox(
 # BLOCO CADASTRAR / GERENCIAR CLIENTES E DASHBOARD MEI
 # =============================================================================
 if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente":
-    st.subheader("🏢 Gestão do Cliente & Dashboard MEI")
+    st.subheader("Gestão do Cliente - DASHBOARD")
 
     user_id_atual = st.session_state.user.id
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
@@ -210,7 +210,7 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
                 cpf = st.text_input("CPF Titular")
             with col_cli2:
                 regime = st.selectbox("Regime Contábil", ["MEI (Microempreendedor Individual)", "Simples Nacional"])
-                limite_fat = st.selectbox("Limite Faturamento Anual", [81000.00, 246000.00], format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
+                limite_fat = st.selectbox("Limite Faturamento Anual", [81000.00, 251600.00], format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
                 cap_social = st.number_input("Capital Social (R$)", value=1000.00, step=100.0)
             with col_cli3:
                 dt_abertura = st.date_input("Data de Abertura", value=datetime.today().date(), format="DD/MM/YYYY")
@@ -342,7 +342,7 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
             # -----------------------------------------------------------------
             # PAINEL DE MÉTRICAS (KPIS) - COM CÁLCULOS E CARTÕES HTML
             # -----------------------------------------------------------------
-            st.markdown("##### 📊 Painel de Controle Financeiro (MEI)")
+            st.markdown("##### Painel de Controle Financeiro (MEI)")
 
             # 1. CÁLCULOS FINANCEIROS (MANTIDOS)
             rec_tot = df_lancamentos[df_lancamentos["conta_credito"].str.contains("3\.|Receita", case=False, na=False)]["valor"].sum() if not df_lancamentos.empty else 0.0
@@ -505,7 +505,7 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
                                 
                                 lim_val = float(row_edit['limite'])
                                 lim_index = 0 if lim_val == 81000.0 else 1
-                                e_limite = st.selectbox("Limite Faturamento", [81000.00, 246000.00], index=lim_index, format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
+                                e_limite = st.selectbox("Limite Faturamento", [81000.00, 251600.00], index=lim_index, format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
                                 
                                 e_cap_social = st.number_input("Capital Social (R$)", value=float(row_edit['capital_social']), step=100.0)
                             with col_e3:
@@ -543,7 +543,7 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
                             n_cpf = st.text_input("CPF Titular")
                         with col_n2:
                             n_regime = st.selectbox("Regime", ["MEI (Microempreendedor Individual)", "Simples Nacional"], key="n_reg")
-                            n_limite = st.selectbox("Limite Faturamento", [81000.00, 246000.00], key="n_lim", format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
+                            n_limite = st.selectbox("Limite Faturamento", [81000.00, 251600.00], key="n_lim", format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
                             n_cap_social = st.number_input("Capital Social (R$)", value=1000.00, step=100.0)
                         with col_n3:
                             n_dt_abertura = st.date_input("Data de Abertura", value=datetime.today().date(), format="DD/MM/YYYY")
