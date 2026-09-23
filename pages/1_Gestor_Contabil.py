@@ -1,5 +1,6 @@
 from datetime import datetime, date
 import streamlit as st
+import io
 import pandas as pd
 from database import get_connection, init_db
 
@@ -583,7 +584,8 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
                             if u_email and len(u_senha) >= 6:
                                 try:
                                     res = supabase.auth.sign_up({"email": u_email, "password": u_senha})
-                                    st.success(f"Login criado com sucesso para **{u_email}**!")
+                                    if res and res.user:
+                                        st.success(f"Login criado com sucesso para **{u_email}**!")
                                 except Exception as e:
                                     st.error(f"Erro ao criar conta: {e}")
                             else:
@@ -1703,4 +1705,172 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                     file_name=f"relatorio_categoria_{nome_cliente.replace(' ', '_').lower()}.csv",
                     mime="text/csv",
                 )
-# Fim do Bloco                
+# Fim do Bloco  
+              
+# -----------------------------------------------------------------------------
+# PAINEL DE MANUTENÇÃO: IMPORTAÇÃO, CORREÇÃO E LIMPEZA (INDEPENDENTE DE ABAS)
+# -----------------------------------------------------------------------------
+st.markdown("---")
+with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação / Exportação / Limpeza)"):
+    st.markdown("Utilize esta área para gerenciar os lançamentos, corrigir dados ou resetar a base do cliente.")
+    
+    col_exp, col_imp = st.columns(2)
+    
+    # -------------------------------------------------------------------------
+    # COLUNA 1: EXPORTAÇÃO E EXCLUSÃO EM BLOCO (CONSULTA DIRETA DO BANCO)
+    # -------------------------------------------------------------------------
+    with col_exp:
+        st.markdown("#### 1. Exportação & Limpeza")
+        st.caption("Baixe backups ou faça a limpeza geral dos dados do cliente ativo.")
+        
+        # 1. Identifica o cliente ativo
+        cid_raw = st.session_state.get('cliente_id') or st.session_state.get('cliente_id_ativo')
+        if not cid_raw:
+            cid_raw = (
+                locals().get('cliente_id_ativo') or 
+                locals().get('cliente_id') or 
+                globals().get('cliente_id_ativo') or 
+                globals().get('cliente_id')
+            )
+        
+        cid_val = int(cid_raw) if cid_raw else None
+
+        # 2. Busca os dados de forma independente para não depender das abas
+        df_export_lanc = pd.DataFrame()
+        if cid_val:
+            try:
+                conn = get_connection()
+                df_export_lanc = pd.read_sql(
+                    "SELECT * FROM lancamentos WHERE cliente_id = %s ORDER BY data DESC;", 
+                    conn, 
+                    params=(cid_val,)
+                )
+            except Exception:
+                df_export_lanc = pd.DataFrame()
+
+        # Download do CSV
+        if not df_export_lanc.empty:
+            csv_lanc = df_export_lanc.to_csv(index=False, sep=";", encoding="utf-8-sig")
+            st.download_button(
+                label="📥 Baixar Lançamentos Atuais (.csv)",
+                data=csv_lanc,
+                file_name=f"lancamentos_backup_{date.today().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        else:
+            st.info("Nenhum lançamento encontrado para este cliente.")
+
+        st.markdown("---")
+        
+        # BOTAO DE EXCLUSÃO EM BLOCO
+        st.markdown("**🚨 Exclusão em Bloco (Zerar Lançamentos)**")
+        st.caption("Atenção: Esta ação removerá TODOS os lançamentos do cliente atualmente selecionado.")
+        
+        if st.button("🗑️ Apagar TODOS os Lançamentos deste Cliente", use_container_width=True):
+            if not cid_val:
+                st.error("Nenhum cliente selecionado no topo da página.")
+                st.stop()
+
+            try:
+                conn = get_connection()
+                with conn.cursor() as cur:
+                    cur.execute("DELETE FROM lancamentos WHERE cliente_id = %s;", (cid_val,))
+                conn.commit()
+                
+                st.success(f"Todos os lançamentos do cliente ID #{cid_val} foram removidos com sucesso!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao apagar lançamentos: {e}")
+
+    # -------------------------------------------------------------------------
+    # COLUNA 2: IMPORTAÇÃO E REIMPORTAÇÃO COM TRATAMENTO AUTOMÁTICO
+    # -------------------------------------------------------------------------
+    with col_imp:
+        st.markdown("#### 2. Carga e Substituição de Dados")
+        
+        file_lanc = st.file_uploader("Selecione o arquivo de Lançamentos (.csv)", type=["csv"], key="up_lanc")
+        
+        if file_lanc is not None:
+            if st.button("🚨 Substituir Lançamentos Atuais", type="primary", use_container_width=True):
+                if not cid_val:
+                    st.error("Nenhum cliente selecionado no topo da página.")
+                    st.stop()
+
+                try:
+                    import io
+
+                    # Leitura com PRIORIDADE PARA UTF-8 (evita acentos estranhos)
+                    file_bytes = file_lanc.getvalue()
+                    df_novos_lanc = None
+
+                    for enc in ['utf-8-sig', 'utf-8', 'cp1252', 'latin1', 'iso-8859-1']:
+                        try:
+                            df_temp = pd.read_csv(io.BytesIO(file_bytes), sep=";", encoding=enc)
+                            if len(df_temp.columns) >= 3:
+                                df_novos_lanc = df_temp
+                                break
+                        except Exception:
+                            continue
+
+                    if df_novos_lanc is None:
+                        st.error("Não foi possível ler o arquivo CSV. Verifique o delimitador (deve ser ponto e vírgula ';').")
+                        st.stop()
+
+                    # Função de limpeza para caracteres acentuados corrompidos (Mojibake)
+                    def limpar_texto(txt):
+                        if not isinstance(txt, str):
+                            return str(txt)
+                        try:
+                            if 'Ã' in txt or 'Â' in txt:
+                                return txt.encode('latin1').decode('utf-8')
+                        except Exception:
+                            pass
+                        return txt
+
+                    conn = get_connection()
+                    with conn.cursor() as cur:
+                        # Limpa completamente os lançamentos do cliente antes da carga
+                        cur.execute("DELETE FROM lancamentos WHERE cliente_id = %s;", (cid_val,))
+
+                        # Insere os registros com limpeza de caracteres e datas
+                        for _, row in df_novos_lanc.iterrows():
+                            hist_raw = str(row.get('historico', row.get('descricao', '')))
+                            hist_val = limpar_texto(hist_raw)
+
+                            raw_date = str(row['data']).strip()
+                            if raw_date == '0269-07-14':
+                                raw_date = '14/07/2026'
+
+                            dt_parsed = pd.to_datetime(raw_date, dayfirst=True, errors='coerce')
+                            data_final = dt_parsed.strftime('%Y-%m-%d') if pd.notnull(dt_parsed) else raw_date
+
+                            val_raw = str(row['valor']).replace('R$', '').strip()
+                            if ',' in val_raw and '.' in val_raw:
+                                val_raw = val_raw.replace('.', '').replace(',', '.')
+                            elif ',' in val_raw:
+                                val_raw = val_raw.replace(',', '.')
+                            valor_final = float(val_raw)
+
+                            c_cred = limpar_texto(str(row.get('conta_credito', '')))
+                            c_deb = limpar_texto(str(row.get('conta_debito', '')))
+
+                            cur.execute(
+                                """
+                                INSERT INTO lancamentos (cliente_id, data, historico, valor, conta_debito, conta_credito)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                                """,
+                                (
+                                    cid_val,
+                                    data_final,
+                                    hist_val,
+                                    valor_final,
+                                    c_deb,
+                                    c_cred
+                                )
+                            )
+                    conn.commit()
+                    st.success(f"Sucesso! {len(df_novos_lanc)} lançamentos importados com acentuação corrigida para o cliente ID #{cid_val}.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao reimportar lançamentos: {e}")
