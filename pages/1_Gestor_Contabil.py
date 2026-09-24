@@ -1435,7 +1435,8 @@ elif opcao == "Ver Lançamentos":
         if df_lancamentos.empty:
             st.info("💡 Nenhum lançamento encontrado para este cliente.")
         else:
-            df_lancamentos["data_dt"] = pd.to_datetime(df_lancamentos["data"]).dt.date
+            df_lancamentos["data_dt"] = pd.to_datetime(df_lancamentos["data"], errors="coerce").dt.date
+            df_lancamentos = df_lancamentos.dropna(subset=["data_dt"])
 
             with st.expander("🔍 Filtros de Busca e Auditoria", expanded=True):
                 col_f1, col_f2, col_f3 = st.columns(3)
@@ -1708,7 +1709,7 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
 # Fim do Bloco  
               
 # -----------------------------------------------------------------------------
-# PAINEL DE MANUTENÇÃO: IMPORTAÇÃO, CORREÇÃO E LIMPEZA (INDEPENDENTE DE ABAS)
+# PAINEL DE MANUTENÇÃO: IMPORTAÇÃO, CORREÇÃO E LIMPEZA COM FEEDBACK VISUAL
 # -----------------------------------------------------------------------------
 st.markdown("---")
 with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação / Exportação / Limpeza)"):
@@ -1717,7 +1718,7 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
     col_exp, col_imp = st.columns(2)
     
     # -------------------------------------------------------------------------
-    # COLUNA 1: EXPORTAÇÃO E EXCLUSÃO EM BLOCO (CONSULTA DIRETA DO BANCO)
+    # COLUNA 1: EXPORTAÇÃO E EXCLUSÃO EM BLOCO
     # -------------------------------------------------------------------------
     with col_exp:
         st.markdown("#### 1. Exportação & Limpeza")
@@ -1735,7 +1736,7 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
         
         cid_val = int(cid_raw) if cid_raw else None
 
-        # 2. Busca os dados de forma independente para não depender das abas
+        # 2. Busca os dados de forma independente das abas
         df_export_lanc = pd.DataFrame()
         if cid_val:
             try:
@@ -1763,7 +1764,7 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
 
         st.markdown("---")
         
-        # BOTAO DE EXCLUSÃO EM BLOCO
+        # BOTÃO DE EXCLUSÃO EM BLOCO
         st.markdown("**🚨 Exclusão em Bloco (Zerar Lançamentos)**")
         st.caption("Atenção: Esta ação removerá TODOS os lançamentos do cliente atualmente selecionado.")
         
@@ -1784,7 +1785,7 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
                 st.error(f"Erro ao apagar lançamentos: {e}")
 
     # -------------------------------------------------------------------------
-    # COLUNA 2: IMPORTAÇÃO E REIMPORTAÇÃO COM TRATAMENTO AUTOMÁTICO
+    # COLUNA 2: IMPORTAÇÃO E REIMPORTAÇÃO COM FEEDBACK VISUAL (st.status)
     # -------------------------------------------------------------------------
     with col_imp:
         st.markdown("#### 2. Carga e Substituição de Dados")
@@ -1797,80 +1798,90 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
                     st.error("Nenhum cliente selecionado no topo da página.")
                     st.stop()
 
-                try:
-                    import io
+                # Painel de feedback visual em tempo real
+                with st.status("🔄 Importando e sincronizando dados...", expanded=True) as status:
+                    try:
+                        import io
 
-                    # Leitura com PRIORIDADE PARA UTF-8 (evita acentos estranhos)
-                    file_bytes = file_lanc.getvalue()
-                    df_novos_lanc = None
+                        # Passo 1: Leitura do arquivo
+                        st.write("📂 1/3 Lendo e validando a estrutura do arquivo CSV...")
+                        file_bytes = file_lanc.getvalue()
+                        df_novos_lanc = None
 
-                    for enc in ['utf-8-sig', 'utf-8', 'cp1252', 'latin1', 'iso-8859-1']:
-                        try:
-                            df_temp = pd.read_csv(io.BytesIO(file_bytes), sep=";", encoding=enc)
-                            if len(df_temp.columns) >= 3:
-                                df_novos_lanc = df_temp
-                                break
-                        except Exception:
-                            continue
+                        for enc in ['utf-8-sig', 'utf-8', 'cp1252', 'latin1', 'iso-8859-1']:
+                            try:
+                                df_temp = pd.read_csv(io.BytesIO(file_bytes), sep=";", encoding=enc)
+                                if len(df_temp.columns) >= 3:
+                                    df_novos_lanc = df_temp
+                                    break
+                            except Exception:
+                                continue
 
-                    if df_novos_lanc is None:
-                        st.error("Não foi possível ler o arquivo CSV. Verifique o delimitador (deve ser ponto e vírgula ';').")
-                        st.stop()
+                        if df_novos_lanc is None:
+                            status.update(label="❌ Falha na leitura do arquivo", state="error", expanded=True)
+                            st.error("Não foi possível ler o arquivo CSV. Verifique se o delimitador é ponto e vírgula ';'.")
+                            st.stop()
 
-                    # Função de limpeza para caracteres acentuados corrompidos (Mojibake)
-                    def limpar_texto(txt):
-                        if not isinstance(txt, str):
-                            return str(txt)
-                        try:
-                            if 'Ã' in txt or 'Â' in txt:
-                                return txt.encode('latin1').decode('utf-8')
-                        except Exception:
-                            pass
-                        return txt
+                        # Função de tratamento de caracteres
+                        def limpar_texto(txt):
+                            if not isinstance(txt, str):
+                                return str(txt)
+                            try:
+                                if 'Ã' in txt or 'Â' in txt:
+                                    return txt.encode('latin1').decode('utf-8')
+                            except Exception:
+                                pass
+                            return txt
 
-                    conn = get_connection()
-                    with conn.cursor() as cur:
-                        # Limpa completamente os lançamentos do cliente antes da carga
-                        cur.execute("DELETE FROM lancamentos WHERE cliente_id = %s;", (cid_val,))
+                        # Passo 2: Limpeza do banco
+                        st.write(f"🗑️ 2/3 Apagando dados antigos do cliente ID #{cid_val}...")
+                        conn = get_connection()
+                        with conn.cursor() as cur:
+                            cur.execute("DELETE FROM lancamentos WHERE cliente_id = %s;", (cid_val,))
 
-                        # Insere os registros com limpeza de caracteres e datas
-                        for _, row in df_novos_lanc.iterrows():
-                            hist_raw = str(row.get('historico', row.get('descricao', '')))
-                            hist_val = limpar_texto(hist_raw)
+                            # Passo 3: Inserção com feedback
+                            st.write(f"💾 3/3 Gravando {len(df_novos_lanc)} novos lançamentos no Supabase...")
+                            for _, row in df_novos_lanc.iterrows():
+                                hist_raw = str(row.get('historico', row.get('descricao', '')))
+                                hist_val = limpar_texto(hist_raw)
 
-                            raw_date = str(row['data']).strip()
-                            if raw_date == '0269-07-14':
-                                raw_date = '14/07/2026'
+                                raw_date = str(row['data']).strip()
+                                if raw_date == '0269-07-14':
+                                    raw_date = '14/07/2026'
 
-                            dt_parsed = pd.to_datetime(raw_date, dayfirst=True, errors='coerce')
-                            data_final = dt_parsed.strftime('%Y-%m-%d') if pd.notnull(dt_parsed) else raw_date
+                                dt_parsed = pd.to_datetime(raw_date, dayfirst=True, errors='coerce')
+                                data_final = dt_parsed.strftime('%Y-%m-%d') if pd.notnull(dt_parsed) else raw_date
 
-                            val_raw = str(row['valor']).replace('R$', '').strip()
-                            if ',' in val_raw and '.' in val_raw:
-                                val_raw = val_raw.replace('.', '').replace(',', '.')
-                            elif ',' in val_raw:
-                                val_raw = val_raw.replace(',', '.')
-                            valor_final = float(val_raw)
+                                val_raw = str(row['valor']).replace('R$', '').strip()
+                                if ',' in val_raw and '.' in val_raw:
+                                    val_raw = val_raw.replace('.', '').replace(',', '.')
+                                elif ',' in val_raw:
+                                    val_raw = val_raw.replace(',', '.')
+                                valor_final = float(val_raw)
 
-                            c_cred = limpar_texto(str(row.get('conta_credito', '')))
-                            c_deb = limpar_texto(str(row.get('conta_debito', '')))
+                                c_cred = limpar_texto(str(row.get('conta_credito', '')))
+                                c_deb = limpar_texto(str(row.get('conta_debito', '')))
 
-                            cur.execute(
-                                """
-                                INSERT INTO lancamentos (cliente_id, data, historico, valor, conta_debito, conta_credito)
-                                VALUES (%s, %s, %s, %s, %s, %s)
-                                """,
-                                (
-                                    cid_val,
-                                    data_final,
-                                    hist_val,
-                                    valor_final,
-                                    c_deb,
-                                    c_cred
+                                cur.execute(
+                                    """
+                                    INSERT INTO lancamentos (cliente_id, data, historico, valor, conta_debito, conta_credito)
+                                    VALUES (%s, %s, %s, %s, %s, %s)
+                                    """,
+                                    (
+                                        cid_val,
+                                        data_final,
+                                        hist_val,
+                                        valor_final,
+                                        c_deb,
+                                        c_cred
+                                    )
                                 )
-                            )
-                    conn.commit()
-                    st.success(f"Sucesso! {len(df_novos_lanc)} lançamentos importados com acentuação corrigida para o cliente ID #{cid_val}.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao reimportar lançamentos: {e}")
+                        conn.commit()
+
+                        status.update(label="✅ Importação concluída com sucesso!", state="complete", expanded=False)
+                        st.success(f"{len(df_novos_lanc)} lançamentos sincronizados!")
+                        st.rerun()
+
+                    except Exception as e:
+                        status.update(label="❌ Erro durante a importação", state="error", expanded=True)
+                        st.error(f"Detalhes do erro: {e}")
