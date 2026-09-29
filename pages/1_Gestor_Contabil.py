@@ -1547,18 +1547,70 @@ elif opcao == "Ver Lançamentos":
                     id_alvo = dict_lancamentos[item_selecionado_rotulo]
                     row_alvo = df_lancamentos[df_lancamentos["id"] == id_alvo].iloc[0]
 
+                    #ALTERA LANÇAMENTO - LISTA SUSPENSA DO PLANO DE CONTAS
                     tab_alt, tab_exc = st.tabs(["✏️ Alterar Lançamento", "🗑️ Excluir Lançamento"])
 
                     # ABA ALTERAR
                     with tab_alt:
+                        # Captura o ID do cliente ativo no sistema - Trecho SUBSTITUIDO (29/09/26)
+                        cid_raw = st.session_state.get('cliente_id') or st.session_state.get('cliente_id_ativo')
+                        if not cid_raw:
+                            cid_raw = (
+                                locals().get('cliente_id_ativo') or
+                                locals().get('cliente_id') or
+                                globals().get('cliente_id_ativo') or
+                                globals().get('cliente_id')
+                            )
+                        cid_val = int(cid_raw) if cid_raw else None
+
+                        # 1. Busca as contas cadastradas no Plano de Contas (Localls ou Globals)
+                        try:
+                            conn = get_connection()
+                            #Busca as contas do cliente selecionado
+                            df_plano = pd.read_sql("SELECT * FROM plano_contas ORDER BY codigo ASC;", conn)
+                            
+                            if not df_plano.empty:
+                                #Identifica se acoluna é "nome" ou "Descrição"
+                                col_desc = next(
+                                    (c for c in ['descricao', 'nome_conta', 'nome', 'titulo'] if c in df_plano.columns), 
+                                    df_plano.columns[1]
+                                )
+                                lista_contas = (df_plano['codigo'].astype(str) + " - " + df_plano[col_desc].astype(str)).tolist()
+                            else:
+                                lista_contas = []
+                        except Exception as e:
+                            st.error(f"Erro ao acrregar Plano de Contas: {e}")
+                            lista_contas = []
+
+                        # 2. Pega as contas atuais do lançamento selecionado
+                        c_deb_atual = str(row_alvo["conta_debito"])
+                        c_cred_atual = str(row_alvo["conta_credito"])
+
+                        # Se a conta atual não estiver no plano, adiciona temporariamente para não dar erro
+                        if c_deb_atual and c_deb_atual not in lista_contas:
+                            lista_contas.append(c_deb_atual)
+                        if c_cred_atual and c_cred_atual not in lista_contas:
+                            lista_contas.append(c_cred_atual)
+
+                        lista_contas = sorted(list(set(lista_contas)))
+
+                        # 3. Descobre a posição (índice) atual das contas para deixar selecionado
+                        idx_deb = lista_contas.index(c_deb_atual) if c_deb_atual in lista_contas else 0
+                        idx_cred = lista_contas.index(c_cred_atual) if c_cred_atual in lista_contas else 0
+
+                        # 4. FORMULÁRIO COM LISTAS SUSPENSAS (st.selectbox)
                         with st.form("form_editar_lancamento"):
                             col_e1, col_e2 = st.columns(2)
+                            
                             with col_e1:
                                 data_edit = st.date_input("Data do Lançamento", value=row_alvo["data_dt"], format="DD/MM/YYYY")
-                                c_deb_edit = st.text_input("Conta Débito", value=str(row_alvo["conta_debito"]))
+                                # Substituiu a linha 1558:
+                                c_deb_edit = st.selectbox("Conta Débito", options=lista_contas, index=idx_deb)
                                 val_edit = st.number_input("Valor (R$)", value=float(row_alvo["valor"]), step=0.01)
+                                
                             with col_e2:
-                                c_cred_edit = st.text_input("Conta Crédito", value=str(row_alvo["conta_credito"]))
+                                # Substituiu a linha 1561:
+                                c_cred_edit = st.selectbox("Conta Crédito", options=lista_contas, index=idx_cred)
                                 hist_edit = st.text_area("Histórico / Documento", value=str(row_alvo["historico"]))
 
                             btn_salvar_edit = st.form_submit_button("💾 Salvar Alterações", use_container_width=True)
