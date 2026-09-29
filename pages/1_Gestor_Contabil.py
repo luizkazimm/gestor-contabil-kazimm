@@ -622,88 +622,6 @@ if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente"
                         st.dataframe(df_todos_clientes, use_container_width=True, hide_index=True)
 #fim do bloco
 
-# =========================================================================
-# BLOCOS DESATIVADOS / COMENTADOS PARA LIMPEZA DA INTERFACE (FUTURO DASHBOARD)
-# =========================================================================
-    
-# --- BLOCO 1: ALTERAR REGIME DE CLIENTE EXISTENTE (DESATIVADO) ---
-#        st.markdown("---")
-#        st.subheader("✏️ Alterar Regime de Cliente Existente")
-#
-#        dict_cli_edit = dict(
-#            zip(df_clientes_cad["Razão Social"], df_clientes_cad["id"])
-#        )
-#        cli_sel_edit = st.selectbox(
-#            "Selecione o Cliente:", list(dict_cli_edit.keys())
-#        )
-#        id_cli_edit = dict_cli_edit[cli_sel_edit]
-#
-#        with st.form("form_editar_regime_cliente"):
-#            novo_regime = st.selectbox(
-#                "Novo Regime Contábil",
-#                [
-#                    "Lançamento Simples (MEI / Livro Caixa)",
-#                    "Partida Dupla (Contabilidade Completa)",
-#                ],
-#            )
-#            salvar_regime = st.form_submit_button(
-#                "💾 Atualizar Regime do Cliente"
-#            )
-#
-#            if salvar_regime:
-#                conn = get_connection()
-#                cursor = conn.cursor()
-#                cursor.execute(
-#                    "UPDATE clientes SET regime = ? WHERE id = %s",
-#                    (novo_regime, id_cli_edit),
-#                )
-#                conn.commit()
-#                conn.close()
-#                st.success(
-#                    f"Regime de '{cli_sel_edit}' atualizado para {novo_regime}!"
-#                )
-#
-#                st.divider()
-    
-# --- BLOCO DE EXCLUSÃO DE CLIENTE (CORRIGIDO) ---
-#    conn = get_connection()
-#    cursor = conn.cursor()
-#    cursor.execute("SELECT id, nome FROM clientes WHERE user_id = %s", (st.session_state.user.id,))
-#    clientes_cadastrados = cursor.fetchall()
-#    conn.close()
-
-
-# =========================================================================
-# BLOCOS DESATIVADOS / COMENTADOS PARA LIMPEZA DA INTERFACE (FUTURO DASHBOARD)
-# =========================================================================
-
-#    if clientes_cadastrados:
-#        st.divider()
-#        st.subheader("🗑️ Excluir Cliente")
-#
-#        opcoes_clientes = {cli[1]: cli[0] for cli in clientes_cadastrados}
-#        cli_sel_edit = st.selectbox("Selecione o cliente para excluir", list(opcoes_clientes.keys()))
-#        id_cli_edit = opcoes_clientes[cli_sel_edit]
-#
-#        with st.form("form_excluir_cliente"):
-#            st.warning("⚠️ Atenção: Esta ação é irreversível.")
-#            confirmar = st.checkbox(f"Confirmo que desejo excluir o cliente '{cli_sel_edit}'")
-#            btn_excluir = st.form_submit_button("Excluir Cliente")
-#
-#        if btn_excluir:
-#            if confirmar:
-#                conn = get_connection()
-#                cursor = conn.cursor()
-#                cursor.execute("DELETE FROM clientes WHERE id = %s", (id_cli_edit,))
-#                conn.commit()
-#                conn.close()
-#                st.success(f"Cliente '{cli_sel_edit}' excluído com sucesso!")
-#                st.rerun()
-#            else:
-#                st.error("Marque a caixa de seleção para confirmar a exclusão.")            
-
-# BLOCO CADASTRAR CONTAS
-
 # BLOCO CADASTRAR CONTAS / FORNECEDORES (COM BANNER DE CLIENTE ATIVO)
 elif opcao == "Cadastrar Conta / Fornecedor":
     st.subheader("⚙️ Gestão de Contas e Fornecedores")
@@ -951,16 +869,45 @@ elif opcao == "Novo Lançamento":
         conn, 
         params=(st.session_state.user.id, st.session_state.cliente_id_ativo)
     )
+    
+    # --- ALTERAÇÃO: CONSULTA DINÂMICA COMPLETA AO PLANO DE CONTAS GLOBAL ---
     df_contas = pd.read_sql_query(
         "SELECT codigo, descricao, tipo FROM plano_contas ORDER BY codigo ASC", 
         conn
     )
-    # Busca especificamente as contas do Grupo 4 (Despesas / Fornecedores 4.1.1...)
-    df_despesas_grupo4 = pd.read_sql_query(
-        "SELECT codigo, descricao FROM plano_contas WHERE tipo = 'Despesa' OR codigo LIKE '4.1%' ORDER BY codigo ASC",
-        conn
-    )
     conn.close()
+
+    # 1. Filtra dinamicamente as Contas Financeiras (Caixas e Bancos / Ativo / Grupo 1.1)
+    df_fin = df_contas[
+        df_contas["tipo"].str.contains("Ativo", case=False, na=False) | 
+        df_contas["codigo"].str.startswith("1.1") |
+        df_contas["descricao"].str.contains("Caixa|Banco", case=False, na=False)
+    ]
+    if not df_fin.empty:
+        opcoes_financeiras = [f"{row['codigo']} - {row['descricao']}" for _, row in df_fin.iterrows()]
+    else:
+        opcoes_financeiras = ["1.1.1.01 - Caixa Geral", "1.1.1.02 - Banco Conta Movimento"]
+
+    # 2. Filtra dinamicamente Fornecedores e Despesas (Grupo 4, Grupo 2, Despesas e Passivos)
+    df_desp = df_contas[
+        df_contas["tipo"].str.contains("Despesa|Passivo", case=False, na=False) | 
+        df_contas["codigo"].str.startswith("4") |
+        df_contas["codigo"].str.startswith("2")
+    ]
+    if not df_desp.empty:
+        opcoes_fornecedores_despesa = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_desp.iterrows()]
+    else:
+        opcoes_fornecedores_despesa = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_contas.iterrows()]
+
+    # 3. Filtra dinamicamente Receitas (Grupo 3 ou Tipo Receita)
+    df_rec = df_contas[
+        df_contas["tipo"].str.contains("Receita", case=False, na=False) | 
+        df_contas["codigo"].str.startswith("3")
+    ]
+    if not df_rec.empty:
+        opcoes_rec = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_rec.iterrows()]
+    else:
+        opcoes_rec = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_contas.iterrows()]
 
     if df_clientes.empty:
         st.warning("Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral.")
@@ -972,11 +919,6 @@ elif opcao == "Novo Lançamento":
         regime_cliente = dict_clientes_regime[cliente_selecionado]
 
         st.info(f"📋 Cliente Ativo: **{cliente_selecionado}** | Regime: **{regime_cliente}**")
-
-        # Monta a lista formatada de Fornecedores / Despesas (Grupo 4.1.1...)
-        opcoes_fornecedores_despesa = [""] + [
-            f"{row['codigo']} - {row['descricao']}" for _, row in df_despesas_grupo4.iterrows()
-        ]
 
         historicos_padrao = [
             "Digitar Histórico do Zero",
@@ -1019,14 +961,13 @@ elif opcao == "Novo Lançamento":
 
                     col_s1, col_s2 = st.columns(2)
                     with col_s1:
+                        # --- ALTERAÇÃO: UTILIZA LISTA DINÂMICA DE BANCOS / CAIXA ---
                         conta_financeira = st.selectbox(
                             "Conta de Destino (Onde o dinheiro entrou)",
-                            ["1.1.1.01 - Caixa Geral", "1.1.1.02 - Banco Conta Movimento"],
+                            opcoes_financeiras,
                             key="cf_ent"
                         )
                     with col_s2:
-                        df_rec = df_contas[df_contas["tipo"] == "Receita"]
-                        opcoes_rec = [""] + [f"{r['codigo']} - {r['descricao']}" for _, r in df_rec.iterrows()]
                         categoria = st.selectbox("Categoria da Receita", opcoes_rec, key="cat_ent")
 
                     valor = st.number_input("Valor da Receita (R$)", min_value=0.00, step=0.01, format="%.2f", key="val_ent")
@@ -1054,7 +995,7 @@ elif opcao == "Novo Lançamento":
                             st.error("Selecione a Categoria da Receita e informe um valor maior que zero.")
 
             # -----------------------------------------------------------------
-            # ABA 2: SAÍDAS / DESPESAS (Com lista do Grupo 4.1.1...)
+            # ABA 2: SAÍDAS / DESPESAS
             # -----------------------------------------------------------------
             with tab_saida:
                 with st.form("form_saida", clear_on_submit=True):
@@ -1073,13 +1014,14 @@ elif opcao == "Novo Lançamento":
 
                     col_s1, col_s2 = st.columns(2)
                     with col_s1:
+                        # --- ALTERAÇÃO: UTILIZA LISTA DINÂMICA DE BANCOS / CAIXA (RESOLVE O PROBLEMA DA IMAGEM) ---
                         conta_financeira = st.selectbox(
                             "Forma de Pagamento (De onde saiu o dinheiro)",
-                            ["1.1.1.01 - Caixa Geral", "1.1.1.02 - Banco Conta Movimento"],
+                            opcoes_financeiras,
                             key="cf_sai"
                         )
                     with col_s2:
-                        # Seleção direta do Grupo 4.1.1...
+                        # Seleção direta do Grupo 4/Fornecedores dinâmico
                         categoria = st.selectbox(
                             "Fornecedor / Conta de Despesa (Grupo 4)", 
                             opcoes_fornecedores_despesa, 
@@ -1552,7 +1494,7 @@ elif opcao == "Ver Lançamentos":
 
                     # ABA ALTERAR
                     with tab_alt:
-                        # Captura o ID do cliente ativo no sistema - Trecho SUBSTITUIDO (29/09/26)
+                        # Captura o ID do cliente ativo no sistema
                         cid_raw = st.session_state.get('cliente_id') or st.session_state.get('cliente_id_ativo')
                         if not cid_raw:
                             cid_raw = (
@@ -1563,14 +1505,12 @@ elif opcao == "Ver Lançamentos":
                             )
                         cid_val = int(cid_raw) if cid_raw else None
 
-                        # 1. Busca as contas cadastradas no Plano de Contas (Localls ou Globals)
+                        # 1. Busca as contas cadastradas no Plano de Contas Global
                         try:
                             conn = get_connection()
-                            #Busca as contas do cliente selecionado
                             df_plano = pd.read_sql("SELECT * FROM plano_contas ORDER BY codigo ASC;", conn)
                             
                             if not df_plano.empty:
-                                #Identifica se acoluna é "nome" ou "Descrição"
                                 col_desc = next(
                                     (c for c in ['descricao', 'nome_conta', 'nome', 'titulo'] if c in df_plano.columns), 
                                     df_plano.columns[1]
@@ -1579,7 +1519,7 @@ elif opcao == "Ver Lançamentos":
                             else:
                                 lista_contas = []
                         except Exception as e:
-                            st.error(f"Erro ao acrregar Plano de Contas: {e}")
+                            st.error(f"Erro ao carregar Plano de Contas: {e}")
                             lista_contas = []
 
                         # 2. Pega as contas atuais do lançamento selecionado
@@ -1604,12 +1544,10 @@ elif opcao == "Ver Lançamentos":
                             
                             with col_e1:
                                 data_edit = st.date_input("Data do Lançamento", value=row_alvo["data_dt"], format="DD/MM/YYYY")
-                                # Substituiu a linha 1558:
                                 c_deb_edit = st.selectbox("Conta Débito", options=lista_contas, index=idx_deb)
                                 val_edit = st.number_input("Valor (R$)", value=float(row_alvo["valor"]), step=0.01)
                                 
                             with col_e2:
-                                # Substituiu a linha 1561:
                                 c_cred_edit = st.selectbox("Conta Crédito", options=lista_contas, index=idx_cred)
                                 hist_edit = st.text_area("Histórico / Documento", value=str(row_alvo["historico"]))
 
