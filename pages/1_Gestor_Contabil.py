@@ -173,17 +173,17 @@ def formatar_brl(valor):
 
 # Menu Lateral
 opcao = st.sidebar.radio(
-    "📍 Navegação Principal",
+    "Navegação Principal",
     [
-        "📊 Dashboard",
-        "⚙️ Cadastrar Conta / Fornecedor",
-        "➕ Novo Lançamento",
-        "📌 Provisões (Contas a Pagar)",
-        "📥 Importar Extrato / Excel",
-        "📋 Ver Lançamentos",
-        "🏦 Conciliação Bancária",
-        "📖 Plano de Contas",
-        "📊 Relatório por Categoria"
+        "Dashboard",
+        "Cadastrar Conta / Fornecedor",
+        "Novo Lançamento",
+        "Provisões (Contas a Pagar)",
+        "Importar Extrato / Excel",
+        "Ver Lançamentos",
+        "Conciliação Bancária",
+        "Plano de Contas",
+        "Relatório por Categoria"
     ]
 )
 # =============================================================================
