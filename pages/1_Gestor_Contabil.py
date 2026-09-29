@@ -172,24 +172,25 @@ def formatar_brl(valor):
 
 
 # Menu Lateral
-opcao = st.sidebar.selectbox(
-    "Menu Navegação",
+opcao = st.sidebar.radio(
+    "📍 Navegação Principal",
     [
-        "Cadastrar Cliente",
-        "Cadastrar Conta / Fornecedor",
-        "Novo Lançamento",
-        "Provisões (Contas a Pagar)",
-        "Importar Extrato / Excel",
-        "Ver Lançamentos",
-        "Conciliação Bancária",
-        "Plano de Contas",
-        "Relatório por Categoria"
+        "📊 Dashboard",
+        "⚙️ Cadastrar Conta / Fornecedor",
+        "➕ Novo Lançamento",
+        "📌 Provisões (Contas a Pagar)",
+        "📥 Importar Extrato / Excel",
+        "📋 Ver Lançamentos",
+        "🏦 Conciliação Bancária",
+        "📖 Plano de Contas",
+        "📊 Relatório por Categoria"
     ]
 )
 # =============================================================================
-# BLOCO CADASTRAR / GERENCIAR CLIENTES E DASHBOARD MEI
+# BLOCO DASHBOARD MEI
 # =============================================================================
-if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente":
+#if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente":
+if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
     st.subheader("Gestão do Cliente - DASHBOARD")
 
     user_id_atual = st.session_state.user.id
@@ -1695,7 +1696,7 @@ elif opcao == "Conciliação Bancária":
 # FIM DO BLOCO
 
 
-# BLOCO RELATÓRIO POR CATEGORIA (RESTRIÇÃO STRICTA AO CLIENTE ATIVO + LADO A LADO)
+# BLOCO RELATÓRIO POR CATEGORIA (COM ATUALIZAÇÃO EM TEMPO REAL)
 elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
     st.subheader("📊 Relatório Financeiro por Categoria")
 
@@ -1704,38 +1705,39 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
     if not cliente_ativo_id:
         st.warning("⚠️ Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
+        # Busca os dados diretamente garantindo transação atualizada
         conn = get_connection()
-        # 1. Dados do cliente ativo para o banner
-        df_cliente = pd.read_sql_query(
-            "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
-            conn, 
-            params=(cliente_ativo_id, st.session_state.user.id)
-        )
-
-        if df_cliente.empty:
-            st.error("Erro de segurança: Cliente não encontrado ou sem permissão.")
-            conn.close()
-        else:
-            nome_cliente = df_cliente.iloc[0]["nome"]
-            regime_cliente = df_cliente.iloc[0]["regime"]
-
-            # Banner Informativo do Cliente Ativo
-            st.info(f"📋 Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
-
-            # 2. Busca todos os lançamentos do cliente ativo
+        try:
+            conn.commit() # Força o banco a atualizar o snapshot de dados
+            df_cliente = pd.read_sql_query(
+                "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
+                conn, 
+                params=(cliente_ativo_id, st.session_state.user.id)
+            )
             df_lancamentos = pd.read_sql_query(
                 "SELECT conta_debito, conta_credito, valor, data FROM lancamentos WHERE cliente_id = %s",
                 conn,
                 params=(cliente_ativo_id,)
             )
+        finally:
             conn.close()
+
+        if df_cliente.empty:
+            st.error("Erro de segurança: Cliente não encontrado ou sem permissão.")
+        else:
+            nome_cliente = df_cliente.iloc[0]["nome"]
+            regime_cliente = df_cliente.iloc[0]["regime"]
+
+            st.info(f"📋 Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
 
             if df_lancamentos.empty:
                 st.info("💡 Nenhum lançamento encontrado para montar o relatório do cliente ativo.")
             else:
-                # Separa e agrupa Receitas (Entradas) e Despesas (Saídas)
+                # Exclui contas de caixa/banco da contagem de receitas e despesas de forma abrangente
+                filtro_caixa_banco = "1.1.1|Caixa|Banco"
+
                 df_entradas = (
-                    df_lancamentos[~df_lancamentos["conta_credito"].str.contains("1.1.1", na=False)]
+                    df_lancamentos[~df_lancamentos["conta_credito"].str.contains(filtro_caixa_banco, case=False, na=False)]
                     .groupby("conta_credito")["valor"]
                     .sum()
                     .reset_index()
@@ -1744,7 +1746,7 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                 df_entradas["Grupo"] = "🟢 Receitas"
 
                 df_saidas = (
-                    df_lancamentos[~df_lancamentos["conta_debito"].str.contains("1.1.1", na=False)]
+                    df_lancamentos[~df_lancamentos["conta_debito"].str.contains(filtro_caixa_banco, case=False, na=False)]
                     .groupby("conta_debito")["valor"]
                     .sum()
                     .reset_index()
@@ -1764,9 +1766,6 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
 
                 st.markdown("---")
 
-                # -----------------------------------------------------------------
-                # LAYOUT LADO A LADO: TABELA (ESQUERDA) VS GRÁFICO (DIREITA)
-                # -----------------------------------------------------------------
                 col_tabela, col_grafico = st.columns([1, 1])
 
                 with col_tabela:
@@ -1796,7 +1795,6 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
 
                 st.markdown("---")
 
-                # Botão para exportar o relatório consolidado
                 csv_rel = df_agrupado.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
                 st.download_button(
                     label="📥 Baixar Relatório por Categoria (.csv)",
@@ -1804,6 +1802,7 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                     file_name=f"relatorio_categoria_{nome_cliente.replace(' ', '_').lower()}.csv",
                     mime="text/csv",
                 )
+
 # Fim do Bloco  
               
 # -----------------------------------------------------------------------------
