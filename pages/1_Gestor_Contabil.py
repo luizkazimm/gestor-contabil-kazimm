@@ -181,6 +181,7 @@ opcao = st.sidebar.selectbox(
         "Provisões (Contas a Pagar)",
         "Importar Extrato / Excel",
         "Ver Lançamentos",
+        "Conciliação Bancária",
         "Plano de Contas",
         "Relatório por Categoria"
     ]
@@ -1596,6 +1597,113 @@ elif opcao == "Ver Lançamentos":
                             st.success(f"Lançamento ID #{id_alvo} excluído com sucesso!")
                             st.rerun()
 #Fim do bloco
+
+# -----------------------------------------------------------------------------
+# MENU: CONCILIAÇÃO BANCÁRIA (COM CONSULTA DIRETA AO BANCO)
+# -----------------------------------------------------------------------------
+elif opcao == "Conciliação Bancária":
+    st.markdown("### 🏦 Conciliação Bancária & Evolução de Saldos")
+    st.caption("Verifique as entradas, saídas e o saldo acumulado mês a mês para conferência com o extrato.")
+
+    # 1. Identifica o cliente ativo no sistema
+    cid_raw = st.session_state.get('cliente_id') or st.session_state.get('cliente_id_ativo')
+    if not cid_raw:
+        cid_raw = (
+            locals().get('cliente_id_ativo') or 
+            locals().get('cliente_id') or 
+            globals().get('cliente_id_ativo') or 
+            globals().get('cliente_id')
+        )
+    cid_val = int(cid_raw) if cid_raw else None
+
+    # 2. Busca os dados diretamente do Supabase de forma segura
+    df_lancamentos = pd.DataFrame()
+    if cid_val:
+        try:
+            conn = get_connection()
+            df_lancamentos = pd.read_sql(
+                "SELECT * FROM lancamentos WHERE cliente_id = %s ORDER BY data ASC;", 
+                conn, 
+                params=(cid_val,)
+            )
+        except Exception as e:
+            st.error(f"Erro ao carregar lançamentos para a conciliação: {e}")
+
+    # 3. Processamento da Conciliação
+    if df_lancamentos.empty:
+        st.info("Nenhum lançamento encontrado para este cliente para realizar a conciliação.")
+    else:
+        # Tratamento das datas
+        df_conc = df_lancamentos.copy()
+        df_conc['data_dt'] = pd.to_datetime(df_conc['data'], errors='coerce')
+        df_conc = df_conc.dropna(subset=['data_dt'])
+        df_conc['mes_ano'] = df_conc['data_dt'].dt.strftime('%Y-%m')
+
+        # Identifica contas bancárias/caixa
+        contas_deb = df_conc['conta_debito'].dropna().unique().tolist()
+        contas_cred = df_conc['conta_credito'].dropna().unique().tolist()
+        todas_contas = sorted(list(set(contas_deb + contas_cred)))
+        
+        contas_bancarias = [c for c in todas_contas if any(k in c.lower() for k in ['banco', 'caixa', '1.1.1'])]
+        if not contas_bancarias:
+            contas_bancarias = todas_contas
+
+        col_c1, col_c2 = st.columns([2, 1])
+        with col_c1:
+            conta_sel = st.selectbox("Selecione a Conta Bancária / Caixa:", contas_bancarias)
+        with col_c2:
+            saldo_ini = st.number_input("Saldo Inicial da Conta (R$):", value=0.00, step=100.00, format="%.2f")
+
+        if conta_sel:
+            # Agrupamento mensal do saldo
+            meses_unicos = sorted(df_conc['mes_ano'].unique())
+            dados_conc = []
+            saldo_acum = saldo_ini
+
+            for m in meses_unicos:
+                df_mes = df_conc[df_conc['mes_ano'] == m]
+                entradas = df_mes[df_mes['conta_debito'] == conta_sel]['valor'].sum()
+                saidas = df_mes[df_mes['conta_credito'] == conta_sel]['valor'].sum()
+                saldo_mes = entradas - saidas
+                saldo_final = saldo_acum + saldo_mes
+
+                dt_ref = pd.to_datetime(m + "-01")
+                mes_label = dt_ref.strftime('%b/%Y').capitalize()
+
+                dados_conc.append({
+                    'Mês/Ano': mes_label,
+                    'Saldo Anterior': saldo_acum,
+                    'Entradas (R$)': entradas,
+                    'Saídas (R$)': saidas,
+                    'Resultado do Mês': saldo_mes,
+                    'Saldo Final (Calculado)': saldo_final
+                })
+
+                saldo_acum = saldo_final
+
+            df_conciliado = pd.DataFrame(dados_conc)
+
+            # Exibição dos Indicadores
+            st.markdown("---")
+            m1, m2, m3, m4 = st.columns(4)
+            tot_ent = df_conciliado['Entradas (R$)'].sum()
+            tot_sai = df_conciliado['Saídas (R$)'].sum()
+            saldo_atual = df_conciliado['Saldo Final (Calculado)'].iloc[-1] if not df_conciliado.empty else saldo_ini
+
+            m1.metric("Saldo Inicial", f"R$ {saldo_ini:,.2f}")
+            m2.metric("Total Entradas", f"R$ {tot_ent:,.2f}")
+            m3.metric("Total Saídas", f"R$ {tot_sai:,.2f}")
+            m4.metric("Saldo Atual", f"R$ {saldo_atual:,.2f}")
+
+            # Tabela de Fechamento Mensal
+            st.markdown("#### 📊 Fechamento Mensal")
+            df_exib = df_conciliado.copy()
+            for c in ['Saldo Anterior', 'Entradas (R$)', 'Saídas (R$)', 'Resultado do Mês', 'Saldo Final (Calculado)']:
+                df_exib[c] = df_exib[c].apply(lambda x: f"R$ {x:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
+
+            st.dataframe(df_exib, use_container_width=True, hide_index=True)
+# FIM DO BLOCO
+
 
 # BLOCO RELATÓRIO POR CATEGORIA (RESTRIÇÃO STRICTA AO CLIENTE ATIVO + LADO A LADO)
 elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
