@@ -127,9 +127,9 @@ def login_screen():
 
     with col2:
         #Logo Kazimm Gestão
-        st.image("Logo.png", width=180)
+        st.image("Logo.png", width=400)
 
-        st.title("🔐 Kazimm Gestor Contabil")
+        #st.title("🔐 Kazimm Gestor Contabil")
         st.caption("Acesso restrito a clientes autorizados.")
     
         with st.form("login_form"):
