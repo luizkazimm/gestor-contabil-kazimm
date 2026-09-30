@@ -1696,7 +1696,7 @@ elif opcao == "Conciliação Bancária":
 # FIM DO BLOCO
 
 
-# BLOCO RELATÓRIO POR CATEGORIA (COM ATUALIZAÇÃO EM TEMPO REAL)
+# BLOCO RELATÓRIO POR CATEGORIA (COM ABATIMENTO E SEPARAÇÃO PATRIMONIAL)
 elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
     st.subheader("📊 Relatório Financeiro por Categoria")
 
@@ -1705,10 +1705,9 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
     if not cliente_ativo_id:
         st.warning("⚠️ Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
-        # Busca os dados diretamente garantindo transação atualizada
         conn = get_connection()
         try:
-            conn.commit() # Força o banco a atualizar o snapshot de dados
+            conn.commit()
             df_cliente = pd.read_sql_query(
                 "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
                 conn, 
@@ -1733,76 +1732,112 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
             if df_lancamentos.empty:
                 st.info("💡 Nenhum lançamento encontrado para montar o relatório do cliente ativo.")
             else:
-                # Exclui contas de caixa/banco da contagem de receitas e despesas de forma abrangente
                 filtro_caixa_banco = "1.1.1|Caixa|Banco"
 
+                # 1. Agrupa Entradas por Conta (onde a conta recebeu crédito)
                 df_entradas = (
                     df_lancamentos[~df_lancamentos["conta_credito"].str.contains(filtro_caixa_banco, case=False, na=False)]
                     .groupby("conta_credito")["valor"]
                     .sum()
                     .reset_index()
+                    .rename(columns={"conta_credito": "conta", "valor": "entradas"})
                 )
-                df_entradas.columns = ["Categoria / Conta", "Total (R$)"]
-                df_entradas["Grupo"] = "🟢 Receitas"
 
+                # 2. Agrupa Saídas por Conta (onde a conta sofreu débito)
                 df_saidas = (
                     df_lancamentos[~df_lancamentos["conta_debito"].str.contains(filtro_caixa_banco, case=False, na=False)]
                     .groupby("conta_debito")["valor"]
                     .sum()
                     .reset_index()
+                    .rename(columns={"conta_debito": "conta", "valor": "saidas"})
                 )
-                df_saidas.columns = ["Categoria / Conta", "Total (R$)"]
-                df_saidas["Grupo"] = "🔴 Despesas"
 
-                df_agrupado = pd.concat([df_entradas, df_saidas], ignore_index=True)
+                # 3. Consolida (Merge) Entradas e Saídas da mesma conta
+                df_total = pd.merge(df_entradas, df_saidas, on="conta", how="outer").fillna(0.0)
+
+                # 4. Processa o Saldo Líquido e Classifica o Grupo
+                dados_relatorio = []
+                for _, row in df_total.iterrows():
+                    conta_nome = str(row["conta"])
+                    v_ent = float(row["entradas"])
+                    v_sai = float(row["saidas"])
+
+                    # Contas de Receita (Grupo 3)
+                    if conta_nome.startswith("3") or "Receita" in conta_nome:
+                        val_liquido = v_ent - v_sai
+                        if val_liquido != 0:
+                            dados_relatorio.append({
+                                "Grupo": "🟢 Receitas",
+                                "Categoria / Conta": conta_nome,
+                                "Total (R$)": val_liquido
+                            })
+
+                    # Contas de Despesa (Grupo 4)
+                    elif conta_nome.startswith("4") or "Despesa" in conta_nome or "Estoque" in conta_nome:
+                        val_liquido = v_sai - v_ent
+                        if val_liquido != 0:
+                            dados_relatorio.append({
+                                "Grupo": "🔴 Despesas",
+                                "Categoria / Conta": conta_nome,
+                                "Total (R$)": val_liquido
+                            })
+
+                    # Contas Patrimoniais / Empréstimos / Passivo / Ativo (Grupo 1 e 2)
+                    else:
+                        val_liquido = v_ent - v_sai
+                        if val_liquido != 0:
+                            grupo_label = "🔄 Patrimonial / Entrada" if val_liquido > 0 else "🔄 Patrimonial / Saída"
+                            dados_relatorio.append({
+                                "Grupo": grupo_label,
+                                "Categoria / Conta": conta_nome,
+                                "Total (R$)": abs(val_liquido)
+                            })
+
+                df_agrupado = pd.DataFrame(dados_relatorio)
 
                 if df_agrupado.empty:
-                    df_agrupado = df_lancamentos.groupby("conta_debito")["valor"].sum().reset_index()
-                    df_agrupado.columns = ["Categoria / Conta", "Total (R$)"]
-                    df_agrupado["Grupo"] = "Movimentação"
+                    st.info("💡 Nenhuma movimentação relevante encontrada para o relatório.")
+                else:
+                    df_exibicao = df_agrupado.copy()
+                    df_exibicao["Valor Formatado"] = df_exibicao["Total (R$)"].apply(formatar_brl)
 
-                df_exibicao = df_agrupado.copy()
-                df_exibicao["Valor Formatado"] = df_exibicao["Total (R$)"].apply(formatar_brl)
+                    st.markdown("---")
 
-                st.markdown("---")
+                    col_tabela, col_grafico = st.columns([1, 1])
 
-                col_tabela, col_grafico = st.columns([1, 1])
-
-                with col_tabela:
-                    st.write("##### 📋 Acumulado por Categoria")
-                    st.dataframe(
-                        df_exibicao[["Grupo", "Categoria / Conta", "Valor Formatado"]],
-                        use_container_width=True,
-                        height=360
-                    )
-
-                with col_grafico:
-                    st.write("##### 📈 Distribuição Geral")
-                    try:
-                        import plotly.express as px
-                        fig = px.pie(
-                            df_agrupado,
-                            names="Categoria / Conta",
-                            values="Total (R$)",
-                            color="Grupo",
-                            color_discrete_map={"🟢 Receitas": "#2ca02c", "🔴 Despesas": "#d62728"},
-                            hole=0.35,
+                    with col_tabela:
+                        st.write("##### 📋 Acumulado por Categoria (Saldo Liquido)")
+                        st.dataframe(
+                            df_exibicao[["Grupo", "Categoria / Conta", "Valor Formatado"]],
+                            use_container_width=True,
+                            height=360
                         )
-                        fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=360)
-                        st.plotly_chart(fig, use_container_width=True)
-                    except Exception:
-                        st.bar_chart(df_agrupado.set_index("Categoria / Conta")["Total (R$)"])
 
-                st.markdown("---")
+                    with col_grafico:
+                        st.write("##### 📈 Distribuição Geral")
+                        try:
+                            import plotly.express as px
+                            fig = px.pie(
+                                df_agrupado,
+                                names="Categoria / Conta",
+                                values="Total (R$)",
+                                color="Grupo",
+                                hole=0.35,
+                            )
+                            fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=360)
+                            st.plotly_chart(fig, use_container_width=True)
+                        except Exception:
+                            st.bar_chart(df_agrupado.set_index("Categoria / Conta")["Total (R$)"])
 
-                csv_rel = df_agrupado.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
-                st.download_button(
-                    label="📥 Baixar Relatório por Categoria (.csv)",
-                    data=csv_rel,
-                    file_name=f"relatorio_categoria_{nome_cliente.replace(' ', '_').lower()}.csv",
-                    mime="text/csv",
-                )
+                    st.markdown("---")
 
+                    csv_rel = df_agrupado.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+                    st.download_button(
+                        label="📥 Baixar Relatório por Categoria (.csv)",
+                        data=csv_rel,
+                        file_name=f"relatorio_categoria_{nome_cliente.replace(' ', '_').lower()}.csv",
+                        mime="text/csv",
+                    )
 # Fim do Bloco  
               
 # -----------------------------------------------------------------------------
