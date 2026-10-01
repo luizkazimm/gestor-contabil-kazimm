@@ -3,10 +3,19 @@ import streamlit as st
 import io
 import pandas as pd
 from database import get_connection, init_db
+from supabase import create_client
 
 # 1. Configuração da página (DEVE SER O PRIMEIRO COMANDO STREAMLIT)
 st.set_page_config(page_title="Gestor Contábil Kazimm", layout="wide")
 
+#Bloco para criação de usuários no SUPABASE
+try:
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    supabase = create_client(url, key)
+except Exception as e:
+    supabase = None
+    
 #Bloco CSS de estilização
 # -----------------------------------------------------------------------------
 # ESTILO GLOBAL & RESPONSIVIDADE MOBILE ISOLADA (GESTOR CONTÁBIL)
