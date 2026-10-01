@@ -15,7 +15,7 @@ try:
     supabase = create_client(url, key)
 except Exception as e:
     supabase = None
-    
+
 #Bloco CSS de estilização
 # -----------------------------------------------------------------------------
 # ESTILO GLOBAL & RESPONSIVIDADE MOBILE ISOLADA (GESTOR CONTÁBIL)
@@ -582,25 +582,81 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                             else:
                                 st.warning("Preencha Razão Social e CNPJ.")
 
-                # ABA 3: CRIAR NOVO LOGIN DE USUÁRIO
+                # ABA 3: CRIAR OU VINCULAR LOGIN DE USUÁRIO À EMPRESA (BLINDADO)
                 with tab_usuario:
-                    with st.form("form_criar_usuario_admin"):
-                        st.markdown("##### Criar Novo Login de Acesso")
-                        u_email = st.text_input("E-mail do Cliente / Usuário")
-                        u_senha = st.text_input("Senha Provisória (mínimo 6 caracteres)", type="password")
+                    conn_cli = get_connection()
+                    df_cli_vinc = pd.read_sql_query("SELECT id, nome, cnpj_cpf FROM clientes ORDER BY nome ASC", conn_cli)
+                    conn_cli.close()
 
-                        btn_criar_user = st.form_submit_button("🔑 Criar Conta de Acesso", use_container_width=True)
+                    if df_cli_vinc.empty:
+                        st.info("💡 Cadastre uma empresa na carteira antes de criar um login de acesso.")
+                    else:
+                        dict_cli_vinc = {
+                            f"ID #{row['id']} - {row['nome']} ({row['cnpj_cpf']})": row['id'] 
+                            for _, row in df_cli_vinc.iterrows()
+                        }
 
-                        if btn_criar_user:
-                            if u_email and len(u_senha) >= 6:
-                                try:
-                                    res = supabase.auth.sign_up({"email": u_email, "password": u_senha})
-                                    if res and res.user:
-                                        st.success(f"Login criado com sucesso para **{u_email}**!")
-                                except Exception as e:
-                                    st.error(f"Erro ao criar conta: {e}")
-                            else:
-                                st.warning("Informe um e-mail válido e uma senha com pelo menos 6 caracteres.")
+                        with st.form("form_criar_usuario_admin"):
+                            st.markdown("##### Criar Novo Login e Vincular à Empresa")
+                            
+                            cli_destino_rotulo = st.selectbox(
+                                "🏢 Selecione a Empresa para liberar o acesso:", 
+                                options=list(dict_cli_vinc.keys())
+                            )
+                            u_email = st.text_input("E-mail do Cliente / Usuário", placeholder="exemplo@gmail.com").strip().lower()
+                            u_senha = st.text_input("Senha Provisória (mínimo 6 caracteres)", type="password")
+
+                            btn_criar_user = st.form_submit_button("🔑 Salvar e Liberar Acesso do Cliente", use_container_width=True)
+
+                            if btn_criar_user:
+                                if u_email and len(u_senha) >= 6:
+                                    id_empresa_alvo = dict_cli_vinc[cli_destino_rotulo]
+                                    user_id_criado = None
+
+                                    # 1. Tenta criar o usuário no Supabase Auth
+                                    try:
+                                        res = supabase.auth.sign_up({"email": u_email, "password": u_senha})
+                                        if res and res.user:
+                                            user_id_criado = res.user.id
+                                    except Exception:
+                                        pass
+
+                                    # 2. Executa a vinculação garantindo insensibilidade de maiúsculas/minúsculas
+                                    try:
+                                        conn_up_user = get_connection()
+                                        cursor_up_user = conn_up_user.cursor()
+
+                                        if user_id_criado:
+                                            cursor_up_user.execute(
+                                                "UPDATE clientes SET user_id = %s WHERE id = %s",
+                                                (user_id_criado, id_empresa_alvo)
+                                            )
+                                        else:
+                                            cursor_up_user.execute(
+                                                """
+                                                UPDATE clientes 
+                                                SET user_id = (SELECT id FROM auth.users WHERE LOWER(email) = LOWER(%s) LIMIT 1) 
+                                                WHERE id = %s
+                                                """,
+                                                (u_email, id_empresa_alvo)
+                                            )
+
+                                        conn_up_user.commit()
+
+                                        # Verifica se o user_id foi realmente preenchido
+                                        cursor_up_user.execute("SELECT user_id FROM clientes WHERE id = %s", (id_empresa_alvo,))
+                                        checar_vincu = cursor_up_user.fetchone()
+                                        conn_up_user.close()
+
+                                        if checar_vincu and checar_vincu[0] is not None:
+                                            st.success(f"🎉 Sucesso! A empresa foi vinculada ao e-mail **{u_email}**. O cliente já pode acessar!")
+                                        else:
+                                            st.warning(f"⚠️ O usuário **{u_email}** ainda não existe no Supabase Auth. Certifique-se de que o e-mail está correto.")
+
+                                    except Exception as e:
+                                        st.error(f"Erro ao vincular empresa ao usuário: {e}")
+                                else:
+                                    st.warning("Informe um e-mail válido e uma senha com pelo menos 6 caracteres.")
 
                 # ABA 4: LISTA COMPLETA DA CARTEIRA DE CLIENTES
                 with tab_lista:
@@ -932,14 +988,14 @@ elif opcao == "Novo Lançamento":
 
         historicos_padrao = [
             "Digitar Histórico do Zero",
-            "Compra de material de limpeza e consumo conf.",
-            "Compra de bebidas/estoque p/ revenda conf.",
-            "Compra de ingredientes e insumos p/ refeições conf.",
-            "Compra de embalagens e descartáveis conf.",
-            "Venda diária de mercadorias conf.",
-            "Pagamento de frete/carreto p/ entrega de bebidas conf.",
-            "Troca / Aquisição de garrafas e vasilhames retornáveis conf.",
-            "Pagamento de taxa de máquina de cartão ref. ao período",
+            "Pg. Supermercado Premium de B.Roxo - NFc:",
+            "Pg. Supermercado Real de Eden - NFc:",
+            "Pg. Drogaria Ebenezer de Madureira - NFc",
+            "Pg. Remar Hortifruti Ltda - NFc:",
+            "Pg. Mercadinho Natural de B.Roxo - Recibo:",
+            "Pg. Supermercados Feira Nova Ltda - NFc:",
+            "Pg. Bazar Amigão de Madureita - NFc:",
+            
         ]
 
         # --- ESTRUTURA MEI / LIVRO CAIXA ---
