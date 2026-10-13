@@ -59,9 +59,9 @@ st.markdown("""
     /* 4. BOTÃO ENTRAR COM ALTURA FIXA E PROPORCIONAL (42px) */
     div.stButton > button, 
     div.stFormSubmitButton > button {
-        background-color: #1E3A8A !important;
+        background-color: #0176A1 !important;
         color: #FFFFFF !important;
-        border-radius: 8px !important;
+        border-radius: 2px !important;
         border: none !important;
         font-family: 'Montserrat', sans-serif !important;
         font-weight: 600 !important;

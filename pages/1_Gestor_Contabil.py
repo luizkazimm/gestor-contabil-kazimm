@@ -74,7 +74,7 @@ st.markdown("""
     div[data-baseweb="input"], 
     div[data-baseweb="select"] > div {
         background-color: #F8FAFC !important;
-        border: 1.5px solid #CBD5E1 !important;
+        border: 0.5px solid #CBD5E1 !important;
         border-radius: 8px !important;
     }
 
@@ -89,9 +89,9 @@ st.markdown("""
     div.stFormSubmitButton > button,
     div.stButton > button *, 
     div.stFormSubmitButton > button * {
-        background-color: #1E3A8A !important;
+        background-color: #0176A1 !important;
         color: #FFFFFF !important;
-        border-radius: 8px !important;
+        border-radius: 2px !important;
         border: none !important;
         font-family: 'Montserrat', sans-serif !important;
         font-weight: 600 !important;
@@ -100,8 +100,8 @@ st.markdown("""
 
     div.stButton > button:hover, 
     div.stFormSubmitButton > button:hover {
-        background-color: #2563EB !important;
-        color: #FFFFFF !important;
+        background-color: #0176a1 !important;
+        color: #000000 !important;
     }
 
     /* ----------------------------------------------------------------- */
@@ -820,7 +820,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                         "Grupo / Tipo",
                         ["Despesa", "Receita", "Ativo", "Passivo", "Patrimônio Líquido"],
                     )
-                    salvar_conta = st.form_submit_button("Cadastrar Conta", use_container_width=True)
+                    salvar_conta = st.form_submit_button("Cadastrar Conta")
 
                     if salvar_conta:
                         if codigo and descricao:
@@ -878,7 +878,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                             idx_tipo = tipos_possiveis.index(tipo_atual) if tipo_atual in tipos_possiveis else 0
                             novo_tipo = st.selectbox("Grupo / Tipo", tipos_possiveis, index=idx_tipo)
 
-                            salvar_edicao = st.form_submit_button("Salvar Alterações", use_container_width=True)
+                            salvar_edicao = st.form_submit_button("Salvar Alterações")
 
                             if salvar_edicao:
                                 if novo_codigo and novo_nome:
@@ -1337,7 +1337,7 @@ elif "Provisões" in opcao:
 
                         with col_acao:
                             # Botão de baixa rápida que liquida e lança no caixa
-                            if st.button("Pagar / Dar Baixa", key=f"btn_pago_{row['id']}", use_container_width=True):
+                            if st.button("Pagar / Dar Baixa", key=f"btn_pago_{row['id']}"):
                                 conn_baixa = get_connection()
                                 cursor_baixa = conn_baixa.cursor()
                                 
@@ -1707,7 +1707,7 @@ elif opcao == "Ver Lançamentos":
                                 c_cred_edit = st.selectbox("Conta Crédito", options=lista_contas, index=idx_cred)
                                 hist_edit = st.text_area("Histórico / Documento", value=str(row_alvo["historico"]))
 
-                            btn_salvar_edit = st.form_submit_button("Salvar Alterações", use_container_width=True)
+                            btn_salvar_edit = st.form_submit_button("Salvar Alterações")
 
                             if btn_salvar_edit:
                                 conn_act = get_connection()
@@ -2069,7 +2069,7 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
         st.markdown("**🚨 Exclusão em Bloco (Zerar Lançamentos)**")
         st.caption("Atenção: Esta ação removerá TODOS os lançamentos do cliente atualmente selecionado.")
         
-        if st.button("🗑️ Apagar TODOS os Lançamentos deste Cliente", use_container_width=True):
+        if st.button("🗑️ Apagar TODOS os Lançamentos deste Cliente"):
             if not cid_val:
                 st.error("Nenhum cliente selecionado no topo da página.")
                 st.stop()
