@@ -148,7 +148,7 @@ st.markdown("""
 
 # --- TRAVA DE SEGURANÇA ---
 if 'user' not in st.session_state or st.session_state.user is None:
-    st.warning("🔒 Você precisa fazer login para acessar o Gestor Contábil.")
+    st.warning(" Você precisa fazer login para acessar o Gestor Contábil.")
     st.stop()
     
 #Título de Inicialização
@@ -195,12 +195,115 @@ opcao = st.sidebar.radio(
         "Relatório por Categoria"
     ]
 )
+
+# ==========================================
+# NOTIFICAÇÃO GLOBAL DO CLIENTE ATIVO E MINI-DASHBOARD (HUD CORRIGIDO)
+# ==========================================
+cliente_ativo_id = st.session_state.get("cliente_id_ativo")
+
+if cliente_ativo_id:
+    conn = get_connection()
+    df_info_cli = pd.read_sql_query(
+        "SELECT nome, regime FROM clientes WHERE id = %s", 
+        conn, params=(cliente_ativo_id,)
+    )
+    df_lanc_global = pd.read_sql_query(
+        "SELECT conta_debito, conta_credito, valor FROM lancamentos WHERE cliente_id = %s", 
+        conn, params=(cliente_ativo_id,)
+    )
+    conn.close()
+
+    if not df_info_cli.empty:
+        nome_empresa = df_info_cli.iloc[0]["nome"]
+        regime_empresa = df_info_cli.iloc[0]["regime"]
+        
+        # 1. Faixa azul do cliente ativo
+        st.info(f" Cliente Ativo em Atendimento: **{nome_empresa}** | Regime: **{regime_empresa}**")
+        
+        # 2. Cálculos Globais com Desdobramento de Caixa e Bancos
+        filtro_caixa_fisico = "1.1.1.01|caixa geral|caixa físico|dinheiro"
+        filtro_bancos = "1.1.1.02|1.1.1.03|banco|itau|bradesco|inter|nubank|cef|bb"
+
+        # Receitas
+        df_rec_g = df_lanc_global[df_lanc_global["conta_credito"].str.contains("3\.|Receita", case=False, na=False)]
+        rec_g = df_rec_g["valor"].sum() if not df_rec_g.empty else 0.0
+        rec_caixa_g = df_rec_g[df_rec_g["conta_debito"].str.contains(filtro_caixa_fisico, case=False, na=False)]["valor"].sum() if not df_rec_g.empty else 0.0
+        rec_bancos_g = df_rec_g[df_rec_g["conta_debito"].str.contains(filtro_bancos, case=False, na=False)]["valor"].sum() if not df_rec_g.empty else 0.0
+
+        # Despesas
+        desp_g = df_lanc_global[df_lanc_global["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)]["valor"].sum() if not df_lanc_global.empty else 0.0
+        
+        # Saldo Caixa e Bancos
+        ent_cx_g = df_lanc_global[df_lanc_global["conta_debito"].str.contains(filtro_caixa_fisico, case=False, na=False)]["valor"].sum() if not df_lanc_global.empty else 0.0
+        sai_cx_g = df_lanc_global[df_lanc_global["conta_credito"].str.contains(filtro_caixa_fisico, case=False, na=False)]["valor"].sum() if not df_lanc_global.empty else 0.0
+        saldo_disp_caixa_g = ent_cx_g - sai_cx_g
+        
+        ent_bc_g = df_lanc_global[df_lanc_global["conta_debito"].str.contains(filtro_bancos, case=False, na=False)]["valor"].sum() if not df_lanc_global.empty else 0.0
+        sai_bc_g = df_lanc_global[df_lanc_global["conta_credito"].str.contains(filtro_bancos, case=False, na=False)]["valor"].sum() if not df_lanc_global.empty else 0.0
+        saldo_disp_bancos_g = ent_bc_g - sai_bc_g
+        
+        saldo_g = saldo_disp_caixa_g + saldo_disp_bancos_g
+
+        # Provisões (A Pagar)
+        cred_prov = df_lanc_global[df_lanc_global["conta_credito"].str.contains("2\.|Fornecedor|A Pagar|Provis", case=False, na=False)]["valor"].sum() if not df_lanc_global.empty else 0.0
+        deb_prov = df_lanc_global[df_lanc_global["conta_debito"].str.contains("2\.|Fornecedor|A Pagar|Provis", case=False, na=False)]["valor"].sum() if not df_lanc_global.empty else 0.0
+        a_pagar_g = cred_prov - deb_prov
+
+        # 3. Renderização Segura em 4 Colunas Nativas
+        cor_saldo = "#00875a" if saldo_g >= 0 else "#de350b"
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+
+        with col_m1:
+            st.markdown(
+                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
+<div style="font-size: 15px; color: #0176a1;"> Receita Realizada</div>
+<div style="font-size: 20px; font-weight: bold; color: #00875a; margin: 4px 0;">{formatar_brl(rec_g)}</div>
+<div style="font-size: 10px; color: #000000; line-height: 1.3;">Bancos: {formatar_brl(rec_bancos_g)}<br>Caixa: {formatar_brl(rec_caixa_g)}</div>
+</div>""",
+                unsafe_allow_html=True
+            )
+
+        with col_m2:
+            st.markdown(
+                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
+<div style="font-size: 15px; color: #0176a1;"> Despesas Pagas</div>
+<div style="font-size: 20px; font-weight: bold; color: #de350b; margin: 4px 0;">{formatar_brl(desp_g)}</div>
+<div style="font-size: 10px; color: transparent; line-height: 1.3;">&nbsp;<br>&nbsp;</div>
+</div>""",
+                unsafe_allow_html=True
+            )
+
+        with col_m3:
+            st.markdown(
+                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
+<div style="font-size: 15px; color: #0176a1;"> Saldo em Caixa</div>
+<div style="font-size: 20px; font-weight: bold; color: {cor_saldo}; margin: 4px 0;">{formatar_brl(saldo_g)}</div>
+<div style="font-size: 10px; color: #000000; line-height: 1.3;">Bancos: {formatar_brl(saldo_disp_bancos_g)}<br>Caixa: {formatar_brl(saldo_disp_caixa_g)}</div>
+</div>""",
+                unsafe_allow_html=True
+            )
+
+        with col_m4:
+            st.markdown(
+                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
+<div style="font-size: 15px; color: #0176a1;"> A Pagar (Provisões)</div>
+<div style="font-size: 20px; font-weight: bold; color: #ff9900; margin: 4px 0;">{formatar_brl(a_pagar_g)}</div>
+<div style="font-size: 10px; color: transparent; line-height: 1.3;">&nbsp;<br>&nbsp;</div>
+</div>""",
+                unsafe_allow_html=True
+            )
+
+else:
+    st.warning(" Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
+
+st.markdown("---")
+
 # =============================================================================
 # BLOCO DASHBOARD MEI
 # =============================================================================
 #if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente":
 if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
-    st.subheader("Gestão do Cliente - DASHBOARD")
+    st.subheader("Gestão do Cliente - CADASTRO")
 
     user_id_atual = st.session_state.user.id
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
@@ -256,7 +359,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
     # DASHBOARD + PAINEL DE CONTROLE DO ADMINISTRADOR
     else:
         if not cliente_ativo_id:
-            st.warning("⚠️ Selecione um cliente ativo na barra lateral para visualizar o Dashboard.")
+            st.warning("Selecione um cliente ativo na barra lateral para visualizar o Dashboard.")
         else:
             conn = get_connection()
             
@@ -333,7 +436,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                 limite_val = float(row_cli['Limite Faturamento (R$)']) if row_cli['Limite Faturamento (R$)'] else 81000.0
 
                 with st.container(border=True):
-                    st.caption("📋 Ficha Cadastral do Cliente Ativo (Dados CCMEI)")
+                    st.caption("Ficha Cadastral do Cliente Ativo (Dados CCMEI)")
                     col_c1, col_c2, col_c3 = st.columns(3)
                     
                     with col_c1:
@@ -352,69 +455,57 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
             st.divider()
 
             # -----------------------------------------------------------------
-            # PAINEL DE MÉTRICAS (KPIS) - COM CÁLCULOS E CARTÕES HTML
+            # PAINEL DE MÉTRICAS (KPIS) - CÁLCULO PADRONIZADO E RIGOROSO
             # -----------------------------------------------------------------
             st.markdown("##### Painel de Controle Financeiro (MEI)")
 
-            # 1. CÁLCULOS FINANCEIROS (MANTIDOS)
-            rec_tot = df_lancamentos[df_lancamentos["conta_credito"].str.contains("3\.|Receita", case=False, na=False)]["valor"].sum() if not df_lancamentos.empty else 0.0
-            desp_tot = df_lancamentos[df_lancamentos["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)]["valor"].sum() if not df_lancamentos.empty else 0.0
-            saldo_caixa = rec_tot - desp_tot
+            # 1. Receita Realizada: Crédito em Contas do Grupo 3 (Receitas)
+            rec_tot = df_lancamentos[
+                df_lancamentos["conta_credito"].str.contains("3\.|Receita", case=False, na=False)
+            ]["valor"].sum() if not df_lancamentos.empty else 0.0
 
+            # 2. Despesas Pagas: Débito em Contas do Grupo 4 (Despesas/Estoque)
+            desp_tot = df_lancamentos[
+                df_lancamentos["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)
+            ]["valor"].sum() if not df_lancamentos.empty else 0.0
+
+            # 3. Saldo em Caixa: (Débitos em Caixa/Banco) - (Créditos em Caixa/Banco)
+            filtro_caixa = "1.1.1|Caixa|Banco"
+            ent_caixa = df_lancamentos[
+                df_lancamentos["conta_debito"].str.contains(filtro_caixa, case=False, na=False)
+            ]["valor"].sum() if not df_lancamentos.empty else 0.0
+
+            sai_caixa = df_lancamentos[
+                df_lancamentos["conta_credito"].str.contains(filtro_caixa, case=False, na=False)
+            ]["valor"].sum() if not df_lancamentos.empty else 0.0
+
+            saldo_caixa = ent_caixa - sai_caixa
+            #------------------------------------------------------------------------------------------
             # 2. EXIBIÇÃO DOS CARTÕES EM HTML/CSS
-            col_k1, col_k2, col_k3, col_k4 = st.columns(4)
+            #------------------------------------------------------------------------------------------
+            # --- CÁLCULOS PARA DESDOBRAMENTO (BANCO E CAIXA) ---
+            filtro_caixa_fisico = "1.1.1.01|caixa geral|caixa físico|dinheiro"
+            filtro_bancos = "1.1.1.02|1.1.1.03|banco|itau|bradesco|inter|nubank|cef|bb"
 
-            with col_k1:
-                st.markdown(
-                    f"""
-                    <div class="kpi-card">
-                        <p class="kpi-label">🟢 Receita Realizada</p>
-                        <div class="kpi-value receita">{formatar_brl(rec_tot)}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+            df_rec = df_lancamentos[df_lancamentos["conta_credito"].str.contains("3\.|Receita", case=False, na=False)]
+            rec_caixa = df_rec[df_rec["conta_debito"].str.contains(filtro_caixa_fisico, case=False, na=False)]["valor"].sum() if not df_rec.empty else 0.0
+            rec_bancos = df_rec[df_rec["conta_debito"].str.contains(filtro_bancos, case=False, na=False)]["valor"].sum() if not df_rec.empty else 0.0
 
-            with col_k2:
-                st.markdown(
-                    f"""
-                    <div class="kpi-card">
-                        <p class="kpi-label">🔴 Despesas Pagas</p>
-                        <div class="kpi-value despesa">{formatar_brl(desp_tot)}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+            ent_cx = df_lancamentos[df_lancamentos["conta_debito"].str.contains(filtro_caixa_fisico, case=False, na=False)]["valor"].sum() if not df_lancamentos.empty else 0.0
+            sai_cx = df_lancamentos[df_lancamentos["conta_credito"].str.contains(filtro_caixa_fisico, case=False, na=False)]["valor"].sum() if not df_lancamentos.empty else 0.0
+            saldo_disp_caixa = ent_cx - sai_cx
 
-            with col_k3:
-                st.markdown(
-                    f"""
-                    <div class="kpi-card">
-                        <p class="kpi-label">⚖️ Saldo em Caixa</p>
-                        <div class="kpi-value saldo">{formatar_brl(saldo_caixa)}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-            with col_k4:
-                st.markdown(
-                    f"""
-                    <div class="kpi-card">
-                        <p class="kpi-label">🟡 A Pagar (Provisões)</p>
-                        <div class="kpi-value prov">{formatar_brl(a_pagar_tot)}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-            st.divider()
-
+            ent_bc = df_lancamentos[df_lancamentos["conta_debito"].str.contains(filtro_bancos, case=False, na=False)]["valor"].sum() if not df_lancamentos.empty else 0.0
+            sai_bc = df_lancamentos[df_lancamentos["conta_credito"].str.contains(filtro_bancos, case=False, na=False)]["valor"].sum() if not df_lancamentos.empty else 0.0
+            saldo_disp_bancos = ent_bc - sai_bc
+            
+        # Trecho de PAINEL-Dashboard excluído
+            
             # -----------------------------------------------------------------
             # ACOMPANHAMENTO DO LIMITE ANUAL MEI
             # -----------------------------------------------------------------
             percentual_real = (rec_tot / limite_val) * 100 if limite_val > 0 else 0.0
-            st.markdown(f"##### 🎯 Acompanhamento do Limite Anual MEI (Teto: {formatar_brl(limite_val)})")
+            st.markdown(f"##### Acompanhamento do Limite Anual MEI (Teto: {formatar_brl(limite_val)})")
             
             col_m1, col_m2 = st.columns([3, 1])
             with col_m1:
@@ -433,7 +524,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
             # -----------------------------------------------------------------
             # DESPESAS POR CATEGORIA (GRÁFICO)
             # -----------------------------------------------------------------
-            st.markdown("##### 📌 Despesas por Categoria")
+            st.markdown("##### Despesas por Categoria")
             if not df_lancamentos.empty:
                 df_despesas = df_lancamentos[df_lancamentos["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)].copy()
                 if not df_despesas.empty:
@@ -456,9 +547,9 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                     except Exception:
                         st.bar_chart(df_cat.set_index("Categoria / Fornecedor"))
                 else:
-                    st.info("💡 Nenhuma despesa registrada para exibir no gráfico.")
+                    st.info(" Nenhuma despesa registrada para exibir no gráfico.")
             else:
-                st.info("💡 Nenhum lançamento registrado.")
+                st.info(" Nenhum lançamento registrado.")
 
         # -----------------------------------------------------------------
         # FERRAMENTAS DO ADMINISTRADOR (EXPANDER EXCLUSIVO)
@@ -472,10 +563,10 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
             st.divider()
             with st.expander("⚙️ Painel de Administração de Clientes (Exclusivo Contador)", expanded=False):
                 tab_edit, tab_novo, tab_usuario, tab_lista = st.tabs([
-                    "✏️ Editar Cliente", 
-                    "➕ Cadastrar Novo Cliente", 
-                    "👤 Criar Acesso (Login)", 
-                    "📋 Carteira de Clientes"
+                    " Editar Cliente", 
+                    " Cadastrar Novo Cliente", 
+                    " Criar Acesso (Login)", 
+                    " Carteira de Clientes"
                 ])
 
                 # ABA 1: EDITAR QUALQUER CLIENTE DA CARTEIRA
@@ -562,7 +653,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                             n_tel = st.text_input("Telefone")
                             n_cnae = st.text_input("CNAE / Atividade")
 
-                        btn_cad_novo = st.form_submit_button("➕ Adicionar Empresa", use_container_width=True)
+                        btn_cad_novo = st.form_submit_button(" Adicionar Empresa", use_container_width=True)
 
                         if btn_cad_novo:
                             if n_nome and n_cnpj:
@@ -589,7 +680,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                     conn_cli.close()
 
                     if df_cli_vinc.empty:
-                        st.info("💡 Cadastre uma empresa na carteira antes de criar um login de acesso.")
+                        st.info("Cadastre uma empresa na carteira antes de criar um login de acesso.")
                     else:
                         dict_cli_vinc = {
                             f"ID #{row['id']} - {row['nome']} ({row['cnpj_cpf']})": row['id'] 
@@ -600,7 +691,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                             st.markdown("##### Criar Novo Login e Vincular à Empresa")
                             
                             cli_destino_rotulo = st.selectbox(
-                                "🏢 Selecione a Empresa para liberar o acesso:", 
+                                "Selecione a Empresa para liberar o acesso:", 
                                 options=list(dict_cli_vinc.keys())
                             )
                             u_email = st.text_input("E-mail do Cliente / Usuário", placeholder="exemplo@gmail.com").strip().lower()
@@ -649,9 +740,9 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                                         conn_up_user.close()
 
                                         if checar_vincu and checar_vincu[0] is not None:
-                                            st.success(f"🎉 Sucesso! A empresa foi vinculada ao e-mail **{u_email}**. O cliente já pode acessar!")
+                                            st.success(f"Sucesso! A empresa foi vinculada ao e-mail **{u_email}**. O cliente já pode acessar!")
                                         else:
-                                            st.warning(f"⚠️ O usuário **{u_email}** ainda não existe no Supabase Auth. Certifique-se de que o e-mail está correto.")
+                                            st.warning(f"O usuário **{u_email}** ainda não existe no Supabase Auth. Certifique-se de que o e-mail está correto.")
 
                                     except Exception as e:
                                         st.error(f"Erro ao vincular empresa ao usuário: {e}")
@@ -660,7 +751,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
                 # ABA 4: LISTA COMPLETA DA CARTEIRA DE CLIENTES
                 with tab_lista:
-                    st.markdown("##### 🏢 Carteira de Clientes Cadastrados")
+                    st.markdown("##### Carteira de Clientes Cadastrados")
                     conn_lista = get_connection()
                     df_todos_clientes = pd.read_sql_query(
                         """
@@ -683,19 +774,19 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                     conn_lista.close()
 
                     if df_todos_clientes.empty:
-                        st.info("💡 Nenhum cliente cadastrado até o momento.")
+                        st.info("Nenhum cliente cadastrado até o momento.")
                     else:
                         st.dataframe(df_todos_clientes, use_container_width=True, hide_index=True)
 #fim do bloco
 
 # BLOCO CADASTRAR CONTAS / FORNECEDORES (COM BANNER DE CLIENTE ATIVO)
 elif opcao == "Cadastrar Conta / Fornecedor":
-    st.subheader("⚙️ Gestão de Contas e Fornecedores")
+    st.subheader("Gestão de Contas e Fornecedores")
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
     if not cliente_ativo_id:
-        st.warning("⚠️ Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
+        st.warning("Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
         conn = get_connection()
         df_cliente = pd.read_sql_query(
@@ -711,8 +802,8 @@ elif opcao == "Cadastrar Conta / Fornecedor":
             nome_cliente = df_cliente.iloc[0]["nome"]
             regime_cliente = df_cliente.iloc[0]["regime"]
             
-            # Banner informativo do Cliente Ativo
-            st.info(f"📋 Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
+            # Banner informativo do Cliente Ativo (Alterado:13/10/26)
+            # st.info(f"Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
 
             # -----------------------------------------------------------------
             # FORMULÁRIOS LADO A LADO
@@ -721,7 +812,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
 
             # COLUNA ESQUERDA: CADASTRO
             with col_cadastro:
-                st.markdown("##### ➕ Cadastro de Contas no Plano de Contas / Fornecedor")
+                st.markdown("##### Cadastro de Contas no Plano de Contas / Fornecedor")
                 with st.form("form_cadastrar_conta_nova", clear_on_submit=True):
                     codigo = st.text_input("Código da Conta", placeholder="Ex: 4.1.1.08")
                     descricao = st.text_input("Nome da Conta / Fornecedor", placeholder="Ex: Posto Shell Ltda")
@@ -729,7 +820,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                         "Grupo / Tipo",
                         ["Despesa", "Receita", "Ativo", "Passivo", "Patrimônio Líquido"],
                     )
-                    salvar_conta = st.form_submit_button("➕ Cadastrar Conta", use_container_width=True)
+                    salvar_conta = st.form_submit_button("Cadastrar Conta", use_container_width=True)
 
                     if salvar_conta:
                         if codigo and descricao:
@@ -752,7 +843,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
 
             # COLUNA DIREITA: ALTERAÇÃO / EXCLUSÃO
             with col_edicao:
-                st.markdown("##### ✏️ Alterar ou Excluir Conta / Fornecedor")
+                st.markdown("##### Alterar ou Excluir Conta / Fornecedor")
                 
                 conn = get_connection()
                 df_plano = pd.read_sql_query(
@@ -787,7 +878,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                             idx_tipo = tipos_possiveis.index(tipo_atual) if tipo_atual in tipos_possiveis else 0
                             novo_tipo = st.selectbox("Grupo / Tipo", tipos_possiveis, index=idx_tipo)
 
-                            salvar_edicao = st.form_submit_button("💾 Salvar Alterações", use_container_width=True)
+                            salvar_edicao = st.form_submit_button("Salvar Alterações", use_container_width=True)
 
                             if salvar_edicao:
                                 if novo_codigo and novo_nome:
@@ -808,7 +899,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                                 else:
                                     st.error("Preencha todos os campos.")
 
-                        with st.expander("🗑️ Excluir esta Conta"):
+                        with st.expander("Excluir esta Conta"):
                             st.caption("Atenção: A exclusão removerá o registro do catálogo.")
                             if st.button("Confirmar Exclusão", key=f"del_c_m2_{id_conta_sel}", type="primary", use_container_width=True):
                                 conn = get_connection()
@@ -825,7 +916,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
             # TABELA INFERIOR: PLANO DE CONTAS ATUAL
             # -----------------------------------------------------------------
             st.markdown("---")
-            st.write("### 📖 Plano de Contas Atual")
+            st.write("### Plano de Contas Atual")
             if 'df_plano' in locals() and not df_plano.empty:
                 df_exibicao_plano = df_plano.drop(columns=["id", "label"], errors="ignore")
                 st.dataframe(df_exibicao_plano, use_container_width=True, height=350)
@@ -836,12 +927,12 @@ elif opcao == "Cadastrar Conta / Fornecedor":
 
 # BLOCO DE PLANO DE CONTAS (COM BANNER DE CLIENTE ATIVO)
 elif opcao == "Plano de Contas":
-    st.subheader("📖 Plano de Contas Simplificado (MEI)")
+    st.subheader("Plano de Contas Simplificado (MEI)")
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
     if not cliente_ativo_id:
-        st.warning("⚠️ Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
+        st.warning("Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
         conn = get_connection()
         # 1. Busca os dados do cliente ativo para exibição no banner
@@ -858,8 +949,8 @@ elif opcao == "Plano de Contas":
             nome_cliente = df_cliente.iloc[0]["nome"]
             regime_cliente = df_cliente.iloc[0]["regime"]
             
-            # Banner informativo do Cliente Ativo
-            st.info(f"📋 Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
+            # Banner informativo do Cliente Ativo (Modificado: 13/10/26)
+            # st.info(f"Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
 
             # 2. Busca as contas cadastradas no Plano de Contas
             df_plano = pd.read_sql_query(
@@ -882,10 +973,10 @@ elif opcao == "Plano de Contas":
 
                 tab_geral, tab_receitas, tab_despesas, tab_financeiro = st.tabs(
                     [
-                        "📋 Visão Geral",
-                        "🟢 Receitas (Entradas)",
-                        "🔴 Despesas & Fornecedores (Saídas)",
-                        "💼 Caixas e Bancos",
+                        " Visão Geral",
+                        " Receitas (Entradas)",
+                        " Despesas & Fornecedores (Saídas)",
+                        " Caixas e Bancos",
                     ]
                 )
 
@@ -893,7 +984,7 @@ elif opcao == "Plano de Contas":
                     st.dataframe(df_plano, use_container_width=True, height=400)
 
                 with tab_receitas:
-                    st.markdown("##### 🟢 Contas de Receita (Faturamento MEI)")
+                    st.markdown("##### Contas de Receita (Faturamento MEI)")
                     st.dataframe(
                         df_plano[df_plano["Grupo / Tipo"] == "Receita"],
                         use_container_width=True,
@@ -901,7 +992,7 @@ elif opcao == "Plano de Contas":
                     )
 
                 with tab_despesas:
-                    st.markdown("##### 🔴 Contas de Despesa e Fornecedores")
+                    st.markdown("##### Contas de Despesa e Fornecedores")
                     st.dataframe(
                         df_plano[df_plano["Grupo / Tipo"].isin(["Despesa", "Passivo"])],
                         use_container_width=True,
@@ -909,7 +1000,7 @@ elif opcao == "Plano de Contas":
                     )
 
                 with tab_financeiro:
-                    st.markdown("##### 💼 Movimentação Financeira (Caixa / Contas Bancárias)")
+                    st.markdown("##### Movimentação Financeira (Caixa / Contas Bancárias)")
                     st.dataframe(
                         df_plano[df_plano["Grupo / Tipo"] == "Ativo"],
                         use_container_width=True,
@@ -919,7 +1010,7 @@ elif opcao == "Plano de Contas":
                 st.markdown("---")
                 csv_plano = df_plano.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
                 st.download_button(
-                    label="📥 Baixar Plano de Contas em Excel (.csv)",
+                    label="Baixar Plano de Contas em Excel (.csv)",
                     data=csv_plano,
                     file_name="plano_de_contas_mei.csv",
                     mime="text/csv",
@@ -984,7 +1075,7 @@ elif opcao == "Novo Lançamento":
         cliente_selecionado = list(dict_clientes_id.keys())[0]
         regime_cliente = dict_clientes_regime[cliente_selecionado]
 
-        st.info(f"📋 Cliente Ativo: **{cliente_selecionado}** | Regime: **{regime_cliente}**")
+        # st.info(f"Cliente Ativo: **{cliente_selecionado}** | Regime: **{regime_cliente}**")
 
         historicos_padrao = [
             "Digitar Histórico do Zero",
@@ -995,14 +1086,13 @@ elif opcao == "Novo Lançamento":
             "Pg. Mercadinho Natural de B.Roxo - Recibo:",
             "Pg. Supermercados Feira Nova Ltda - NFc:",
             "Pg. Bazar Amigão de Madureita - NFc:",
-            
         ]
 
         # --- ESTRUTURA MEI / LIVRO CAIXA ---
         if "Lançamento Simples" in regime_cliente:
             tab_entrada, tab_saida = st.tabs([
-                "🟢 (+) ENTRADAS / RECEITAS", 
-                "🔴 (-) SAÍDAS / DESPESAS E ESTOQUE"
+                "(+) ENTRADAS / RECEITAS", 
+                "(-) SAÍDAS / DESPESAS E ESTOQUE"
             ])
 
             # -----------------------------------------------------------------
@@ -1040,7 +1130,7 @@ elif opcao == "Novo Lançamento":
                     hist_sel = st.selectbox("Histórico Padrão", historicos_padrao, key="hp_ent")
                     comp_hist = st.text_input("Complemento do Histórico", placeholder="Ex: Vendas do dia em cartão e dinheiro", key="ch_ent")
 
-                    salvar_ent = st.form_submit_button("🟢 Registrar Entrada")
+                    salvar_ent = st.form_submit_button("Registrar Entrada")
 
                     if salvar_ent:
                         if categoria and valor > 0:
@@ -1065,7 +1155,7 @@ elif opcao == "Novo Lançamento":
             # -----------------------------------------------------------------
             with tab_saida:
                 with st.form("form_saida", clear_on_submit=True):
-                    st.markdown("##### ⚡ Registrar Pagamento de Despesa / Fornecedor")
+                    st.markdown("##### Registrar Pagamento de Despesa / Fornecedor")
                     data = st.date_input("Data do Lançamento", format="DD/MM/YYYY", key="dt_sai")
 
                     c_doc1, c_doc2 = st.columns(2)
@@ -1098,7 +1188,7 @@ elif opcao == "Novo Lançamento":
                     hist_sel = st.selectbox("Histórico Padrão", historicos_padrao, key="hp_sai")
                     comp_hist = st.text_input("Complemento do Histórico", placeholder="Ex: Aquisição de combustíveis e insumos", key="ch_sai")
 
-                    salvar_sai = st.form_submit_button("🔴 Registrar Saída")
+                    salvar_sai = st.form_submit_button("Registrar Saída")
 
                     if salvar_sai:
                         if categoria and valor > 0:
@@ -1121,7 +1211,7 @@ elif opcao == "Novo Lançamento":
         # --- PARTIDA DUPLA COMPLETA ---
         else:
             with st.form("form_partida_dupla", clear_on_submit=True):
-                st.markdown("##### 🔄 Preenchimento por Partida Dupla")
+                st.markdown("##### Preenchimento por Partida Dupla")
                 data = st.date_input("Data do Lançamento", format="DD/MM/YYYY")
 
                 col1, col2 = st.columns(2)
@@ -1152,7 +1242,7 @@ elif opcao == "Novo Lançamento":
 
 # BLOCO PROVISÕES / CONTAS A PAGAR (COM BAIXA AUTOMÁTICA)
 elif "Provisões" in opcao:
-    st.subheader("📌 Provisões / Contas a Pagar")
+    st.subheader("Provisões / Contas a Pagar")
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
@@ -1174,12 +1264,12 @@ elif "Provisões" in opcao:
             nome_cliente = df_cliente.iloc[0]["nome"]
             regime_cliente = df_cliente.iloc[0]["regime"]
 
-            st.info(f"📋 Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
+            # st.info(f"Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
 
             # -----------------------------------------------------------------
             # FORMULÁRIO DE CADASTRO DE PROVISÃO
             # -----------------------------------------------------------------
-            with st.expander("➕ Agendar Nova Guia / Conta a Pagar", expanded=True):
+            with st.expander("Agendar Nova Guia / Conta a Pagar", expanded=True):
                 with st.form("form_nova_provisao", clear_on_submit=True):
                     col_p1, col_p2, col_p3 = st.columns([2, 1, 1])
                     
@@ -1191,7 +1281,7 @@ elif "Provisões" in opcao:
                     with col_p3:
                         data_venc = st.date_input("Data de Vencimento")
                         st.markdown("<br>", unsafe_allow_html=True)
-                        salvar_prov = st.form_submit_button("💾 Agendar Provisão", use_container_width=True)
+                        salvar_prov = st.form_submit_button("Agendar Provisão", use_container_width=True)
 
                     if salvar_prov:
                         if desc_provisao and valor_provisao > 0:
@@ -1225,29 +1315,29 @@ elif "Provisões" in opcao:
             conn.close()
 
             if df_provisoes.empty:
-                st.info("💡 Nenhuma conta a pagar agendada para este cliente.")
+                st.info("Nenhuma conta a pagar agendada para este cliente.")
             else:
                 df_pendentes = df_provisoes[df_provisoes["status"] == "Pendente"]
                 df_pagas = df_provisoes[df_provisoes["status"] == "Pago"]
 
                 # KPIs Rápidos
                 total_pendente = df_pendentes["valor"].sum() if not df_pendentes.empty else 0.0
-                st.write(f"##### ⌛ Guias e Contas Pendentes (Total: **{formatar_brl(total_pendente)}**)")
+                st.write(f"##### Guias e Contas Pendentes (Total: **{formatar_brl(total_pendente)}**)")
 
                 if df_pendentes.empty:
-                    st.success("🎉 Nenhuma conta pendente no momento!")
+                    st.success("Nenhuma conta pendente no momento!")
                 else:
                     for idx, row in df_pendentes.iterrows():
                         col_info, col_acao = st.columns([3, 1])
                         
                         with col_info:
                             venc_formatado = pd.to_datetime(row['data_vencimento']).strftime('%d/%m/%Y')
-                            st.write(f"🗓️ **Vencimento: {venc_formatado}** | **{row['descricao']}** ({row['tipo']})")
-                            st.caption(f"Valor a Pagar: **{formatar_brl(row['valor'])}** | Status: 🟡 **{row['status']}**")
+                            st.write(f" **Vencimento: {venc_formatado}** | **{row['descricao']}** ({row['tipo']})")
+                            st.caption(f"Valor a Pagar: **{formatar_brl(row['valor'])}** | Status: **{row['status']}**")
 
                         with col_acao:
                             # Botão de baixa rápida que liquida e lança no caixa
-                            if st.button("✅ Pagar / Dar Baixa", key=f"btn_pago_{row['id']}", use_container_width=True):
+                            if st.button("Pagar / Dar Baixa", key=f"btn_pago_{row['id']}", use_container_width=True):
                                 conn_baixa = get_connection()
                                 cursor_baixa = conn_baixa.cursor()
                                 
@@ -1271,7 +1361,7 @@ elif "Provisões" in opcao:
 
                 # Histórico de Contas Pagas
                 if not df_pagas.empty:
-                    with st.expander("✅ Ver Histórico de Contas Já Pagas", expanded=False):
+                    with st.expander("Ver Histórico de Contas Já Pagas", expanded=False):
                         df_pagas_exib = df_pagas.copy()
                         df_pagas_exib["valor"] = df_pagas_exib["valor"].apply(formatar_brl)
                         st.dataframe(
@@ -1282,7 +1372,7 @@ elif "Provisões" in opcao:
 
 # BLOCO IMPORTAR EXTRATO / PLANILHA EXCEL
 elif opcao == "Importar Extrato / Excel":
-    st.subheader("📥 Importação de Planilha do Cliente (Excel)")
+    st.subheader("Importação de Planilha do Cliente (Excel)")
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
@@ -1298,10 +1388,10 @@ elif opcao == "Importar Extrato / Excel":
             try:
                 df = pd.read_excel(arquivo)
                 
-                st.write("##### 🔍 Pré-visualização da planilha carregada:")
+                st.write("##### Pré-visualização da planilha carregada:")
                 st.dataframe(df.head(10), use_container_width=True)
 
-                if st.button("🚀 Processar e Importar Lançamentos", use_container_width=True):
+                if st.button("Processar e Importar Lançamentos", use_container_width=True):
                     conn = get_connection()
                     cursor = conn.cursor()
                     importados = 0
@@ -1361,7 +1451,7 @@ elif opcao == "Importar Extrato / Excel":
                     conn.commit()
                     conn.close()
 
-                    st.success(f"🎉 Importação concluída! **{importados}** registros foram salvos no banco de dados do cliente.")
+                    st.success(f"Importação concluída! **{importados}** registros foram salvos no banco de dados do cliente.")
                     st.rerun()
 
             except Exception as e:
@@ -1369,7 +1459,7 @@ elif opcao == "Importar Extrato / Excel":
 
 # BLOCO VER, FILTRAR, EDITAR E EXCLUIR LANÇAMENTOS
 elif opcao == "Ver Lançamentos":
-    st.subheader("📋 Livro Caixa - Consulta, Edição & Exclusão")
+    st.subheader("Livro Caixa - Consulta, Edição & Exclusão")
 
     user_id_atual = st.session_state.user.id
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
@@ -1423,7 +1513,7 @@ elif opcao == "Ver Lançamentos":
         if not df_clientes_cad.empty:
             row_cli = df_clientes_cad.iloc[0]
             with st.container(border=True):
-                st.caption("📋 Ficha Cadastral do Cliente Ativo")
+                st.caption("Ficha Cadastral do Cliente Ativo")
                 col_c1, col_c2, col_c3 = st.columns([2, 1.5, 1.5])
                 with col_c1:
                     st.write(f"**Empresa:** {row_cli['Razão Social']}")
@@ -1442,12 +1532,12 @@ elif opcao == "Ver Lançamentos":
         # FILTROS E EXIBIÇÃO DA TABELA
         # -----------------------------------------------------------------
         if df_lancamentos.empty:
-            st.info("💡 Nenhum lançamento encontrado para este cliente.")
+            st.info("Nenhum lançamento encontrado para este cliente.")
         else:
             df_lancamentos["data_dt"] = pd.to_datetime(df_lancamentos["data"], errors="coerce").dt.date
             df_lancamentos = df_lancamentos.dropna(subset=["data_dt"])
 
-            with st.expander("🔍 Filtros de Busca e Auditoria", expanded=True):
+            with st.expander("Filtros de Busca e Auditoria", expanded=True):
                 col_f1, col_f2, col_f3 = st.columns(3)
 
                 min_data = df_lancamentos["data_dt"].min()
@@ -1455,7 +1545,7 @@ elif opcao == "Ver Lançamentos":
 
                 with col_f1:
                     datas_sel = st.date_input(
-                        "📅 Período",
+                        "Período",
                         value=(min_data, max_data),
                         format="DD/MM/YYYY"
                     )
@@ -1466,7 +1556,7 @@ elif opcao == "Ver Lançamentos":
 
                 with col_f2:
                     tipo_sel = st.selectbox(
-                        "📊 Tipo de Operação",
+                        "Tipo de Operação",
                         ["Todos", "🟢 Receitas (Entradas)", "🔴 Despesas (Saídas)"]
                     )
 
@@ -1477,7 +1567,7 @@ elif opcao == "Ver Lançamentos":
                 
                 with col_f3:
                     conta_sel = st.selectbox(
-                        "🏦 Conta / Categoria",
+                        "Conta / Categoria",
                         ["Todas"] + contas_unicas
                     )
 
@@ -1537,7 +1627,7 @@ elif opcao == "Ver Lançamentos":
             st.divider()
             with st.expander("🛠️ Ações: Alterar ou Excluir um Lançamento", expanded=True):
                 if df_filtrado.empty:
-                    st.info("💡 Nenhum lançamento disponível para alteração/exclusão com os filtros atuais.")
+                    st.info("Nenhum lançamento disponível para alteração/exclusão com os filtros atuais.")
                 else:
                     # Mapeia os lançamentos filtrados para a seleção
                     dict_lancamentos = {}
@@ -1556,7 +1646,7 @@ elif opcao == "Ver Lançamentos":
                     row_alvo = df_lancamentos[df_lancamentos["id"] == id_alvo].iloc[0]
 
                     #ALTERA LANÇAMENTO - LISTA SUSPENSA DO PLANO DE CONTAS
-                    tab_alt, tab_exc = st.tabs(["✏️ Alterar Lançamento", "🗑️ Excluir Lançamento"])
+                    tab_alt, tab_exc = st.tabs(["Alterar Lançamento", "Excluir Lançamento"])
 
                     # ABA ALTERAR
                     with tab_alt:
@@ -1617,7 +1707,7 @@ elif opcao == "Ver Lançamentos":
                                 c_cred_edit = st.selectbox("Conta Crédito", options=lista_contas, index=idx_cred)
                                 hist_edit = st.text_area("Histórico / Documento", value=str(row_alvo["historico"]))
 
-                            btn_salvar_edit = st.form_submit_button("💾 Salvar Alterações", use_container_width=True)
+                            btn_salvar_edit = st.form_submit_button("Salvar Alterações", use_container_width=True)
 
                             if btn_salvar_edit:
                                 conn_act = get_connection()
@@ -1658,7 +1748,7 @@ elif opcao == "Ver Lançamentos":
 # MENU: CONCILIAÇÃO BANCÁRIA (COM CONSULTA DIRETA AO BANCO)
 # -----------------------------------------------------------------------------
 elif opcao == "Conciliação Bancária":
-    st.markdown("### 🏦 Conciliação Bancária & Evolução de Saldos")
+    st.markdown("### Conciliação Bancária & Evolução de Saldos")
     st.caption("Verifique as entradas, saídas e o saldo acumulado mês a mês para conferência com o extrato.")
 
     # 1. Identifica o cliente ativo no sistema
@@ -1752,7 +1842,7 @@ elif opcao == "Conciliação Bancária":
             m4.metric("Saldo Atual", f"R$ {saldo_atual:,.2f}")
 
             # Tabela de Fechamento Mensal
-            st.markdown("#### 📊 Fechamento Mensal")
+            st.markdown("#### Fechamento Mensal")
             df_exib = df_conciliado.copy()
             for c in ['Saldo Anterior', 'Entradas (R$)', 'Saídas (R$)', 'Resultado do Mês', 'Saldo Final (Calculado)']:
                 df_exib[c] = df_exib[c].apply(lambda x: f"R$ {x:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
@@ -1763,7 +1853,7 @@ elif opcao == "Conciliação Bancária":
 
 # BLOCO RELATÓRIO POR CATEGORIA (COM ABATIMENTO E SEPARAÇÃO PATRIMONIAL)
 elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
-    st.subheader("📊 Relatório Financeiro por Categoria")
+    st.subheader("Relatório Financeiro por Categoria")
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
@@ -1792,7 +1882,7 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
             nome_cliente = df_cliente.iloc[0]["nome"]
             regime_cliente = df_cliente.iloc[0]["regime"]
 
-            st.info(f"📋 Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
+            #st.info(f"📋 Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
 
             if df_lancamentos.empty:
                 st.info("💡 Nenhum lançamento encontrado para montar o relatório do cliente ativo.")
@@ -1866,39 +1956,53 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                     df_exibicao = df_agrupado.copy()
                     df_exibicao["Valor Formatado"] = df_exibicao["Total (R$)"].apply(formatar_brl)
 
+                    # =========================================================
+                    # EXIBIÇÃO VERTICAL (TABELA EM CIMA, GRÁFICO EMBAIXO)
+                    # =========================================================
                     st.markdown("---")
 
-                    col_tabela, col_grafico = st.columns([1, 1])
+                    # 1. Tabela com largura total
+                    st.write("##### Acumulado por Categoria (Saldo Líquido)")
+                    st.dataframe(
+                        df_exibicao[["Grupo", "Categoria / Conta", "Valor Formatado"]],
+                        use_container_width=True,
+                        height=380
+                    )
 
-                    with col_tabela:
-                        st.write("##### 📋 Acumulado por Categoria (Saldo Liquido)")
-                        st.dataframe(
-                            df_exibicao[["Grupo", "Categoria / Conta", "Valor Formatado"]],
-                            use_container_width=True,
-                            height=360
+                    st.markdown("---")
+
+                    # 2. Gráfico amplo com espaço para legendas
+                    st.write("##### Distribuição Geral")
+                    try:
+                        import plotly.express as px
+                        fig = px.pie(
+                            df_agrupado,
+                            names="Categoria / Conta",
+                            values="Total (R$)",
+                            color="Grupo",
+                            hole=0.4,
                         )
-
-                    with col_grafico:
-                        st.write("##### 📈 Distribuição Geral")
-                        try:
-                            import plotly.express as px
-                            fig = px.pie(
-                                df_agrupado,
-                                names="Categoria / Conta",
-                                values="Total (R$)",
-                                color="Grupo",
-                                hole=0.35,
+                        fig.update_layout(
+                            margin=dict(t=20, b=20, l=20, r=20),
+                            height=520,
+                            legend=dict(
+                                orientation="h",
+                                yanchor="bottom",
+                                y=-0.3,
+                                xanchor="center",
+                                x=0.5
                             )
-                            fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=360)
-                            st.plotly_chart(fig, use_container_width=True)
-                        except Exception:
-                            st.bar_chart(df_agrupado.set_index("Categoria / Conta")["Total (R$)"])
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    except Exception:
+                        st.bar_chart(df_agrupado.set_index("Categoria / Conta")["Total (R$)"])
 
                     st.markdown("---")
 
+                    # 3. Botão de download
                     csv_rel = df_agrupado.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
                     st.download_button(
-                        label="📥 Baixar Relatório por Categoria (.csv)",
+                        label="Baixar Relatório por Categoria (.csv)",
                         data=csv_rel,
                         file_name=f"relatorio_categoria_{nome_cliente.replace(' ', '_').lower()}.csv",
                         mime="text/csv",
@@ -1950,7 +2054,7 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
         if not df_export_lanc.empty:
             csv_lanc = df_export_lanc.to_csv(index=False, sep=";", encoding="utf-8-sig")
             st.download_button(
-                label="📥 Baixar Lançamentos Atuais (.csv)",
+                label="Baixar Lançamentos Atuais (.csv)",
                 data=csv_lanc,
                 file_name=f"lancamentos_backup_{date.today().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
