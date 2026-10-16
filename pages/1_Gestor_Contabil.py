@@ -1148,7 +1148,17 @@ elif opcao == "Novo Lançamento":
                     salvar_ent = st.form_submit_button("Registrar Entrada")
 
                     if salvar_ent:
-                        if categoria and valor > 0:
+                        # VALIDAÇÕES EXPLÍCITAS
+                        if not conta_financeira:
+                            st.warning("⚠️ Selecione a **Conta de Destino** (onde o dinheiro entrou).")
+                        elif not categoria:
+                            st.warning("⚠️ Selecione a **Categoria da Receita**.")
+                        elif valor <= 0:
+                            st.warning("⚠️ O **Valor da Receita** deve ser maior que R$ 0,00.")
+                        elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
+                            st.warning("⚠️ Você escolheu 'Digitar Histórico do Zero'. Por favor, escreva o **Complemento do Histórico**.")
+                        else:
+                            # SE PASSOU NAS VALIDAÇÕES, GRAVA NO BANCO
                             info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + (f" - {nome_cliente_rec.strip()}" if nome_cliente_rec.strip() else "") + "]"
                             hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
 
@@ -1160,10 +1170,8 @@ elif opcao == "Novo Lançamento":
                             )
                             conn.commit()
                             conn.close()
-                            st.success("Entrada registrada com sucesso!")
-                            st.rerun() #Limpa registro
-                        else:
-                            st.error("Selecione a Categoria da Receita e informe um valor maior que zero.")
+                            st.success("✅ Entrada registrada com sucesso!")
+                            st.rerun() # Limpa o formulário
 
             # -----------------------------------------------------------------
             # ABA 2: SAÍDAS / DESPESAS
@@ -1205,8 +1213,20 @@ elif opcao == "Novo Lançamento":
 
                     salvar_sai = st.form_submit_button("Registrar Saída")
 
+                    salvar_sai = st.form_submit_button("Registrar Saída")
+
                     if salvar_sai:
-                        if categoria and valor > 0:
+                        # VALIDAÇÕES EXPLÍCITAS
+                        if not conta_financeira:
+                            st.warning("⚠️ Selecione a **Forma de Pagamento** (de onde saiu o dinheiro).")
+                        elif not categoria:
+                            st.warning("⚠️ Selecione o **Fornecedor / Conta de Despesa**.")
+                        elif valor <= 0:
+                            st.warning("⚠️ O **Valor da Despesa** deve ser maior que R$ 0,00.")
+                        elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
+                            st.warning("⚠️ Você escolheu 'Digitar Histórico do Zero'. Por favor, escreva o **Complemento do Histórico**.")
+                        else:
+                            # SE PASSOU NAS VALIDAÇÕES, GRAVA NO BANCO
                             info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + "]"
                             hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
 
@@ -1218,10 +1238,8 @@ elif opcao == "Novo Lançamento":
                             )
                             conn.commit()
                             conn.close()
-                            st.success("Saída registrada com sucesso!")
-                            st.rerun() #Limpa campo
-                        else:
-                            st.error("Selecione o Fornecedor / Conta de Despesa e informe um valor maior que zero.")
+                            st.success("✅ Saída registrada com sucesso!")
+                            st.rerun() # Limpa o formulário
 
         # --- PARTIDA DUPLA COMPLETA ---
         else:
@@ -1242,7 +1260,17 @@ elif opcao == "Novo Lançamento":
                 salvar_pd = st.form_submit_button("Registrar Lançamento")
 
                 if salvar_pd:
-                    if conta_debito and conta_credito and valor > 0:
+                    # VALIDAÇÕES EXPLÍCITAS
+                    if not conta_debito:
+                        st.warning("⚠️ Selecione a **Conta Débito**.")
+                    elif not conta_credito:
+                        st.warning("⚠️ Selecione a **Conta Crédito**.")
+                    elif valor <= 0:
+                        st.warning("⚠️ O **Valor** do lançamento deve ser maior que R$ 0,00.")
+                    elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
+                        st.warning("⚠️ Você escolheu 'Digitar Histórico do Zero'. Por favor, preencha o **Complemento do Histórico**.")
+                    else:
+                        # SE PASSOU NAS VALIDAÇÕES, GRAVA NO BANCO
                         hist_final = comp_hist if hist_sel == "Digitar Histórico do Zero" else f"{hist_sel} {comp_hist}"
                         conn = get_connection()
                         cursor = conn.cursor()
@@ -1252,7 +1280,9 @@ elif opcao == "Novo Lançamento":
                         )
                         conn.commit()
                         conn.close()
-                        st.success("Lançamento em Partida Dupla registrado!")
+                        st.success("✅ Lançamento em Partida Dupla registrado!")
+                        st.rerun() #Limpa o formulário
+                        
 # Fim do BLOCO
 
 # BLOCO PROVISÕES / CONTAS A PAGAR (COM BAIXA AUTOMÁTICA)
@@ -1834,7 +1864,13 @@ elif opcao == "Conciliação Bancária":
                 saldo_final = saldo_acum + saldo_mes
 
                 dt_ref = pd.to_datetime(m + "-01")
-                mes_label = dt_ref.strftime('%b/%Y').capitalize()
+                
+                # Tradução forçada para o Português (seguro para servidores em nuvem)
+                meses_pt = {
+                    1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
+                    7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
+                }
+                mes_label = f"{meses_pt[dt_ref.month]}/{dt_ref.year}"
 
                 dados_conc.append({
                     'Mês/Ano': mes_label,
