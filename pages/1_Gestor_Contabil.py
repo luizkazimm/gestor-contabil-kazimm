@@ -1943,9 +1943,10 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                 st.info("💡 Nenhum lançamento encontrado para montar relatórios.")
             else:
                 # Criamos os separadores (Tabs)
-                tab_gerencial, tab_oficial = st.tabs([
+                tab_gerencial, tab_oficial, tab_anual = st.tabs([
                     "📊 Relatório Gerencial (Categorias)", 
-                    "📄 Relatório Oficial MEI (Imprimível)"
+                    "📄 Relatório Oficial MEI (Imprimível)",
+                    "📆 Declaração Anual (DASN-SIMEI)"
                 ])
 
                 # =========================================================
@@ -2222,7 +2223,85 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                         st.components.v1.html(html_relatorio, height=950, scrolling=True)
                         
                         st.info("💡 **Dica de Impressão:** Para imprimir ou salvar em PDF, clique no botão direito do rato sobre o relatório acima e escolha a opção **Imprimir / Print** (ou use as teclas `Ctrl + P`).")
-              
+                
+                # =========================================================
+                # SEPARADOR 3: PREPARAÇÃO PARA A DECLARAÇÃO ANUAL (DASN-SIMEI)
+                # =========================================================
+                
+                with tab_anual:
+                    st.markdown("#### 📆 Preparação para a Declaração Anual (DASN-SIMEI)")
+                    st.caption("Resumo anual do faturamento. Copie os valores abaixo e cole no portal da Receita Federal.")
+
+                    df_anual = df_lancamentos.copy()
+                    df_anual['data_dt'] = pd.to_datetime(df_anual['data'], errors='coerce')
+                    df_anual = df_anual.dropna(subset=['data_dt'])
+                    df_anual['ano_cod'] = df_anual['data_dt'].dt.strftime('%Y')
+
+                    anos_disponiveis = sorted(df_anual['ano_cod'].unique(), reverse=True)
+
+                    if not anos_disponiveis:
+                        st.info("Nenhum lançamento válido encontrado para apuração anual.")
+                    else:
+                        ano_selecionado = st.selectbox("Selecione o Ano-Calendário para Apuração:", anos_disponiveis)
+
+                        # Filtro cravado e blindado para o ano inteiro
+                        df_ano = df_anual[
+                            (df_anual['ano_cod'] == ano_selecionado) & 
+                            (df_anual['conta_credito'].str.contains('^3\.|^Receita', case=False, na=False, regex=True))
+                        ]
+
+                        # A Receita Federal exige o Faturamento agrupado nestas duas categorias:
+                        v_comercio_industria = 0.0
+                        v_servicos = 0.0
+
+                        for _, row in df_ano.iterrows():
+                            val = float(row['valor'])
+                            conta = str(row['conta_credito']).lower()
+                            hist = str(row['historico']).lower()
+
+                            # TRAVA DE SEGURANÇA: Ignora reembolso e empréstimo
+                            if "empréstimo" in conta or "emprestimo" in hist or "reembolso" in conta or "reembolso" in hist:
+                                continue
+
+                            # Classifica a atividade para a DASN
+                            if "serviço" in conta or "servico" in conta:
+                                v_servicos += val
+                            elif "indústria" in conta or "industria" in conta or "industrializado" in conta or "comércio" in conta or "comercio" in conta or "venda" in conta or "mercadoria" in conta:
+                                v_comercio_industria += val
+                            else:
+                                pass
+
+                        v_total_ano = v_comercio_industria + v_servicos
+
+                        st.markdown("---")
+                        st.write(f"### Valores Apurados em {ano_selecionado}")
+
+                        # Cartões KPI com os valores exatos que a Receita pede
+                        col_a1, col_a2, col_a3 = st.columns(3)
+                        with col_a1:
+                            st.info(f"🏢 **Comércio / Indústria**\n\n### {formatar_brl(v_comercio_industria)}")
+                            st.caption("Receita de revenda e produtos")
+                        with col_a2:
+                            st.success(f"🛠️ **Prestação de Serviços**\n\n### {formatar_brl(v_servicos)}")
+                            st.caption("Receita exclusiva de serviços")
+                        with col_a3:
+                            st.warning(f"💰 **Receita Bruta Total**\n\n### {formatar_brl(v_total_ano)}")
+                            st.caption("Soma de todas as atividades")
+
+                        st.markdown("---")
+                        
+                        col_btn1, col_btn2 = st.columns([2, 1])
+                        with col_btn1:
+                            st.markdown("#### 🚀 Transmitir Declaração")
+                            st.write("Com os valores consolidados acima, clique no botão ao lado para acessar diretamente o sistema oficial da Receita Federal (DASN-SIMEI) e preencher a sua declaração.")
+                        with col_btn2:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            st.link_button(
+                                "🌐 Acessar Portal DASN-SIMEI (Receita Federal)", 
+                                "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/dasnsimei.app/Identificacao", 
+                                type="primary", 
+                                use_container_width=True
+                            )          
 # -----------------------------------------------------------------------------
 # PAINEL DE MANUTENÇÃO: IMPORTAÇÃO, CORREÇÃO E LIMPEZA COM FEEDBACK VISUAL
 # -----------------------------------------------------------------------------
