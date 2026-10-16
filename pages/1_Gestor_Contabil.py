@@ -828,8 +828,8 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                             cursor = conn.cursor()
                             try:
                                 cursor.execute(
-                                    "INSERT INTO plano_contas (codigo, descricao, tipo) VALUES (%s, %s, %s)",
-                                    (codigo, descricao, tipo_conta),
+                                    "INSERT INTO plano_contas (codigo, descricao, tipo, cliente_id) VALUES (%s, %s, %s, %s)",
+                                    (codigo, descricao, tipo_conta, cliente_ativo_id),
                                 )
                                 conn.commit()
                                 st.success(f"Conta '{codigo} - {descricao}' inserida com sucesso!")
@@ -847,8 +847,9 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                 
                 conn = get_connection()
                 df_plano = pd.read_sql_query(
-                    'SELECT id, codigo as "Código", descricao as "Nome da Conta", tipo as "Tipo" FROM plano_contas ORDER BY codigo ASC',
+                    'SELECT id, codigo as "Código", descricao as "Nome da Conta", tipo as "Tipo" FROM plano_contas WHERE cliente_id IS NULL OR cliente_id = %s ORDER BY codigo ASC',
                     conn,
+                    params=(cliente_ativo_id,)
                 )
                 conn.close()
 
@@ -954,8 +955,21 @@ elif opcao == "Plano de Contas":
 
             # 2. Busca as contas cadastradas no Plano de Contas
             df_plano = pd.read_sql_query(
-                'SELECT codigo as "Código", descricao as "Nome da Conta / Fornecedor", tipo as "Grupo / Tipo" FROM plano_contas ORDER BY codigo ASC',
+                """
+                SELECT 
+                    codigo as "Código", 
+                    descricao as "Nome da Conta / Fornecedor", 
+                    tipo as "Grupo / Tipo",
+                    CASE 
+                        WHEN cliente_id IS NULL THEN '🌐 Padrão do Sistema'
+                        ELSE '🏢 Específica da Empresa'
+                    END AS "Origem"
+                FROM plano_contas 
+                WHERE cliente_id IS NULL OR cliente_id = %s
+                ORDER BY codigo ASC
+                """,
                 conn,
+                params=(cliente_ativo_id,)
             )
             conn.close()
 
@@ -1029,8 +1043,9 @@ elif opcao == "Novo Lançamento":
     
     # --- ALTERAÇÃO: CONSULTA DINÂMICA COMPLETA AO PLANO DE CONTAS GLOBAL ---
     df_contas = pd.read_sql_query(
-        "SELECT codigo, descricao, tipo FROM plano_contas ORDER BY codigo ASC", 
-        conn
+        "SELECT codigo, descricao, tipo FROM plano_contas WHERE cliente_id IS NULL OR cliente_id = %s ORDER BY codigo ASC", 
+        conn,
+        params=(st.session_state.cliente_id_ativo,)
     )
     conn.close()
 
@@ -1662,9 +1677,14 @@ elif opcao == "Ver Lançamentos":
                         cid_val = int(cid_raw) if cid_raw else None
 
                         # 1. Busca as contas cadastradas no Plano de Contas Global
+                       # 1. Busca as contas cadastradas no Plano de Contas Híbrido
                         try:
                             conn = get_connection()
-                            df_plano = pd.read_sql("SELECT * FROM plano_contas ORDER BY codigo ASC;", conn)
+                            df_plano = pd.read_sql(
+                                "SELECT * FROM plano_contas WHERE cliente_id IS NULL OR cliente_id = %s ORDER BY codigo ASC;", 
+                                conn, 
+                                params=(cid_val,)
+                            )
                             
                             if not df_plano.empty:
                                 col_desc = next(
