@@ -1907,9 +1907,9 @@ elif opcao == "Conciliação Bancária":
 # FIM DO BLOCO
 
 
-# BLOCO RELATÓRIO POR CATEGORIA (COM ABATIMENTO E SEPARAÇÃO PATRIMONIAL)
+# BLOCO CENTRAL DE RELATÓRIOS (GERENCIAL + OFICIAL MEI)
 elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
-    st.subheader("Relatório Financeiro por Categoria")
+    st.subheader("Central de Relatórios Financeiros")
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
@@ -1920,12 +1920,12 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
         try:
             conn.commit()
             df_cliente = pd.read_sql_query(
-                "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
+                "SELECT id, nome, cnpj_cpf, regime FROM clientes WHERE id = %s AND user_id = %s", 
                 conn, 
                 params=(cliente_ativo_id, st.session_state.user.id)
             )
             df_lancamentos = pd.read_sql_query(
-                "SELECT conta_debito, conta_credito, valor, data FROM lancamentos WHERE cliente_id = %s",
+                "SELECT conta_debito, conta_credito, valor, data, historico FROM lancamentos WHERE cliente_id = %s",
                 conn,
                 params=(cliente_ativo_id,)
             )
@@ -1936,134 +1936,292 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
             st.error("Erro de segurança: Cliente não encontrado ou sem permissão.")
         else:
             nome_cliente = df_cliente.iloc[0]["nome"]
+            cnpj_cliente = df_cliente.iloc[0]["cnpj_cpf"]
             regime_cliente = df_cliente.iloc[0]["regime"]
 
-            #st.info(f"📋 Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
-
             if df_lancamentos.empty:
-                st.info("💡 Nenhum lançamento encontrado para montar o relatório do cliente ativo.")
+                st.info("💡 Nenhum lançamento encontrado para montar relatórios.")
             else:
-                filtro_caixa_banco = "1.1.1|Caixa|Banco"
+                # Criamos os separadores (Tabs)
+                tab_gerencial, tab_oficial = st.tabs([
+                    "📊 Relatório Gerencial (Categorias)", 
+                    "📄 Relatório Oficial MEI (Imprimível)"
+                ])
 
-                # 1. Agrupa Entradas por Conta (onde a conta recebeu crédito)
-                df_entradas = (
-                    df_lancamentos[~df_lancamentos["conta_credito"].str.contains(filtro_caixa_banco, case=False, na=False)]
-                    .groupby("conta_credito")["valor"]
-                    .sum()
-                    .reset_index()
-                    .rename(columns={"conta_credito": "conta", "valor": "entradas"})
-                )
-
-                # 2. Agrupa Saídas por Conta (onde a conta sofreu débito)
-                df_saidas = (
-                    df_lancamentos[~df_lancamentos["conta_debito"].str.contains(filtro_caixa_banco, case=False, na=False)]
-                    .groupby("conta_debito")["valor"]
-                    .sum()
-                    .reset_index()
-                    .rename(columns={"conta_debito": "conta", "valor": "saidas"})
-                )
-
-                # 3. Consolida (Merge) Entradas e Saídas da mesma conta
-                df_total = pd.merge(df_entradas, df_saidas, on="conta", how="outer").fillna(0.0)
-
-                # 4. Processa o Saldo Líquido e Classifica o Grupo
-                dados_relatorio = []
-                for _, row in df_total.iterrows():
-                    conta_nome = str(row["conta"])
-                    v_ent = float(row["entradas"])
-                    v_sai = float(row["saidas"])
-
-                    # Contas de Receita (Grupo 3)
-                    if conta_nome.startswith("3") or "Receita" in conta_nome:
-                        val_liquido = v_ent - v_sai
-                        if val_liquido != 0:
-                            dados_relatorio.append({
-                                "Grupo": "🟢 Receitas",
-                                "Categoria / Conta": conta_nome,
-                                "Total (R$)": val_liquido
-                            })
-
-                    # Contas de Despesa (Grupo 4)
-                    elif conta_nome.startswith("4") or "Despesa" in conta_nome or "Estoque" in conta_nome:
-                        val_liquido = v_sai - v_ent
-                        if val_liquido != 0:
-                            dados_relatorio.append({
-                                "Grupo": "🔴 Despesas",
-                                "Categoria / Conta": conta_nome,
-                                "Total (R$)": val_liquido
-                            })
-
-                    # Contas Patrimoniais / Empréstimos / Passivo / Ativo (Grupo 1 e 2)
-                    else:
-                        val_liquido = v_ent - v_sai
-                        if val_liquido != 0:
-                            grupo_label = "🔄 Patrimonial / Entrada" if val_liquido > 0 else "🔄 Patrimonial / Saída"
-                            dados_relatorio.append({
-                                "Grupo": grupo_label,
-                                "Categoria / Conta": conta_nome,
-                                "Total (R$)": abs(val_liquido)
-                            })
-
-                df_agrupado = pd.DataFrame(dados_relatorio)
-
-                if df_agrupado.empty:
-                    st.info("💡 Nenhuma movimentação relevante encontrada para o relatório.")
-                else:
-                    df_exibicao = df_agrupado.copy()
-                    df_exibicao["Valor Formatado"] = df_exibicao["Total (R$)"].apply(formatar_brl)
-
-                    # =========================================================
-                    # EXIBIÇÃO VERTICAL (TABELA EM CIMA, GRÁFICO EMBAIXO)
-                    # =========================================================
-                    st.markdown("---")
-
-                    # 1. Tabela com largura total
-                    st.write("##### Acumulado por Categoria (Saldo Líquido)")
-                    st.dataframe(
-                        df_exibicao[["Grupo", "Categoria / Conta", "Valor Formatado"]],
-                        use_container_width=True,
-                        height=380
-                    )
-
-                    st.markdown("---")
-
-                    # 2. Gráfico amplo com espaço para legendas
-                    st.write("##### Distribuição Geral")
-                    try:
-                        import plotly.express as px
-                        fig = px.pie(
-                            df_agrupado,
-                            names="Categoria / Conta",
-                            values="Total (R$)",
-                            color="Grupo",
-                            hole=0.4,
-                        )
-                        fig.update_layout(
-                            margin=dict(t=20, b=20, l=20, r=20),
-                            height=520,
-                            legend=dict(
-                                orientation="h",
-                                yanchor="bottom",
-                                y=-0.3,
-                                xanchor="center",
-                                x=0.5
+                # =========================================================
+                # SEPARADOR 1: O RELATÓRIO GERENCIAL (MENSAL + CATEGORIAS)
+                # =========================================================
+                with tab_gerencial:
+                    
+                    # ---------------------------------------------------------
+                    # PARTE A: EVOLUÇÃO MENSAL (MACRO)
+                    # ---------------------------------------------------------
+                    st.write("##### 📅 Evolução Mensal (Receitas x Despesas)")
+                    
+                    df_gerencial = df_lancamentos.copy()
+                    df_gerencial['data_dt'] = pd.to_datetime(df_gerencial['data'], errors='coerce')
+                    df_gerencial = df_gerencial.dropna(subset=['data_dt'])
+                    
+                    meses_pt = {1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun', 7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'}
+                    df_gerencial['mes_ano_cod'] = df_gerencial['data_dt'].dt.strftime('%Y-%m')
+                    
+                    meses_unicos = sorted(df_gerencial['mes_ano_cod'].unique())
+                    dados_mensais = []
+                    
+                    for m in meses_unicos:
+                        df_m = df_gerencial[df_gerencial['mes_ano_cod'] == m]
+                        
+                        # Receitas = Crédito no Grupo 3
+                        rec_m = df_m[df_m['conta_credito'].str.contains('3\.|Receita', case=False, na=False)]['valor'].sum()
+                        # Despesas = Débito no Grupo 4
+                        desp_m = df_m[df_m['conta_debito'].str.contains('4\.|Despesa|Estoque', case=False, na=False)]['valor'].sum()
+                        
+                        saldo_m = rec_m - desp_m
+                        
+                        dt_ref = pd.to_datetime(m + "-01")
+                        label_m = f"{meses_pt[dt_ref.month]}/{dt_ref.year}"
+                        
+                        dados_mensais.append({
+                            "Mês/Ano": label_m,
+                            "Receitas": rec_m,
+                            "Despesas": desp_m,
+                            "Saldo Líquido": saldo_m
+                        })
+                        
+                    if dados_mensais:
+                        df_evolucao = pd.DataFrame(dados_mensais)
+                        
+                        # 1. Tabela Mensal
+                        df_evolucao_exib = df_evolucao.copy()
+                        df_evolucao_exib["Receitas"] = df_evolucao_exib["Receitas"].apply(formatar_brl)
+                        df_evolucao_exib["Despesas"] = df_evolucao_exib["Despesas"].apply(formatar_brl)
+                        df_evolucao_exib["Saldo Líquido"] = df_evolucao_exib["Saldo Líquido"].apply(formatar_brl)
+                        
+                        st.dataframe(df_evolucao_exib, use_container_width=True, hide_index=True)
+                        
+                        # 2. Gráfico de Barras
+                        try:
+                            import plotly.graph_objects as go
+                            fig_bar = go.Figure()
+                            fig_bar.add_trace(go.Bar(x=df_evolucao["Mês/Ano"], y=df_evolucao["Receitas"], name="Receitas", marker_color="#00875a"))
+                            fig_bar.add_trace(go.Bar(x=df_evolucao["Mês/Ano"], y=df_evolucao["Despesas"], name="Despesas", marker_color="#de350b"))
+                            fig_bar.update_layout(
+                                barmode='group', 
+                                height=350, 
+                                margin=dict(t=20, b=20, l=20, r=20), 
+                                legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5)
                             )
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-                    except Exception:
-                        st.bar_chart(df_agrupado.set_index("Categoria / Conta")["Total (R$)"])
+                            st.plotly_chart(fig_bar, use_container_width=True)
+                        except Exception:
+                            st.bar_chart(df_evolucao.set_index("Mês/Ano")[["Receitas", "Despesas"]])
 
                     st.markdown("---")
 
-                    # 3. Botão de download
-                    csv_rel = df_agrupado.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
-                    st.download_button(
-                        label="Baixar Relatório por Categoria (.csv)",
-                        data=csv_rel,
-                        file_name=f"relatorio_categoria_{nome_cliente.replace(' ', '_').lower()}.csv",
-                        mime="text/csv",
-                    )
-# Fim do Bloco  
+                    # ---------------------------------------------------------
+                    # PARTE B: ACUMULADO POR CATEGORIA (MICRO)
+                    # ---------------------------------------------------------
+                    filtro_caixa_banco = "1.1.1|Caixa|Banco"
+
+                    df_entradas = (df_lancamentos[~df_lancamentos["conta_credito"].str.contains(filtro_caixa_banco, case=False, na=False)]
+                        .groupby("conta_credito")["valor"].sum().reset_index().rename(columns={"conta_credito": "conta", "valor": "entradas"}))
+                    df_saidas = (df_lancamentos[~df_lancamentos["conta_debito"].str.contains(filtro_caixa_banco, case=False, na=False)]
+                        .groupby("conta_debito")["valor"].sum().reset_index().rename(columns={"conta_debito": "conta", "valor": "saidas"}))
+                    df_total = pd.merge(df_entradas, df_saidas, on="conta", how="outer").fillna(0.0)
+
+                    dados_relatorio = []
+                    for _, row in df_total.iterrows():
+                        conta_nome = str(row["conta"])
+                        v_ent, v_sai = float(row["entradas"]), float(row["saidas"])
+
+                        if conta_nome.startswith("3") or "Receita" in conta_nome:
+                            val_liquido = v_ent - v_sai
+                            if val_liquido != 0: dados_relatorio.append({"Grupo": "🟢 Receitas", "Categoria / Conta": conta_nome, "Total (R$)": val_liquido})
+                        elif conta_nome.startswith("4") or "Despesa" in conta_nome or "Estoque" in conta_nome:
+                            val_liquido = v_sai - v_ent
+                            if val_liquido != 0: dados_relatorio.append({"Grupo": "🔴 Despesas", "Categoria / Conta": conta_nome, "Total (R$)": val_liquido})
+                        else:
+                            val_liquido = v_ent - v_sai
+                            if val_liquido != 0:
+                                grupo_label = "🔄 Patrimonial / Entrada" if val_liquido > 0 else "🔄 Patrimonial / Saída"
+                                dados_relatorio.append({"Grupo": grupo_label, "Categoria / Conta": conta_nome, "Total (R$)": abs(val_liquido)})
+
+                    df_agrupado = pd.DataFrame(dados_relatorio)
+
+                    if not df_agrupado.empty:
+                        df_exibicao = df_agrupado.copy()
+                        df_exibicao["Valor Formatado"] = df_exibicao["Total (R$)"].apply(formatar_brl)
+
+                        st.write("##### 📋 Acumulado por Categoria (Saldo Líquido no Período)")
+                        st.dataframe(df_exibicao[["Grupo", "Categoria / Conta", "Valor Formatado"]], use_container_width=True, height=380)
+
+                        st.write("##### 📈 Distribuição Geral de Despesas/Receitas")
+                        try:
+                            import plotly.express as px
+                            fig = px.pie(df_agrupado, names="Categoria / Conta", values="Total (R$)", color="Grupo", hole=0.4)
+                            fig.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=520, legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5))
+                            st.plotly_chart(fig, use_container_width=True)
+                        except Exception:
+                            st.bar_chart(df_agrupado.set_index("Categoria / Conta")["Total (R$)"])
+
+                        csv_rel = df_agrupado.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+                        st.download_button("📥 Baixar Relatório Gerencial (.csv)", data=csv_rel, file_name=f"relatorio_gerencial_{nome_cliente.replace(' ', '_').lower()}.csv", mime="text/csv")
+
+                # =========================================================
+                # SEPARADOR 2: RELATÓRIO MENSAL OFICIAL MEI (ANEXO XII)
+                # =========================================================
+                with tab_oficial:
+                    st.markdown("#### Relatório Mensal das Receitas Brutas (MEI)")
+                    st.caption("Documento oficial obrigatório. Selecione o mês para apuração e imprima/salve em PDF.")
+                    
+                    # 1. CRIA A VARIÁVEL df_oficial QUE FALTAVA
+                    df_oficial = df_lancamentos.copy()
+                    df_oficial['data_dt'] = pd.to_datetime(df_oficial['data'], errors='coerce')
+                    df_oficial = df_oficial.dropna(subset=['data_dt'])
+                    
+                    # Dicionário de meses
+                    meses_pt = {1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun', 7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'}
+                    df_oficial['mes_ano_cod'] = df_oficial['data_dt'].dt.strftime('%Y-%m')
+                    df_oficial['mes_ano_label'] = df_oficial['data_dt'].apply(lambda x: f"{meses_pt[x.month]}/{x.year}")
+                    
+                    meses_disponiveis = df_oficial[['mes_ano_cod', 'mes_ano_label']].drop_duplicates().sort_values('mes_ano_cod', ascending=False)
+                    
+                    if meses_disponiveis.empty:
+                        st.info("Nenhuma data válida encontrada nos lançamentos.")
+                    else:
+                        # CAIXA DE SELEÇÃO DO MÊS
+                        dict_meses = dict(zip(meses_disponiveis['mes_ano_label'], meses_disponiveis['mes_ano_cod']))
+                        mes_selecionado = st.selectbox("Selecione o Período de Apuração:", list(dict_meses.keys()))
+                        cod_mes = dict_meses[mes_selecionado]
+                        
+                        # =======================================================
+                        # O NOSSO FILTRO BLINDADO CONTRA EMPRÉSTIMOS E REEMBOLSOS
+                        # =======================================================
+                        df_mes = df_oficial[
+                            (df_oficial['mes_ano_cod'] == cod_mes) & 
+                            (df_oficial['conta_credito'].str.contains('^3\.|^Receita', case=False, na=False, regex=True))
+                        ]
+                        
+                        # Variáveis do Anexo XII
+                        v_I, v_II = 0.0, 0.0     # Comércio
+                        v_IV, v_V = 0.0, 0.0     # Indústria
+                        v_VII, v_VIII = 0.0, 0.0 # Serviços
+                        
+                        for _, row in df_mes.iterrows():
+                            val = float(row['valor'])
+                            conta = str(row['conta_credito']).lower()
+                            hist = str(row['historico']).lower()
+                            
+                            # TRAVA DE SEGURANÇA: Ignora reembolso e empréstimo
+                            if "empréstimo" in conta or "emprestimo" in hist or "reembolso" in conta or "reembolso" in hist:
+                                continue
+                                
+                            # Verifica se teve documento emitido ou foi com dispensa
+                            sem_doc = "sem documento" in hist
+                            
+                            # Classifica a atividade: Se não for nenhum dos 3, é ignorado!
+                            if "serviço" in conta or "servico" in conta:
+                                if sem_doc: v_VII += val
+                                else: v_VIII += val
+                            elif "indústria" in conta or "industria" in conta or "industrializado" in conta:
+                                if sem_doc: v_IV += val
+                                else: v_V += val
+                            elif "comércio" in conta or "comercio" in conta or "venda" in conta or "mercadoria" in conta:
+                                if sem_doc: v_I += val
+                                else: v_II += val
+                            else:
+                                pass
+                                
+                        # Totais
+                        v_III = v_I + v_II
+                        v_VI = v_IV + v_V
+                        v_IX = v_VII + v_VIII
+                        v_X = v_III + v_VI + v_IX
+                        
+                        # HTML e CSS do Relatório Oficial (Pronto para impressão)
+                        html_relatorio = f"""
+                        <div id="relatorio-mei" style="font-family: Arial, sans-serif; color: #000; background: #fff; max-width: 800px; margin: 0 auto; border: 1px solid #000; padding: 30px; line-height: 1.4;">
+                            <h3 style="text-align: center; margin-bottom: 30px; font-size: 16px;">RELATÓRIO MENSAL DAS RECEITAS BRUTAS</h3>
+                            
+                            <p style="margin: 5px 0;"><strong>CNPJ:</strong> {cnpj_cliente}</p>
+                            <p style="margin: 5px 0;"><strong>Empreendedor individual:</strong> {nome_cliente}</p>
+                            <p style="margin: 5px 0;"><strong>Período de apuração:</strong> {mes_selecionado}</p>
+                            
+                            <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px;">
+                                <tr>
+                                    <td colspan="2" style="background-color: #e0e0e0; border: 1px solid #000; padding: 6px; font-weight: bold; text-align: center;">RECEITA BRUTA MENSAL - REVENDA DE MERCADORIAS (COMÉRCIO)</td>
+                                </tr>
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 6px; width: 75%;">I - Revenda de mercadorias com dispensa de emissão de documento fiscal</td>
+                                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{formatar_brl(v_I)}</td>
+                                </tr>
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 6px;">II - Revenda de mercadorias com documento fiscal emitido</td>
+                                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{formatar_brl(v_II)}</td>
+                                </tr>
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 6px; font-weight: bold;">III - Total das receitas com revenda de mercadorias (I + II)</td>
+                                    <td style="border: 1px solid #000; padding: 6px; text-align: right; font-weight: bold;">{formatar_brl(v_III)}</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td colspan="2" style="background-color: #e0e0e0; border: 1px solid #000; padding: 6px; font-weight: bold; text-align: center; margin-top: 10px;">RECEITA BRUTA MENSAL - VENDA DE PRODUTOS INDUSTRIALIZADOS (INDÚSTRIA)</td>
+                                </tr>
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 6px;">IV - Venda de produtos industrializados com dispensa de emissão de documento fiscal</td>
+                                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{formatar_brl(v_IV)}</td>
+                                </tr>
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 6px;">V - Venda de produtos industrializados com documento fiscal emitido</td>
+                                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{formatar_brl(v_V)}</td>
+                                </tr>
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 6px; font-weight: bold;">VI - Total das receitas com venda de produtos industrializados (IV + V)</td>
+                                    <td style="border: 1px solid #000; padding: 6px; text-align: right; font-weight: bold;">{formatar_brl(v_VI)}</td>
+                                </tr>
+
+                                <tr>
+                                    <td colspan="2" style="background-color: #e0e0e0; border: 1px solid #000; padding: 6px; font-weight: bold; text-align: center;">RECEITA BRUTA MENSAL - PRESTAÇÃO DE SERVIÇOS</td>
+                                </tr>
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 6px;">VII - Receita com prestação de serviços com dispensa de emissão de documento fiscal</td>
+                                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{formatar_brl(v_VII)}</td>
+                                </tr>
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 6px;">VIII - Receita com prestação de serviços com documento fiscal emitido</td>
+                                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{formatar_brl(v_VIII)}</td>
+                                </tr>
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 6px; font-weight: bold;">IX - Total das receitas com prestação de serviços (VII + VIII)</td>
+                                    <td style="border: 1px solid #000; padding: 6px; text-align: right; font-weight: bold;">{formatar_brl(v_IX)}</td>
+                                </tr>
+
+                                <tr>
+                                    <td style="border: 1px solid #000; padding: 8px; font-weight: bold; font-size: 14px; text-align: right; background-color: #f5f5f5;">X - Total geral das receitas brutas no mês (III + VI + IX)</td>
+                                    <td style="border: 1px solid #000; padding: 8px; text-align: right; font-weight: bold; font-size: 14px; background-color: #f5f5f5;">{formatar_brl(v_X)}</td>
+                                </tr>
+                            </table>
+                            
+                            <div style="margin-top: 50px;">
+                                <p><strong>LOCAL E DATA:</strong> ______________________________, ____/____/________</p>
+                                <div style="margin-top: 40px; text-align: center; width: 350px;">
+                                    <hr style="border: 0; border-top: 1px solid #000; margin-bottom: 5px;">
+                                    <p style="margin: 0; font-size: 12px;">ASSINATURA DO EMPRESÁRIO</p>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-top: 40px; border: 1px solid #000; padding: 10px; font-size: 11px;">
+                                <p style="margin-top: 0; font-weight: bold;">ENCONTRAM-SE ANEXADOS A ESTE RELATÓRIO:</p>
+                                <ul style="margin-bottom: 0; padding-left: 20px;">
+                                    <li>Os documentos fiscais comprobatórios das entradas de mercadorias e serviços tomados referentes ao período;</li>
+                                    <li>As notas fiscais relativas às operações ou prestações realizadas eventualmente emitidas.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        """
+                        
+                        st.components.v1.html(html_relatorio, height=950, scrolling=True)
+                        
+                        st.info("💡 **Dica de Impressão:** Para imprimir ou salvar em PDF, clique no botão direito do rato sobre o relatório acima e escolha a opção **Imprimir / Print** (ou use as teclas `Ctrl + P`).")
               
 # -----------------------------------------------------------------------------
 # PAINEL DE MANUTENÇÃO: IMPORTAÇÃO, CORREÇÃO E LIMPEZA COM FEEDBACK VISUAL
