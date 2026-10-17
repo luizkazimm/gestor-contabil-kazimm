@@ -279,7 +279,7 @@ if cliente_ativo_id:
         with col_m3:
             st.markdown(
                 f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
-<div style="font-size: 15px; color: #0176a1;"> Saldo em Caixa</div>
+<div style="font-size: 15px; color: #0176a1;"> Saldo em Caixa/Banco</div>
 <div style="font-size: 20px; font-weight: bold; color: {cor_saldo}; margin: 4px 0;">{formatar_brl(saldo_g)}</div>
 <div style="font-size: 10px; color: #000000; line-height: 1.3;">Bancos: {formatar_brl(saldo_disp_bancos_g)}<br>Caixa: {formatar_brl(saldo_disp_caixa_g)}</div>
 </div>""",
