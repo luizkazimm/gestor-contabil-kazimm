@@ -211,6 +211,11 @@ if cliente_ativo_id:
         "SELECT conta_debito, conta_credito, valor FROM lancamentos WHERE cliente_id = %s", 
         conn, params=(cliente_ativo_id,)
     )
+    # NOVA CONSULTA: Lê apenas as contas a pagar pendentes
+    df_prov_global = pd.read_sql_query(
+        "SELECT valor FROM provisoes WHERE cliente_id = %s AND status = 'Pendente'", 
+        conn, params=(cliente_ativo_id,)
+    )
     conn.close()
 
     if not df_info_cli.empty:
@@ -244,10 +249,8 @@ if cliente_ativo_id:
         
         saldo_g = saldo_disp_caixa_g + saldo_disp_bancos_g
 
-        # Provisões (A Pagar)
-        cred_prov = df_lanc_global[df_lanc_global["conta_credito"].str.contains("2\.|Fornecedor|A Pagar|Provis", case=False, na=False)]["valor"].sum() if not df_lanc_global.empty else 0.0
-        deb_prov = df_lanc_global[df_lanc_global["conta_debito"].str.contains("2\.|Fornecedor|A Pagar|Provis", case=False, na=False)]["valor"].sum() if not df_lanc_global.empty else 0.0
-        a_pagar_g = cred_prov - deb_prov
+        # Provisões (A Pagar) - Lendo diretamente dos agendamentos pendentes
+        a_pagar_g = df_prov_global["valor"].sum() if not df_prov_global.empty else 0.0
 
         # 3. Renderização Segura em 4 Colunas Nativas
         cor_saldo = "#00875a" if saldo_g >= 0 else "#de350b"
@@ -286,7 +289,7 @@ if cliente_ativo_id:
         with col_m4:
             st.markdown(
                 f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
-<div style="font-size: 15px; color: #0176a1;"> A Pagar (Provisões)</div>
+<div style="font-size: 15px; color: #0176a1;"> A Pagar (Guias/Parcelamento)</div>
 <div style="font-size: 20px; font-weight: bold; color: #ff9900; margin: 4px 0;">{formatar_brl(a_pagar_g)}</div>
 <div style="font-size: 10px; color: transparent; line-height: 1.3;">&nbsp;<br>&nbsp;</div>
 </div>""",
@@ -1326,7 +1329,7 @@ elif "Provisões" in opcao:
                     with col_p3:
                         data_venc = st.date_input("Data de Vencimento")
                         st.markdown("<br>", unsafe_allow_html=True)
-                        salvar_prov = st.form_submit_button("Agendar Provisão", use_container_width=True)
+                        salvar_prov = st.form_submit_button("Agendar Guia/Parcelamento", use_container_width=True)
 
                     if salvar_prov:
                         if desc_provisao and valor_provisao > 0:
@@ -1339,7 +1342,7 @@ elif "Provisões" in opcao:
                                 (cliente_ativo_id, desc_provisao, tipo_provisao, valor_provisao, data_venc)
                             )
                             conn.commit()
-                            st.success(f"Provisão '{desc_provisao}' agendada com sucesso!")
+                            st.success(f"Guia/Parcelamemto '{desc_provisao}' agendada com sucesso!")
                             st.rerun()
                         else:
                             st.warning("Preencha a descrição e um valor válido.")
