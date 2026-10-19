@@ -146,6 +146,71 @@ st.markdown("""
 
 #Fim do Bloco
 
+# =========================================================
+# MATRIZ DE PLANOS E PERMISSÕES (FREEMIUM SAAS)
+# =========================================================
+REGRAS_PLANOS = {
+    'gratis': {
+        'nome': 'Plano MEI Gratuito',
+        'limite_lancamentos_mes': 25,
+        'importacao_lote': False,
+        'provisoes': False,
+        'dasn_simei': False,
+        'partida_dupla': False,
+        'folha_pagamento': False
+    },
+    'pro': {
+        'nome': 'Plano MEI Pro',
+        'limite_lancamentos_mes': 999999,
+        'importacao_lote': True,
+        'provisoes': True,
+        'dasn_simei': True,
+        'partida_dupla': False,
+        'folha_pagamento': True
+    },
+    'contador': {
+        'nome': 'Plano Escritório / Contador',
+        'limite_lancamentos_mes': 999999,
+        'importacao_lote': True,
+        'provisoes': True,
+        'dasn_simei': True,
+        'partida_dupla': True,
+        'folha_pagamento': True
+    }
+}
+
+def exibir_bloqueio_upgrade(nome_recurso: str, plano_minimo: str = "pro"):
+    """Exibe um card de paywall quando o usuário tenta acessar um recurso fora do seu plano."""
+    st.warning(f"🔒 **Recurso Exclusivo do {REGRAS_PLANOS.get(plano_minimo, {}).get('nome', 'Plano Pago')}**")
+    st.markdown(
+        f"""
+        <div style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 25px; margin: 15px 0;">
+            <h4 style="color: #1e293b; margin-top: 0;">Desbloqueie o módulo de <strong>{nome_recurso}</strong></h4>
+            <p style="color: #64748b; font-size: 14px; line-height: 1.5;">
+                O cliente ativo está enquadrado no <strong>Plano Gratuito</strong>. Faça o upgrade para automatizar sua rotina fiscal e contábil sem limitações manuais.
+            </p>
+            <ul style="color: #475569; font-size: 13px;">
+                <li>Importações em lote via extratos bancários (.OFX) e Excel;</li>
+                <li>Agendamento e controle de Contas a Pagar e Guias DAS;</li>
+                <li>Apuração anual automática com link direto para o portal DASN-SIMEI;</li>
+                <li>Lançamentos contábeis mensais ilimitados.</li>
+            </ul>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    col_cta1, col_cta2 = st.columns([1, 2])
+    with col_cta1:
+        st.link_button(
+            "⭐ Fazer Upgrade Agora", 
+            "https://kazimm.com.br/planos", 
+            type="primary", 
+            use_container_width=True
+        )
+    with col_cta2:
+        st.caption("Fale com o suporte ou gerencie sua assinatura pelo painel administrativo.")
+#FIM DO BLOCO
+
 # --- TRAVA DE SEGURANÇA ---
 if 'user' not in st.session_state or st.session_state.user is None:
     st.warning(" Você precisa fazer login para acessar o Gestor Contábil.")
@@ -181,20 +246,27 @@ def formatar_brl(valor):
 
 
 # Menu Lateral
-opcao = st.sidebar.radio(
-    "Navegação Principal",
-    [
-        "Dashboard",
-        "Cadastrar Conta / Fornecedor",
-        "Novo Lançamento",
-        "Provisões (Contas a Pagar)",
-        "Importar Extrato / Excel",
-        "Ver Lançamentos",
-        "Conciliação Bancária",
-        "Plano de Contas",
-        "Relatório por Categoria"
-    ]
-)
+# Define os rótulos do menu com base nas permissões do plano ativo
+plano_usuario = st.session_state.get("plano_ativo", "gratis")
+regras = REGRAS_PLANOS.get(plano_usuario, REGRAS_PLANOS['gratis'])
+
+item_importacao = "Importação em Lote" if regras['importacao_lote'] else "🔒 Importação em Lote (PRO)"
+item_provisoes = "Provisões (Contas a Pagar)" if regras['provisoes'] else "🔒 Provisões (Contas a Pagar) (PRO)"
+
+menu_opcoes = [
+    "Dashboard",
+    "Cadastrar Conta / Fornecedor",
+    "Novo Lançamento",
+    item_importacao,
+    item_provisoes,
+    "Importar Extrato / Excel",
+    "Ver Lançamentos",
+    "Conciliação Bancária",
+    "Plano de Contas",
+    "Relatório por Categoria"
+]
+
+opcao = st.sidebar.radio("Navegação Principal", menu_opcoes)
 
 # ==========================================
 # NOTIFICAÇÃO GLOBAL DO CLIENTE ATIVO E MINI-DASHBOARD (HUD CORRIGIDO)
@@ -203,15 +275,16 @@ cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
 if cliente_ativo_id:
     conn = get_connection()
+    # 1. AJUSTE AQUI: Adicionada a leitura da coluna 'plano' com fallback para 'gratis'
     df_info_cli = pd.read_sql_query(
-        "SELECT nome, regime FROM clientes WHERE id = %s", 
+        "SELECT nome, regime, COALESCE(plano, 'gratis') AS plano FROM clientes WHERE id = %s", 
         conn, params=(cliente_ativo_id,)
     )
     df_lanc_global = pd.read_sql_query(
         "SELECT conta_debito, conta_credito, valor FROM lancamentos WHERE cliente_id = %s", 
         conn, params=(cliente_ativo_id,)
     )
-    # NOVA CONSULTA: Lê apenas as contas a pagar pendentes
+    # Lê apenas as contas a pagar pendentes
     df_prov_global = pd.read_sql_query(
         "SELECT valor FROM provisoes WHERE cliente_id = %s AND status = 'Pendente'", 
         conn, params=(cliente_ativo_id,)
@@ -222,9 +295,15 @@ if cliente_ativo_id:
         nome_empresa = df_info_cli.iloc[0]["nome"]
         regime_empresa = df_info_cli.iloc[0]["regime"]
         
-        # 1. Faixa azul do cliente ativo
-        st.info(f" Cliente Ativo em Atendimento: **{nome_empresa}** | Regime: **{regime_empresa}**")
+        # 2. AJUSTE AQUI: Salva o plano na sessão e busca o rótulo amigável
+        plano_cli = str(df_info_cli.iloc[0]["plano"]).lower()
+        st.session_state["plano_ativo"] = plano_cli
+        nome_plano_exibicao = REGRAS_PLANOS.get(plano_cli, {}).get("nome", "Plano MEI Gratuito")
         
+        # Faixa azul atualizada com a etiqueta do plano
+        st.info(f"👤 Cliente Ativo em Atendimento: **{nome_empresa}** | Regime: **{regime_empresa}** | 💳 **{nome_plano_exibicao}**")
+#Fim da Alteração - PLANO
+#                 
         # 2. Cálculos Globais com Desdobramento de Caixa e Bancos
         filtro_caixa_fisico = "1.1.1.01|caixa geral|caixa físico|dinheiro"
         filtro_bancos = "1.1.1.02|1.1.1.03|banco|itau|bradesco|inter|nubank|cef|bb"
@@ -1037,6 +1116,51 @@ elif opcao == "Plano de Contas":
 # BLOCO DE LANÇAMENTOS - Novo lançamento
 elif opcao == "Novo Lançamento":
     st.subheader("Registro de Lançamento Contábil")
+
+    # ==========================================
+    # TRAVA DE LIMITE MENSAL (FREEMIUM)
+    # ==========================================
+    plano_atual = st.session_state.get("plano_ativo", "gratis")
+    limite_mes = REGRAS_PLANOS.get(plano_atual, {}).get("limite_lancamentos_mes", 25)
+
+    # 1. Identifica o ano e mês corrente no padrão YYYY-MM
+    from datetime import datetime
+    mes_atual_cod = datetime.now().strftime("%Y-%m")
+    
+    # 2. Consulta a contagem de lançamentos do cliente no mês atual
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT COUNT(*) 
+            FROM lancamentos 
+            WHERE cliente_id = %s 
+              AND TO_CHAR(data::date, 'YYYY-MM') = %s
+            """,
+            (cliente_ativo_id, mes_atual_cod)
+        )
+        total_mes = cursor.fetchone()[0]
+    except Exception as e:
+        total_mes = 0
+    finally:
+        conn.close()
+
+    # 3. Notificação educativa de consumo para usuários do plano Grátis
+    if total_mes < limite_mes and plano_atual == "gratis":
+        st.info(f"📊 **Consumo do Plano Gratuito:** {total_mes} de {limite_mes} lançamentos utilizados neste mês.")
+
+    # 4. Bloqueio com interrupção de fluxo quando o limite é atingido
+    if total_mes >= limite_mes:
+        st.error(f"⚠️ **Limite mensal atingido ({total_mes} de {limite_mes} lançamentos) para o período de {mes_atual_cod}.**")
+        exibir_bloqueio_upgrade("Lançamentos Ilimitados", plano_minimo="pro")
+        st.stop()  # Impede a renderização e o envio do formulário
+
+
+    # ==========================================
+    # O CÓDIGO DO FORMULÁRIO CONTINUA A PARTIR DAQUI
+    # ==========================================
+
     conn = get_connection()
     df_clientes = pd.read_sql_query(
         "SELECT id, nome, regime FROM clientes WHERE user_id = %s AND id = %s", 
@@ -1288,9 +1412,228 @@ elif opcao == "Novo Lançamento":
                         
 # Fim do BLOCO
 
+# =========================================================
+# MÓDULO: IMPORTAÇÃO EM LOTE (OFX / PLANILHA)
+# =========================================================
+elif "Importação em Lote" in opcao:
+    st.subheader("Importação em Lote de Lançamentos")
+    # Trava do Plano Pro
+    plano_atual = st.session_state.get("plano_ativo", "gratis")
+    if not REGRAS_PLANOS.get(plano_atual, {}).get("importacao_lote", False):
+        exibir_bloqueio_upgrade("Importação em Lote (OFX e Planilhas)", plano_minimo="pro")
+        st.stop()
+    st.caption("Importe dezenas de transações de uma só vez a partir do extrato bancário (.OFX) ou de uma planilha (.xlsx / .csv).")
+
+    cliente_ativo_id = st.session_state.get("cliente_id_ativo")
+
+    if not cliente_ativo_id:
+        st.warning("⚠️ Selecione um cliente ativo na barra lateral para prosseguir.")
+    else:
+        # Carrega as contas do cliente para as caixas de seleção
+        conn = get_connection()
+        try:
+            conn.commit()
+            df_contas = pd.read_sql_query(
+                "SELECT codigo, descricao AS nome, tipo FROM plano_contas WHERE cliente_id = %s OR cliente_id IS NULL ORDER BY codigo ASC",
+                conn, params=(cliente_ativo_id,)
+            )
+        finally:
+            conn.close()
+
+        lista_todas_contas = [f"{r['codigo']} - {r['nome']}" for _, r in df_contas.iterrows()]
+        contas_bancos = [c for c in lista_todas_contas if c.startswith("1.1.1") or "Banco" in c or "Caixa" in c]
+        contas_receitas = [c for c in lista_todas_contas if c.startswith("3.") or "Receita" in c]
+        contas_despesas = [c for c in lista_todas_contas if c.startswith("4.") or "Despesa" in c or "Estoque" in c]
+
+        tipo_origem = st.radio(
+            "Selecione o formato do arquivo:",
+            ["Extrato Bancário (.OFX)", "Planilha Padrão (.xlsx / .csv)"],
+            horizontal=True
+        )
+
+        st.markdown("---")
+
+        dados_processados = []
+
+        # ---------------------------------------------------------
+        # FLUXO A: IMPORTAÇÃO POR EXTRATO OFX
+        # ---------------------------------------------------------
+        if tipo_origem == "Extrato Bancário (.OFX)":
+            col_b1, col_b2 = st.columns([1.5, 2])
+            with col_b1:
+                conta_destino_ofx = st.selectbox(
+                    "Qual conta bancária representa este extrato?",
+                    contas_bancos,
+                    help="Ex: 1.1.1.02.01 - Banco CORA"
+                )
+            with col_b2:
+                arquivo_ofx = st.file_uploader("Selecione o arquivo .OFX baixado do banco", type=["ofx"])
+
+            if arquivo_ofx:
+                try:
+                    from ofxparse import OfxParser
+                    import io
+
+                    conteudo_bytes = io.BytesIO(arquivo_ofx.read())
+                    ofx = OfxParser.parse(conteudo_bytes)
+
+                    for transacao in ofx.account.statement.transactions:
+                        v = float(transacao.amount)
+                        dt = transacao.date.strftime('%Y-%m-%d')
+                        memo = str(transacao.memo).strip()
+                        tipo_mov = "Entrada" if v > 0 else "Saída"
+
+                        dados_processados.append({
+                            "Data": dt,
+                            "Tipo": tipo_mov,
+                            "Valor": abs(v),
+                            "Histórico / Descrição": memo,
+                            "Conta Contrapartida": ""  # Usuário define na revisão
+                        })
+
+                    st.success(f"✅ Extrato lido com sucesso: **{len(dados_processados)} transações** identificadas!")
+                except Exception as e:
+                    st.error(f"Erro ao processar arquivo OFX: {e}")
+
+        # ---------------------------------------------------------
+        # FLUXO B: IMPORTAÇÃO POR PLANILHA
+        # ---------------------------------------------------------
+        else:
+            col_p1, col_p2 = st.columns([1.2, 2])
+            with col_p1:
+                st.write("**Planilha Modelo:**")
+                st.caption("Baixe o template padrão para preencher com seus dados:")
+                df_exemplo = pd.DataFrame([
+                    {"Data": "2026-01-15", "Tipo": "Entrada", "Valor": 1500.00, "Descricao": "Serviço Prestado Empresa X", "Conta_Banco": contas_bancos[0] if contas_bancos else "1.1.1.01 - Caixa", "Categoria": contas_receitas[0] if contas_receitas else "3.2.1 - Serviços"},
+                    {"Data": "2026-01-18", "Tipo": "Saída", "Valor": 180.50, "Descricao": "Material de Escritório", "Conta_Banco": contas_bancos[0] if contas_bancos else "1.1.1.01 - Caixa", "Categoria": contas_despesas[0] if contas_despesas else "4.1.1 - Despesas"}
+                ])
+                csv_modelo = df_exemplo.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+                st.download_button("📥 Baixar Modelo (.CSV)", data=csv_modelo, file_name="modelo_importacao_kazimm.csv", mime="text/csv")
+
+            with col_p2:
+                arquivo_planilha = st.file_uploader("Selecione sua planilha preenchida", type=["xlsx", "csv"])
+
+            if arquivo_planilha:
+                try:
+                    if arquivo_planilha.name.endswith(".csv"):
+                        df_upload = pd.read_csv(arquivo_planilha, sep=None, engine="python", decimal=",")
+                    else:
+                        df_upload = pd.read_excel(arquivo_planilha)
+
+                    # Padronização de colunas
+                    df_upload.columns = [c.strip().lower() for c in df_upload.columns]
+                    for _, row in df_upload.iterrows():
+                        dados_processados.append({
+                            "Data": str(row.get("data", "")),
+                            "Tipo": "Entrada" if "ent" in str(row.get("tipo", "")).lower() else "Saída",
+                            "Valor": float(row.get("valor", 0.0)),
+                            "Histórico / Descrição": str(row.get("descricao", row.get("historico", ""))),
+                            "Conta Contrapartida": str(row.get("categoria", ""))
+                        })
+                    st.success(f"✅ Planilha lida com sucesso: **{len(dados_processados)} transações** encontradas!")
+                except Exception as e:
+                    st.error(f"Erro ao processar planilha: {e}")
+
+        # ---------------------------------------------------------
+        # PRÉ-VISUALIZAÇÃO E GRAVAÇÃO EM LOTE NO SUPABASE
+        # ---------------------------------------------------------
+        if dados_processados:
+            st.markdown("---")
+            st.write("#### 🔍 Revisão e Classificação dos Lançamentos")
+            st.caption("Classifique as contrapartidas diretamente na tabela abaixo antes de confirmar a importação.")
+
+            # Sugestão automática por palavra-chave para agilizar o trabalho
+            for item in dados_processados:
+                if not item["Conta Contrapartida"]:
+                    memo_upper = item["Histórico / Descrição"].upper()
+                    
+                    if item["Tipo"] == "Entrada":
+                        # Sugestões para Receitas
+                        if any(k in memo_upper for k in ["VENDA", "MERCADORIA", "PRODUTO"]):
+                            item["Conta Contrapartida"] = next((c for c in contas_receitas if "Mercadoria" in c or "Comércio" in c), contas_receitas[0] if contas_receitas else "")
+                        else:
+                            item["Conta Contrapartida"] = next((c for c in contas_receitas if "Serviço" in c or "Servico" in c), contas_receitas[0] if contas_receitas else "")
+                    else:
+                        # Sugestões para Despesas
+                        if any(k in memo_upper for k in ["TARIFA", "TAXA", "IOF", "ANUIDADE", "MANUTENCAO"]):
+                            item["Conta Contrapartida"] = next((c for c in contas_despesas if "Financeira" in c or "Tarifa" in c or "Banc" in c), contas_despesas[0] if contas_despesas else "")
+                        elif any(k in memo_upper for k in ["PECA", "PEÇAS", "FORNECEDOR", "COMPRA", "MATERIAL"]):
+                            item["Conta Contrapartida"] = next((c for c in contas_despesas if "Estoque" in c or "Custo" in c or "Fornecedor" in c), contas_despesas[0] if contas_despesas else "")
+                        else:
+                            item["Conta Contrapartida"] = next((c for c in contas_despesas if "Gerais" in c or "Operacional" in c or "Despesa" in c), contas_despesas[0] if contas_despesas else "")
+
+            df_previa = pd.DataFrame(dados_processados)
+
+            # Tabela editável: o cliente pode alterar a conta diretamente pelo dropdown
+            df_editado = st.data_editor(
+                df_previa,
+                column_config={
+                    "Data": st.column_config.TextColumn("Data", disabled=True),
+                    "Tipo": st.column_config.TextColumn("Tipo", disabled=True),
+                    "Valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", disabled=True),
+                    "Histórico / Descrição": st.column_config.TextColumn("Histórico Bancário", disabled=True),
+                    "Conta Contrapartida": st.column_config.SelectboxColumn(
+                        "Categoria / Conta de Destino",
+                        help="Defina para qual conta de receita ou despesa esse lançamento deve ir.",
+                        options=lista_todas_contas,
+                        required=True
+                    )
+                },
+                hide_index=True,
+                use_container_width=True
+            )
+
+            conta_banco_final = conta_destino_ofx if tipo_origem == "Extrato Bancário (.OFX)" else contas_bancos[0]
+
+            if st.button("Confirmar e Importar Todos os Lançamentos", type="primary", use_container_width=True):
+                progresso = st.progress(0)
+                linhas_finais = df_editado.to_dict(orient="records")
+                total = len(linhas_finais)
+                sucessos = 0
+
+                conn = get_connection()
+                cursor = conn.cursor()
+
+                try:
+                    for i, item in enumerate(linhas_finais):
+                        data_val = item["Data"]
+                        tipo_mov = item["Tipo"]
+                        valor_val = float(item["Valor"])
+                        hist_val = f"[Importação em Lote] {item['Histórico / Descrição']}".strip()
+                        contrapartida = item["Conta Contrapartida"]
+
+                        if tipo_mov == "Entrada":
+                            c_debito = conta_banco_final
+                            c_credito = contrapartida
+                        else:
+                            c_debito = contrapartida
+                            c_credito = conta_banco_final
+
+                        cursor.execute(
+                            "INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) VALUES (%s, %s, %s, %s, %s, %s)",
+                            (cliente_ativo_id, data_val, c_debito, c_credito, valor_val, hist_val)
+                        )
+                        sucessos += 1
+                        progresso.progress((i + 1) / total)
+
+                    conn.commit()
+                    st.success(f"Pronto! **{sucessos} lançamentos** foram importados e classificados com sucesso!")
+                    st.balloons()
+                except Exception as err:
+                    conn.rollback()
+                    st.error(f"Erro ao salvar lançamentos em lote: {err}")
+                finally:
+                    conn.close()
+
 # BLOCO PROVISÕES / CONTAS A PAGAR (COM BAIXA AUTOMÁTICA)
 elif "Provisões" in opcao:
     st.subheader("Provisões / Contas a Pagar")
+
+    # Trava do Plano Pro
+    plano_atual = st.session_state.get("plano_ativo", "gratis")
+    if not REGRAS_PLANOS.get(plano_atual, {}).get("provisoes", False):
+        exibir_bloqueio_upgrade("Agendamento de Provisões e Contas a Pagar", plano_minimo="pro")
+        st.stop()
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
@@ -2234,6 +2577,13 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                 with tab_anual:
                     st.markdown("#### 📆 Preparação para a Declaração Anual (DASN-SIMEI)")
                     st.caption("Resumo anual do faturamento. Copie os valores abaixo e cole no portal da Receita Federal.")
+
+                    # Trava do Plano Pro
+                    plano_atual = st.session_state.get("plano_ativo", "gratis")
+                    if not REGRAS_PLANOS.get(plano_atual, {}).get("dasn_simei", False):
+                        exibir_bloqueio_upgrade("Declaração Anual Consolidada (DASN-SIMEI)", plano_minimo="pro")
+                    else:
+                        st.caption("Resumo anual do faturamento. Copie os valores abaixo e cole no portal da Receita Federal.")
 
                     df_anual = df_lancamentos.copy()
                     df_anual['data_dt'] = pd.to_datetime(df_anual['data'], errors='coerce')
