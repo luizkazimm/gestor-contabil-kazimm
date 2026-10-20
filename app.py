@@ -143,6 +143,7 @@ def login_screen():
 login_page = st.Page(login_screen, title="Login", icon="🔐")
 gestor_page = st.Page("pages/1_Gestor_Contabil.py", title="Gestor Contábil", icon="📊")
 contratos_page = st.Page("pages/2_Gerador_Contratos.py", title="Gerador de Contratos", icon="📝")
+empregados_page = st.Page("pages/3_Empregados_Previdencia.py", title="Empregados / Previdência", icon="👥") # <-- PÁGINA NOVA ADICIONADA
 
 # 6. CONTROLE DE NAVEGAÇÃO DINÂMICO
 if st.session_state.user is None:
@@ -153,6 +154,8 @@ else:
     st.sidebar.write(f"👤 Logado como: **{st.session_state.user.email}**")
     if st.sidebar.button("Sair (Logout)"):
         logout()
-    pg = st.navigation([gestor_page, contratos_page])
+    #Lista de páginas para quem está logado
+    pg = st.navigation([gestor_page, contratos_page, empregados_page])
 
 pg.run()
+
