@@ -2,12 +2,30 @@ from datetime import datetime, date
 import streamlit as st
 import io
 import pandas as pd
+import base64
 from database import get_connection, init_db
 from supabase import create_client
 
 # 1. Configuração da página (DEVE SER O PRIMEIRO COMANDO STREAMLIT)
 st.set_page_config(page_title="Gestor Contábil Kazimm", layout="wide")
 
+# Função Auxiliar de Conversão de Imagem
+def processar_logo_empresa(arquivo_imagem):
+    """Converte o arquivo de imagem enviado para string Base64 utilizável em tags HTML."""
+    if arquivo_imagem is None:
+        return None
+    try:
+        tipo = arquivo_imagem.type
+        # getvalue() garante a leitura completa dos bytes sem risco de stream vazio
+        dados_bytes = arquivo_imagem.getvalue()
+        if not dados_bytes:
+            return None
+        b64_string = base64.b64encode(dados_bytes).decode('utf-8')
+        return f"data:{tipo};base64,{b64_string}"
+    except Exception as e:
+        st.error(f"Erro ao converter logotipo: {e}")
+        return None
+    
 #Bloco para criação de usuários no SUPABASE
 try:
     url = st.secrets["SUPABASE_URL"]
@@ -414,10 +432,66 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                 telefone = st.text_input("Telefone de Contato", placeholder="(00) 00000-0000")
                 cnae = st.text_input("Código de Atividade (CNAE)")
 
+            # BLOCO DE UPLOAD DE LOGO (NOVO CLIENTE INICIAL)
+            st.markdown("---")
+            st.markdown("**Logotipo da Empresa (Aparecerá nos Contratos e Relatórios):**")
+            arquivo_upd_logo = st.file_uploader(
+                "Selecione o arquivo da sua marca", 
+                type=["png", "jpg", "jpeg"], 
+                key="upd_logo",
+                help="Envie um arquivo PNG ou JPG de até 2MB. Recomenda-se imagem com fundo transparente."
+            )
+
+            # Prévia visual imediata para o usuário não ficar confuso
+            if arquivo_upd_logo:
+                st.image(arquivo_upd_logo, width=140, caption="Prévia do arquivo selecionado")
+            btn_atualizar = st.form_submit_button("💾 Salvar Alterações do Cliente", use_container_width=True)
+
+            if btn_atualizar:
+                logo_b64 = processar_logo_empresa(arquivo_upd_logo)
+                conn_up = get_connection()
+                cursor_up = conn_up.cursor()
+
+                try:
+                    if logo_b64:
+                        cursor_up.execute(
+                            """
+                            UPDATE clientes 
+                            SET nome = %s, cnpj_cpf = %s, cpf = %s, regime = %s, 
+                                capital_social = %s, data_abertura = %s, limite_faturamento = %s, 
+                                telefone = %s, cnae_atividade = %s, logo_base64 = %s 
+                            WHERE id = %s
+                            """,
+                            (e_nome, e_cnpj, e_cpf, e_regime, e_cap_social, e_dt_abertura.strftime("%Y-%m-%d"), e_limite, e_tel, e_cnae, logo_b64, id_cli_editar)
+                        )
+                    else:
+                        cursor_up.execute(
+                            """
+                            UPDATE clientes 
+                            SET nome = %s, cnpj_cpf = %s, cpf = %s, regime = %s, 
+                            capital_social = %s, data_abertura = %s, limite_faturamento = %s, 
+                            telefone = %s, cnae_atividade = %s 
+                            WHERE id = %s
+                            """,
+                            (e_nome, e_cnpj, e_cpf, e_regime, e_cap_social, e_dt_abertura.strftime("%Y-%m-%d"), e_limite, e_tel, e_cnae, id_cli_editar)
+                        )
+                    conn_up.commit()
+                                        
+                    # st.toast sobrevive ao st.rerun() e fica visível no canto inferior direito
+                    st.session_state["msg_sucesso"] = "Logotipo e dados atualizados com sucesso!"
+                    st.rerun()
+                except Exception as err_up:
+                    conn_up.rollback()
+                    st.error(f"Erro ao salvar no banco: {err_up}")
+                finally:
+                    conn_up.close()      
+            st.caption("📌 **Dica:** Prefira imagens em formato **PNG com fundo transparente** e tamanho de até **2 MB** para melhor enquadramento nos contratos e relatórios.")
+            
             salvar = st.form_submit_button("💾 Cadastrar Primeira Empresa", use_container_width=True)
 
         if salvar:
             if nome and cnpj_cpf:
+                logo_proc = processar_logo_empresa(arquivo_logo)
                 conn = get_connection()
                 cursor = conn.cursor()
                 try:
@@ -459,14 +533,18 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                         data_abertura as "Data Abertura",
                         COALESCE(limite_faturamento, 81000.00) as "Limite Faturamento (R$)",
                         COALESCE(telefone, '-') as "Telefone",
-                        COALESCE(cnae_atividade, '-') as "CNAE / Atividade"
+                        COALESCE(cnae_atividade, '-') as "CNAE / Atividade",
+                        logo_base64
                     FROM clientes 
                     WHERE id = %s
                     """,
                     conn,
                     params=(cliente_ativo_id,),
                 )
-            except Exception:
+            except Exception as err_sql:
+                # DESTRAVA A CONEXÃO: essencial para não causar o InFailedSqlTransaction
+                conn.rollback()
+                st.error(f"Aviso de leitura cadastral: {err_sql}")
                 df_clientes_cad = pd.read_sql_query(
                     """
                     SELECT 
@@ -519,7 +597,13 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
                 with st.container(border=True):
                     st.caption("Ficha Cadastral do Cliente Ativo (Dados CCMEI)")
-                    col_c1, col_c2, col_c3 = st.columns(3)
+                    col_logo, col_c1, col_c2, col_c3 = st.columns([1, 2, 2, 2])
+                    
+                    with col_logo:
+                        if pd.notna(row_cli.get('logo_base64')) and row_cli.get('logo_base64'):
+                            st.image(row_cli['logo_base64'], use_container_width=True)
+                        else:
+                            st.info("Sem Logo")
                     
                     with col_c1:
                         st.write(f"**Empresa:** {row_cli['Razão Social']}")
@@ -651,109 +735,127 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                     " Carteira de Clientes"
                 ])
 
-                # ABA 1: EDITAR QUALQUER CLIENTE DA CARTEIRA
+                # ABA 1: EDITAR (AGORA COM UPLOAD DE LOGO)
                 with tab_edit:
-                    conn_sel = get_connection()
-                    df_todos_cli = pd.read_sql_query(
-                        """
-                        SELECT id, nome, cnpj_cpf, COALESCE(cpf, '') as cpf, regime, 
-                               COALESCE(capital_social, 0.00) as capital_social, data_abertura,
-                               COALESCE(limite_faturamento, 81000.00) as limite, 
-                               COALESCE(telefone, '') as telefone, COALESCE(cnae_atividade, '') as cnae 
-                        FROM clientes ORDER BY nome ASC
-                        """,
-                        conn_sel
-                    )
-                    conn_sel.close()
+                        conn_sel = get_connection()
+                        df_todos_cli = pd.read_sql_query(
+                            """
+                            SELECT id, nome, cnpj_cpf, COALESCE(cpf, '') as cpf, regime, 
+                                   COALESCE(capital_social, 0.00) as capital_social, data_abertura,
+                                   COALESCE(limite_faturamento, 81000.00) as limite, 
+                                   COALESCE(telefone, '') as telefone, COALESCE(cnae_atividade, '') as cnae 
+                            FROM clientes ORDER BY nome ASC
+                            """,
+                            conn_sel
+                        )
+                        conn_sel.close()
 
-                    if df_todos_cli.empty:
-                        st.info("💡 Nenhum cliente cadastrado para edição.")
-                    else:
-                        dict_cli_edit = {
-                            f"ID #{row['id']} - {row['nome']} ({row['cnpj_cpf']})": row['id'] 
-                            for _, row in df_todos_cli.iterrows()
-                        }
-                        cli_sel_rotulo = st.selectbox("🔍 Selecione o cliente para alterar dados:", options=list(dict_cli_edit.keys()))
-                        id_cli_editar = dict_cli_edit[cli_sel_rotulo]
-                        row_edit = df_todos_cli[df_todos_cli["id"] == id_cli_editar].iloc[0]
+                        if df_todos_cli.empty:
+                            st.info("💡 Nenhum cliente cadastrado para edição.")
+                        else:
+                            dict_cli_edit = {f"ID #{row['id']} - {row['nome']} ({row['cnpj_cpf']})": row['id'] for _, row in df_todos_cli.iterrows()}
+                            cli_sel_rotulo = st.selectbox("🔍 Selecione o cliente para alterar dados:", options=list(dict_cli_edit.keys()))
+                            id_cli_editar = dict_cli_edit[cli_sel_rotulo]
+                            row_edit = df_todos_cli[df_todos_cli["id"] == id_cli_editar].iloc[0]
 
-                        with st.form("form_editar_cliente_admin"):
-                            st.markdown(f"##### Alterando dados do Cliente **ID #{id_cli_editar}**")
-                            col_e1, col_e2, col_e3 = st.columns(3)
-                            with col_e1:
-                                e_nome = st.text_input("Razão Social / Nome", value=str(row_edit['nome']))
-                                e_cnpj = st.text_input("CNPJ", value=str(row_edit['cnpj_cpf']))
-                                e_cpf = st.text_input("CPF Titular", value=str(row_edit['cpf']))
-                            with col_e2:
-                                reg_index = 0 if "MEI" in str(row_edit['regime']) else 1
-                                e_regime = st.selectbox("Regime Contábil", ["MEI (Microempreendedor Individual)", "Simples Nacional"], index=reg_index)
+                            with st.form("form_editar_cliente_admin"):
+                                st.markdown(f"##### Alterando dados do Cliente **ID #{id_cli_editar}**")
+                                col_e1, col_e2, col_e3 = st.columns(3)
+                                with col_e1:
+                                    e_nome = st.text_input("Razão Social / Nome", value=str(row_edit['nome']))
+                                    e_cnpj = st.text_input("CNPJ", value=str(row_edit['cnpj_cpf']))
+                                    e_cpf = st.text_input("CPF Titular", value=str(row_edit['cpf']))
+                                with col_e2:
+                                    reg_index = 0 if "MEI" in str(row_edit['regime']) else 1
+                                    e_regime = st.selectbox("Regime Contábil", ["MEI (Microempreendedor Individual)", "Simples Nacional"], index=reg_index)
+                                    lim_val = float(row_edit['limite'])
+                                    lim_index = 0 if lim_val == 81000.0 else 1
+                                    e_limite = st.selectbox("Limite Faturamento", [81000.00, 251600.00], index=lim_index, format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
+                                    e_cap_social = st.number_input("Capital Social (R$)", value=float(row_edit['capital_social']), step=100.0)
+                                with col_e3:
+                                    dt_abert_val = pd.to_datetime(row_edit['data_abertura']).date() if pd.notna(row_edit['data_abertura']) else datetime.today().date()
+                                    e_dt_abertura = st.date_input("Data de Abertura", value=dt_abert_val, format="DD/MM/YYYY")
+                                    e_tel = st.text_input("Telefone", value=str(row_edit['telefone']))
+                                    e_cnae = st.text_input("CNAE / Atividade", value=str(row_edit['cnae']))
+
+                                # BLOCO UPLOAD LOGO NA EDIÇÃO
+                                st.markdown("---")
+                                arquivo_upd_logo = st.file_uploader("Atualizar Logotipo (Opcional)", type=["png", "jpg", "jpeg"], key="upd_logo")
+
+                                if arquivo_upd_logo is not None:
+                                    # 2 MB = 2 * 1024 * 1024 bytes
+                                    if arquivo_upd_logo.size > 2 * 1024 * 1024:
+                                        st.error("⚠️ O arquivo selecionado excede o limite de 2 MB. Reduza a imagem e tente novamente.")
+                                    else:
+                                        # Prossegue com a conversão e o salvamento normal
+                                        logo_b64 = processar_logo_empresa(arquivo_upd_logo)
                                 
-                                lim_val = float(row_edit['limite'])
-                                lim_index = 0 if lim_val == 81000.0 else 1
-                                e_limite = st.selectbox("Limite Faturamento", [81000.00, 251600.00], index=lim_index, format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
-                                
-                                e_cap_social = st.number_input("Capital Social (R$)", value=float(row_edit['capital_social']), step=100.0)
-                            with col_e3:
-                                dt_abert_val = pd.to_datetime(row_edit['data_abertura']).date() if pd.notna(row_edit['data_abertura']) else datetime.today().date()
-                                e_dt_abertura = st.date_input("Data de Abertura", value=dt_abert_val, format="DD/MM/YYYY")
-                                e_tel = st.text_input("Telefone", value=str(row_edit['telefone']))
-                                e_cnae = st.text_input("CNAE / Atividade", value=str(row_edit['cnae']))
+                                btn_atualizar = st.form_submit_button("💾 Salvar Alterações do Cliente", use_container_width=True)
 
-                            btn_atualizar = st.form_submit_button("💾 Salvar Alterações do Cliente", use_container_width=True)
-
-                            if btn_atualizar:
-                                conn_up = get_connection()
-                                cursor_up = conn_up.cursor()
-                                cursor_up.execute(
-                                    """
-                                    UPDATE clientes 
-                                    SET nome = %s, cnpj_cpf = %s, cpf = %s, regime = %s, capital_social = %s, data_abertura = %s, limite_faturamento = %s, telefone = %s, cnae_atividade = %s
-                                    WHERE id = %s
-                                    """,
-                                    (e_nome, e_cnpj, e_cpf, e_regime, e_cap_social, e_dt_abertura.strftime("%Y-%m-%d"), e_limite, e_tel, e_cnae, id_cli_editar)
-                                )
-                                conn_up.commit()
-                                conn_up.close()
-                                st.success(f"Dados do cliente '{e_nome}' atualizados!")
-                                st.rerun()
+                                if btn_atualizar:
+                                    logo_b64 = processar_logo_empresa(arquivo_upd_logo)
+                                    conn_up = get_connection()
+                                    cursor_up = conn_up.cursor()
+                                    
+                                    if logo_b64:
+                                        # Atualiza todos os campos e também a imagem
+                                        cursor_up.execute(
+                                            "UPDATE clientes SET nome = %s, cnpj_cpf = %s, cpf = %s, regime = %s, capital_social = %s, data_abertura = %s, limite_faturamento = %s, telefone = %s, cnae_atividade = %s, logo_base64 = %s WHERE id = %s",
+                                            (e_nome, e_cnpj, e_cpf, e_regime, e_cap_social, e_dt_abertura.strftime("%Y-%m-%d"), e_limite, e_tel, e_cnae, logo_b64, id_cli_editar)
+                                        )
+                                    else:
+                                        # Se não enviou imagem nova, atualiza apenas os textos
+                                        cursor_up.execute(
+                                            "UPDATE clientes SET nome = %s, cnpj_cpf = %s, cpf = %s, regime = %s, capital_social = %s, data_abertura = %s, limite_faturamento = %s, telefone = %s, cnae_atividade = %s WHERE id = %s",
+                                            (e_nome, e_cnpj, e_cpf, e_regime, e_cap_social, e_dt_abertura.strftime("%Y-%m-%d"), e_limite, e_tel, e_cnae, id_cli_editar)
+                                        )
+                                        
+                                    conn_up.commit()
+                                    conn_up.close()
+                                    st.success(f"Dados do cliente '{e_nome}' atualizados!")
+                                    st.rerun()
 
                 # ABA 2: CADASTRAR UM NOVO CLIENTE NA CARTEIRA
                 with tab_novo:
-                    with st.form("form_novo_cliente_admin"):
-                        st.markdown("##### Adicionar Novo MEI à sua Carteira")
-                        col_n1, col_n2, col_n3 = st.columns(3)
-                        with col_n1:
-                            n_nome = st.text_input("Razão Social / Nome")
-                            n_cnpj = st.text_input("CNPJ")
-                            n_cpf = st.text_input("CPF Titular")
-                        with col_n2:
-                            n_regime = st.selectbox("Regime", ["MEI (Microempreendedor Individual)", "Simples Nacional"], key="n_reg")
-                            n_limite = st.selectbox("Limite Faturamento", [81000.00, 251600.00], key="n_lim", format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
-                            n_cap_social = st.number_input("Capital Social (R$)", value=1000.00, step=100.0)
-                        with col_n3:
-                            n_dt_abertura = st.date_input("Data de Abertura", value=datetime.today().date(), format="DD/MM/YYYY")
-                            n_tel = st.text_input("Telefone")
-                            n_cnae = st.text_input("CNAE / Atividade")
+                        with st.form("form_novo_cliente_admin"):
+                            st.markdown("##### Adicionar Novo MEI à sua Carteira")
+                            col_n1, col_n2, col_n3 = st.columns(3)
+                            with col_n1:
+                                n_nome = st.text_input("Razão Social / Nome")
+                                n_cnpj = st.text_input("CNPJ")
+                                n_cpf = st.text_input("CPF Titular")
+                            with col_n2:
+                                n_regime = st.selectbox("Regime", ["MEI (Microempreendedor Individual)", "Simples Nacional"], key="n_reg")
+                                n_limite = st.selectbox("Limite Faturamento", [81000.00, 251600.00], key="n_lim", format_func=lambda x: f"R$ {x:,.2f} (MEI Geral)" if x == 81000 else f"R$ {x:,.2f} (MEI Caminhoneiro)")
+                                n_cap_social = st.number_input("Capital Social (R$)", value=1000.00, step=100.0)
+                            with col_n3:
+                                n_dt_abertura = st.date_input("Data de Abertura", value=datetime.today().date(), format="DD/MM/YYYY")
+                                n_tel = st.text_input("Telefone")
+                                n_cnae = st.text_input("CNAE / Atividade")
 
-                        btn_cad_novo = st.form_submit_button(" Adicionar Empresa", use_container_width=True)
+                            st.markdown("---")
+                            arquivo_novo_logo = st.file_uploader("Enviar Logotipo (Opcional)", type=["png", "jpg", "jpeg"], key="upd_novo_logo")
 
-                        if btn_cad_novo:
-                            if n_nome and n_cnpj:
-                                conn_add = get_connection()
-                                cursor_add = conn_add.cursor()
-                                cursor_add.execute(
-                                    """
-                                    INSERT INTO clientes (nome, cnpj_cpf, cpf, regime, capital_social, data_abertura, limite_faturamento, telefone, cnae_atividade, user_id)
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                    """,
-                                    (n_nome, n_cnpj, n_cpf, n_regime, n_cap_social, n_dt_abertura.strftime("%Y-%m-%d"), n_limite, n_tel, n_cnae, user_id_atual)
-                                )
-                                conn_add.commit()
-                                conn_add.close()
-                                st.success(f"Empresa '{n_nome}' adicionada com sucesso!")
-                                st.rerun()
-                            else:
-                                st.warning("Preencha Razão Social e CNPJ.")
+                            btn_cad_novo = st.form_submit_button(" Adicionar Empresa", use_container_width=True)
+
+                            if btn_cad_novo:
+                                if n_nome and n_cnpj:
+                                    logo_b64 = processar_logo_empresa(arquivo_novo_logo)
+                                    conn_add = get_connection()
+                                    cursor_add = conn_add.cursor()
+                                    cursor_add.execute(
+                                        """
+                                        INSERT INTO clientes (nome, cnpj_cpf, cpf, regime, capital_social, data_abertura, limite_faturamento, telefone, cnae_atividade, user_id, logo_base64)
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                        """,
+                                        (n_nome, n_cnpj, n_cpf, n_regime, n_cap_social, n_dt_abertura.strftime("%Y-%m-%d"), n_limite, n_tel, n_cnae, user_id_atual, logo_b64)
+                                    )
+                                    conn_add.commit()
+                                    conn_add.close()
+                                    st.success(f"Empresa '{n_nome}' adicionada com sucesso!")
+                                    st.rerun()
+                                else:
+                                    st.warning("Preencha Razão Social e CNPJ.")
 
                 # ABA 3: CRIAR OU VINCULAR LOGIN DE USUÁRIO À EMPRESA (BLINDADO)
                 with tab_usuario:
