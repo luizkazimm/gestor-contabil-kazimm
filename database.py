@@ -143,7 +143,7 @@ def carregar_clientes(user_id):
 
 @st.cache_data(ttl=300)
 def carregar_plano_contas(cliente_id=None):
-    """Busca o plano de contas geral e do cliente ativo, mantendo em memória por 5 minutos."""
+    """Busca o plano de contas mantendo em memória."""
     conn = get_connection()
     try:
         query = """
@@ -152,14 +152,14 @@ def carregar_plano_contas(cliente_id=None):
             WHERE cliente_id IS NULL OR cliente_id = %s 
             ORDER BY codigo ASC
         """
-        df = pd.read_sql_query(query, conn, params=(cliente_id,))
-        return df
+        return pd.read_sql_query(query, conn, params=(cliente_id,))
     finally:
         conn.close()
 
+
 @st.cache_data(ttl=120)
 def carregar_lancamentos(cliente_id):
-    """Carrega todos os lançamentos do MEI ativo em memória RAM."""
+    """Busca os lançamentos do cliente ativo em memória."""
     conn = get_connection()
     try:
         query = """
@@ -168,24 +168,24 @@ def carregar_lancamentos(cliente_id):
             WHERE cliente_id = %s 
             ORDER BY data DESC
         """
-        df = pd.read_sql_query(query, conn, params=(cliente_id,))
-        return df
+        return pd.read_sql_query(query, conn, params=(cliente_id,))
     finally:
         conn.close()
-#***********************************************************
-# CARREGAR LANÇAMENTOS PELO CACHE - Linha substituida 26/10/2026
-#***********************************************************
-#@st.cache_data(ttl=120)
-#def carregar_provisoes_pendentes(cliente_id):
-#    """Busca o valor das contas a pagar pendentes mantendo em memória."""
-#    conn = get_connection()
-#    try:
-#        query = "SELECT valor FROM provisoes WHERE cliente_id = %s AND status = 'Pendente'"
-#        df = pd.read_sql_query(query, conn, params=(cliente_id,))
-#        return df
-#    finally:
-#        conn.close()
 
+#***********************************************************
+# CARREGAR LANÇAMENTOS PELO CACHE 
+#***********************************************************
+@st.cache_data(ttl=120)
+def carregar_provisoes_pendentes(cliente_id):
+    """Busca contas a pagar pendentes do cliente ativo em memória."""
+    conn = get_connection()
+    try:
+        query = "SELECT valor FROM provisoes WHERE cliente_id = %s AND status = 'Pendente'"
+        return pd.read_sql_query(query, conn, params=(cliente_id,))
+    finally:
+        conn.close()
+
+        
 @st.cache_data(ttl=300)
 def carregar_dados_cliente_ativo(cliente_id):
     """Busca nome, regime e plano do cliente ativo mantendo em memória."""

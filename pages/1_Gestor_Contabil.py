@@ -9,7 +9,8 @@ from database import (
     carregar_clientes, 
     carregar_plano_contas, 
     carregar_lancamentos,
-    carregar_provisoes_pendentes, 
+    carregar_provisoes_pendentes,
+    carregar_dados_cliente_ativo, 
     limpar_cache
 )
 from supabase import create_client
@@ -296,9 +297,11 @@ opcao = st.sidebar.radio("Navegação Principal", menu_opcoes)
 cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
 if cliente_ativo_id:
-    # 1. Busca os lançamentos e provisões do cache em memória RAM
+    # 1. Leitura 100% em memória RAM (zero latência na nuvem)
     df_lanc_global = carregar_lancamentos(cliente_ativo_id)
     df_prov_global = carregar_provisoes_pendentes(cliente_ativo_id)
+    df_info_cli = carregar_dados_cliente_ativo(cliente_ativo_id)
+
 
     # 2. Busca os dados cadastrais da empresa ativa
     conn = get_connection()
