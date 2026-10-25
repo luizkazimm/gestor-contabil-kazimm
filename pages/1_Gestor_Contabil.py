@@ -3,7 +3,15 @@ import streamlit as st
 import io
 import pandas as pd
 import base64
-from database import get_connection, init_db
+from database import (
+    get_connection, 
+    init_db, 
+    carregar_clientes, 
+    carregar_plano_contas, 
+    carregar_lancamentos,
+    carregar_provisoes_pendentes, 
+    limpar_cache
+)
 from supabase import create_client
 
 # 1. Configuração da página (DEVE SER O PRIMEIRO COMANDO STREAMLIT)
@@ -239,11 +247,7 @@ st.title("Kazimm - Sistema de Gestão Contábil")
 init_db()
 
 # 4. Busca os Clientes do Usuário no Banco de Dados
-conn = get_connection()
-cursor = conn.cursor()
-cursor.execute("SELECT id, nome FROM clientes WHERE user_id = %s", (st.session_state.user.id,))
-clientes_cadastrados = cursor.fetchall()
-conn.close()
+clientes_cadastrados = carregar_clientes(st.session_state.user.id)
 
 # 5. Seletor do Cliente Ativo (Definição na Session State)
 if clientes_cadastrados:
@@ -292,23 +296,20 @@ opcao = st.sidebar.radio("Navegação Principal", menu_opcoes)
 cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
 if cliente_ativo_id:
-    conn = get_connection()
-    # 1. AJUSTE AQUI: Adicionada a leitura da coluna 'plano' com fallback para 'gratis'
-    df_info_cli = pd.read_sql_query(
-        "SELECT nome, regime, COALESCE(plano, 'gratis') AS plano FROM clientes WHERE id = %s", 
-        conn, params=(cliente_ativo_id,)
-    )
-    df_lanc_global = pd.read_sql_query(
-        "SELECT conta_debito, conta_credito, valor FROM lancamentos WHERE cliente_id = %s", 
-        conn, params=(cliente_ativo_id,)
-    )
-    # Lê apenas as contas a pagar pendentes
-    df_prov_global = pd.read_sql_query(
-        "SELECT valor FROM provisoes WHERE cliente_id = %s AND status = 'Pendente'", 
-        conn, params=(cliente_ativo_id,)
-    )
-    conn.close()
+    # 1. Busca os lançamentos e provisões do cache em memória RAM
+    df_lanc_global = carregar_lancamentos(cliente_ativo_id)
+    df_prov_global = carregar_provisoes_pendentes(cliente_ativo_id)
 
+    # 2. Busca os dados cadastrais da empresa ativa
+    conn = get_connection()
+    try:
+        df_info_cli = pd.read_sql_query(
+            "SELECT nome, regime, COALESCE(plano, 'gratis') AS plano FROM clientes WHERE id = %s", 
+            conn, params=(cliente_ativo_id,)
+        )
+    finally:
+        conn.close()
+        
     if not df_info_cli.empty:
         nome_empresa = df_info_cli.iloc[0]["nome"]
         regime_empresa = df_info_cli.iloc[0]["regime"]
@@ -408,11 +409,8 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
     user_id_atual = st.session_state.user.id
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM clientes WHERE user_id = %s", (user_id_atual,))
-    qtd_clientes = cursor.fetchone()[0]
-    conn.close()
+    # OTIMIZAÇÃO: Aproveita a lista de clientes já carregada em cache
+    qtd_clientes = len(clientes_cadastrados)
 
     # IF 1: PRIMEIRO ACESSO (SEM NENHUM CLIENTE NO BANCO)
     if qtd_clientes < 1:
@@ -1270,13 +1268,9 @@ elif opcao == "Novo Lançamento":
         params=(st.session_state.user.id, st.session_state.cliente_id_ativo)
     )
     
-    # --- ALTERAÇÃO: CONSULTA DINÂMICA COMPLETA AO PLANO DE CONTAS GLOBAL ---
-    df_contas = pd.read_sql_query(
-        "SELECT codigo, descricao, tipo FROM plano_contas WHERE cliente_id IS NULL OR cliente_id = %s ORDER BY codigo ASC", 
-        conn,
-        params=(st.session_state.cliente_id_ativo,)
-    )
+    # OTIMIZAÇÃO: Busca o plano de contas da memória RAM
     conn.close()
+    df_contas = carregar_plano_contas(st.session_state.cliente_id_ativo)
 
     # 1. Filtra dinamicamente as Contas Financeiras (Caixas e Bancos / Ativo / Grupo 1.1)
     df_fin = df_contas[
@@ -1399,6 +1393,7 @@ elif opcao == "Novo Lançamento":
                             )
                             conn.commit()
                             conn.close()
+                            limpar_cache()
                             st.success("✅ Entrada registrada com sucesso!")
                             st.rerun() # Limpa o formulário
 
@@ -1442,8 +1437,6 @@ elif opcao == "Novo Lançamento":
 
                     salvar_sai = st.form_submit_button("Registrar Saída")
 
-                    salvar_sai = st.form_submit_button("Registrar Saída")
-
                     if salvar_sai:
                         # VALIDAÇÕES EXPLÍCITAS
                         if not conta_financeira:
@@ -1467,6 +1460,7 @@ elif opcao == "Novo Lançamento":
                             )
                             conn.commit()
                             conn.close()
+                            limpar_cache()
                             st.success("✅ Saída registrada com sucesso!")
                             st.rerun() # Limpa o formulário
 
@@ -1509,6 +1503,7 @@ elif opcao == "Novo Lançamento":
                         )
                         conn.commit()
                         conn.close()
+                        limpar_cache()
                         st.success("✅ Lançamento em Partida Dupla registrado!")
                         st.rerun() #Limpa o formulário
                         
@@ -1719,8 +1714,12 @@ elif "Importação em Lote" in opcao:
                         progresso.progress((i + 1) / total)
 
                     conn.commit()
+                    # Limpa a memória e recarrega a tela com os dados atualizados
+                    limpar_cache()
+                    
                     st.success(f"Pronto! **{sucessos} lançamentos** foram importados e classificados com sucesso!")
                     st.balloons()
+
                 except Exception as err:
                     conn.rollback()
                     st.error(f"Erro ao salvar lançamentos em lote: {err}")
@@ -1942,6 +1941,7 @@ elif opcao == "Importar Extrato / Excel":
                             importados += 1
 
                     conn.commit()
+                    limpar_cache()
                     conn.close()
 
                     st.success(f"Importação concluída! **{importados}** registros foram salvos no banco de dados do cliente.")
@@ -1988,17 +1988,9 @@ elif opcao == "Ver Lançamentos":
             )
 
         # 2. BUSCA LANÇAMENTOS DO CLIENTE
-        df_lancamentos = pd.read_sql_query(
-            """
-            SELECT id, data, conta_debito, conta_credito, valor, historico 
-            FROM lancamentos 
-            WHERE cliente_id = %s 
-            ORDER BY data DESC
-            """,
-            conn,
-            params=(cliente_ativo_id,),
-        )
         conn.close()
+        # OTIMIZAÇÃO: Busca o histórico diretamente da memória RAM
+        df_lancamentos = carregar_lancamentos(cliente_ativo_id)
 
         # -----------------------------------------------------------------
         # CABEÇALHO: FICHA CADASTRAL DO CLIENTE ATIVO
@@ -2154,7 +2146,7 @@ elif opcao == "Ver Lançamentos":
                             )
                         cid_val = int(cid_raw) if cid_raw else None
 
-                        # 1. Busca as contas cadastradas no Plano de Contas Global
+                        
                        # 1. Busca as contas cadastradas no Plano de Contas Híbrido
                         try:
                             conn = get_connection()
@@ -2220,6 +2212,7 @@ elif opcao == "Ver Lançamentos":
                                 )
                                 conn_act.commit()
                                 conn_act.close()
+                                limpar_cache()
                                 st.success(f"Lançamento ID #{id_alvo} atualizado com sucesso!")
                                 st.rerun()
 
@@ -2229,7 +2222,7 @@ elif opcao == "Ver Lançamentos":
                         st.write(f"**Data:** {row_alvo['data_dt'].strftime('%d/%m/%Y') if pd.notna(row_alvo['data_dt']) else ''} | **Valor:** {formatar_brl(row_alvo['valor'])}")
                         st.write(f"**Histórico:** {row_alvo['historico']}")
 
-                        if st.button("🚨 Confirmar Exclusão do Lançamento", use_container_width=True, type="primary"):
+                        if st.button("🚨 Confirmar Exclusão do Lançamento"):
                             conn_del = get_connection()
                             cursor_del = conn_del.cursor()
                             cursor_del.execute(
@@ -2238,6 +2231,7 @@ elif opcao == "Ver Lançamentos":
                             )
                             conn_del.commit()
                             conn_del.close()
+                            limpar_cache()
                             st.success(f"Lançamento ID #{id_alvo} excluído com sucesso!")
                             st.rerun()
 #Fim do bloco
