@@ -304,14 +304,14 @@ if cliente_ativo_id:
 
 
     # 2. Busca os dados cadastrais da empresa ativa
-    conn = get_connection()
-    try:
-        df_info_cli = pd.read_sql_query(
-            "SELECT nome, regime, COALESCE(plano, 'gratis') AS plano FROM clientes WHERE id = %s", 
-            conn, params=(cliente_ativo_id,)
-        )
-    finally:
-        conn.close()
+    #conn = get_connection()
+    #try:
+    #    df_info_cli = pd.read_sql_query(
+    #        "SELECT nome, regime, COALESCE(plano, 'gratis') AS plano FROM clientes WHERE id = %s", 
+    #        conn, params=(cliente_ativo_id,)
+    #    )
+    #finally:
+    #    conn.close()
         
     if not df_info_cli.empty:
         nome_empresa = df_info_cli.iloc[0]["nome"]
@@ -567,24 +567,29 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                 )
 
             # 2. CONSULTA LANÇAMENTOS DO LIVRO CAIXA
-            df_lancamentos = pd.read_sql_query(
-                "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE cliente_id = %s",
-                conn,
-                params=(cliente_ativo_id,)
-            )
+            #df_lancamentos = pd.read_sql_query(
+            #    "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE cliente_id = %s",
+            #    conn,
+            #    params=(cliente_ativo_id,)
+            #)
 
             # 3. CONSULTA PROVISÕES (CONTAS A PAGAR)
-            try:
-                df_provisoes = pd.read_sql_query(
-                    "SELECT valor FROM provisoes WHERE cliente_id = %s AND status = 'Pendente'",
-                    conn,
-                    params=(cliente_ativo_id,)
-                )
-                a_pagar_tot = df_provisoes["valor"].sum() if not df_provisoes.empty else 0.0
-            except Exception:
-                a_pagar_tot = 0.0
+            #try:
+            #    df_provisoes = pd.read_sql_query(
+            #        "SELECT valor FROM provisoes WHERE cliente_id = %s AND status = 'Pendente'",
+            #        conn,
+            #        params=(cliente_ativo_id,)
+            #    )
+            #    a_pagar_tot = df_provisoes["valor"].sum() if not df_provisoes.empty else 0.0
+            #except Exception:
+            #    a_pagar_tot = 0.0
 
             conn.close()
+            # 2 e 3. CONSULTAS INSTANTÂNEAS DIRETO DO CACHE
+            df_lancamentos = carregar_lancamentos(cliente_ativo_id)
+            df_provisoes = carregar_provisoes_pendentes(cliente_ativo_id)
+            a_pagar_tot = df_provisoes["valor"].sum() if not df_provisoes.empty else 0.0
+
 
             # -----------------------------------------------------------------
             # FICHA CADASTRAL UNIFICADA (DADOS DO CCMEI)
@@ -2783,17 +2788,21 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
         cid_val = int(cid_raw) if cid_raw else None
 
         # 2. Busca os dados de forma independente das abas
-        df_export_lanc = pd.DataFrame()
-        if cid_val:
-            try:
-                conn = get_connection()
-                df_export_lanc = pd.read_sql(
-                    "SELECT * FROM lancamentos WHERE cliente_id = %s ORDER BY data DESC;", 
-                    conn, 
-                    params=(cid_val,)
-                )
-            except Exception:
-                df_export_lanc = pd.DataFrame()
+        #df_export_lanc = pd.DataFrame()
+        #if cid_val:
+        #    try:
+        #        conn = get_connection()
+        #        df_export_lanc = pd.read_sql(
+        #            "SELECT * FROM lancamentos WHERE cliente_id = %s ORDER BY data DESC;", 
+        #            conn, 
+        #            params=(cid_val,)
+        #        )
+        #    except Exception:
+        #        df_export_lanc = pd.DataFrame()
+            
+        
+        # OTIMIZAÇÃO: Não abre conexão no rodapé de todos os menus
+        df_export_lanc = carregar_lancamentos(cid_val) if cid_val else pd.DataFrame()
 
         # Download do CSV
         if not df_export_lanc.empty:
