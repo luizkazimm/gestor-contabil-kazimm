@@ -14,8 +14,8 @@ from database import (
 )
 from supabase import create_client
 
-# 1. Configuração da página (DEVE SER O PRIMEIRO COMANDO STREAMLIT)
-st.set_page_config(page_title="Gestor Contábil Kazimm", layout="wide")
+# 1. Configuração da página (DEVE SER O PRIMEIRO COMANDO STREAMLIT) - Linha comentada 25/10/2026
+# st.set_page_config(page_title="Gestor Contábil Kazimm", layout="wide")
 
 # Função Auxiliar de Conversão de Imagem
 def processar_logo_empresa(arquivo_imagem):

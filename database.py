@@ -173,19 +173,36 @@ def carregar_lancamentos(cliente_id):
     finally:
         conn.close()
 #***********************************************************
-# CARREGAR LANÇAMENTOS PELO CACHE
+# CARREGAR LANÇAMENTOS PELO CACHE - Linha substituida 26/10/2026
 #***********************************************************
-@st.cache_data(ttl=120)
-def carregar_provisoes_pendentes(cliente_id):
-    """Busca o valor das contas a pagar pendentes mantendo em memória."""
+#@st.cache_data(ttl=120)
+#def carregar_provisoes_pendentes(cliente_id):
+#    """Busca o valor das contas a pagar pendentes mantendo em memória."""
+#    conn = get_connection()
+#    try:
+#        query = "SELECT valor FROM provisoes WHERE cliente_id = %s AND status = 'Pendente'"
+#        df = pd.read_sql_query(query, conn, params=(cliente_id,))
+#        return df
+#    finally:
+#        conn.close()
+
+@st.cache_data(ttl=300)
+def carregar_dados_cliente_ativo(cliente_id):
+    """Busca nome, regime e plano do cliente ativo mantendo em memória."""
     conn = get_connection()
     try:
-        query = "SELECT valor FROM provisoes WHERE cliente_id = %s AND status = 'Pendente'"
-        df = pd.read_sql_query(query, conn, params=(cliente_id,))
-        return df
+        query = "SELECT nome, regime, COALESCE(plano, 'gratis') AS plano FROM clientes WHERE id = %s"
+        return pd.read_sql_query(query, conn, params=(cliente_id,))
     finally:
         conn.close()
 
+
+# Linha substituida: 25/10/2026
+#def limpar_cache():
+#    """Limpa a memória para que alterações recentes apareçam na tela imediatamente."""
+#    st.cache_data.clear()
+
 def limpar_cache():
-    """Limpa a memória para que alterações recentes apareçam na tela imediatamente."""
-    st.cache_data.clear()
+    """Invalida apenas o cache de lançamentos e provisões, poupando conexões na nuvem."""
+    carregar_lancamentos.clear()
+    carregar_provisoes_pendentes.clear()
