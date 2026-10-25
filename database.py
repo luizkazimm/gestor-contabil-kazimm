@@ -4,11 +4,11 @@ import pandas as pd
 import json
 import os
 
+# -------------------------------------------------------------
+# 1. CONEXÃO COM O SUPABASE
+# -------------------------------------------------------------
 def get_connection():
-    # Puxa o bloco [supabase] do Secrets
     db = st.secrets["supabase"]
-
-    # Conecta de forma nativa e segura, pedaço por pedaço
     return psycopg2.connect(
         host=db["host"],
         port=db["port"],
@@ -17,7 +17,10 @@ def get_connection():
         password=db["password"],
         sslmode=db["sslmode"]
     )
-#Inicialização e carga inicial di banco
+
+# -------------------------------------------------------------
+# 2. ESTRUTURA DO BANCO (Executado apenas na instalação)
+# -------------------------------------------------------------
 def popular_plano_contas_inicial(conn):
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM plano_contas")
@@ -43,7 +46,6 @@ def init_db():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # 1. Cria a tabela de clientes
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id SERIAL PRIMARY KEY,
@@ -53,7 +55,6 @@ def init_db():
         )
     """)
 
-    # 2. Cria a tabela de plano de contas
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS plano_contas (
             id SERIAL PRIMARY KEY,
@@ -63,7 +64,6 @@ def init_db():
         )
     """)
 
-    # 3. Cria a tabela de lançamentos
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS lancamentos (
             id SERIAL PRIMARY KEY,
@@ -76,7 +76,6 @@ def init_db():
         )
     """)
 
-    # 4. Configurações Fiscais (MEI / Certificado A1)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS configuracoes_fiscais (
             id SERIAL PRIMARY KEY,
@@ -91,7 +90,6 @@ def init_db():
         )
     """)
 
-# 5. Notas Fiscais (NFS-e)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS notas_fiscais (
             id SERIAL PRIMARY KEY,
@@ -117,25 +115,19 @@ def init_db():
     cursor.close()
     conn.close()
 
-
-# Mantém suporte para ambos os nomes
 create_tables = init_db
 
-
 # -------------------------------------------------------------
-# 3. CONSULTAS OTIMIZADAS COM CACHE (Carregamento Ultrarrápido)
+# 3. LEITURAS EM CACHE (MEMÓRIA RAM ULTRARRÁPIDA)
 # -------------------------------------------------------------
 
 @st.cache_data(ttl=300)
 def carregar_clientes(user_id):
-    """Busca os clientes do usuário logado e mantém em memória por 5 minutos."""
+    """Busca os clientes do usuário logado e guarda em cache."""
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute(
-            "SELECT id, nome FROM clientes WHERE user_id = %s ORDER BY nome",
-            (user_id,)
-        )
+        cursor.execute("SELECT id, nome FROM clientes WHERE user_id = %s ORDER BY nome", (user_id,))
         return cursor.fetchall()
     finally:
         cursor.close()
@@ -156,7 +148,6 @@ def carregar_plano_contas(cliente_id=None):
     finally:
         conn.close()
 
-
 @st.cache_data(ttl=120)
 def carregar_lancamentos(cliente_id):
     """Busca os lançamentos do cliente ativo em memória."""
@@ -172,9 +163,6 @@ def carregar_lancamentos(cliente_id):
     finally:
         conn.close()
 
-#***********************************************************
-# CARREGAR LANÇAMENTOS PELO CACHE 
-#***********************************************************
 @st.cache_data(ttl=120)
 def carregar_provisoes_pendentes(cliente_id):
     """Busca contas a pagar pendentes do cliente ativo em memória."""
@@ -185,10 +173,9 @@ def carregar_provisoes_pendentes(cliente_id):
     finally:
         conn.close()
 
-        
 @st.cache_data(ttl=300)
 def carregar_dados_cliente_ativo(cliente_id):
-    """Busca nome, regime e plano do cliente ativo mantendo em memória."""
+    """Busca dados cadastrais básicos do cliente ativo em memória."""
     conn = get_connection()
     try:
         query = "SELECT nome, regime, COALESCE(plano, 'gratis') AS plano FROM clientes WHERE id = %s"
@@ -196,13 +183,7 @@ def carregar_dados_cliente_ativo(cliente_id):
     finally:
         conn.close()
 
-
-# Linha substituida: 25/10/2026
-#def limpar_cache():
-#    """Limpa a memória para que alterações recentes apareçam na tela imediatamente."""
-#    st.cache_data.clear()
-
 def limpar_cache():
-    """Invalida apenas o cache de lançamentos e provisões, poupando conexões na nuvem."""
+    """Invalida apenas o cache de movimentações contábeis."""
     carregar_lancamentos.clear()
     carregar_provisoes_pendentes.clear()

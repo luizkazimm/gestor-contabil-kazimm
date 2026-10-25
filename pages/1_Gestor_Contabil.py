@@ -245,7 +245,7 @@ if 'user' not in st.session_state or st.session_state.user is None:
     
 #Título de Inicialização
 st.title("Kazimm - Sistema de Gestão Contábil")
-init_db()
+#init_db()
 
 # 4. Busca os Clientes do Usuário no Banco de Dados
 clientes_cadastrados = carregar_clientes(st.session_state.user.id)
