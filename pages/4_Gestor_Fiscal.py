@@ -297,21 +297,13 @@ with tab_config:
         
         salvar_config = st.form_submit_button("💾 Guardar e Sincronizar Emitente")
         
+    #Início do BLOCO
         if salvar_config:
             if not cfg_cnpj or not cfg_razao:
                 st.error("CNPJ e Razão Social são campos obrigatórios.")
             else:
                 try:
-                    # 1. Regista/Atualiza a empresa na Focus NFe
-                    cadastrar_ou_atualizar_empresa({
-                        "cnpj": cfg_cnpj,
-                        "razao_social": cfg_razao,
-                        "nome_fantasia": cfg_fantasia,
-                        "inscricao_municipal": cfg_im,
-                        "regime_tributario": 1 # Simples Nacional / MEI
-                    })
-                    
-                    # 2. Persiste as definições no Supabase
+                    # 1. Salva imediatamente no banco local (Supabase)
                     conn = get_connection()
                     cur = conn.cursor()
                     if df_cfg.empty:
@@ -336,9 +328,24 @@ with tab_config:
                         )
                     conn.commit()
                     conn.close()
-                    
                     limpar_cache_fiscal()
-                    st.success("✅ Configurações fiscais atualizadas e empresa sincronizada na Focus NFe!")
+
+                    # 2. Tenta sincronizar com a Focus NFe
+                    msg_aviso = ""
+                    try:
+                        cadastrar_ou_atualizar_empresa({
+                            "cnpj": cfg_cnpj,
+                            "razao_social": cfg_razao,
+                            "nome_fantasia": cfg_fantasia,
+                            "inscricao_municipal": cfg_im,
+                            "regime_tributario": 1
+                        })
+                        st.success("✅ Configurações salvas e empresa sincronizada na Focus NFe com sucesso!")
+                    except Exception as err_api:
+                        st.warning(f"⚠️ Configurações salvas no Kazimm! A sincronização com a Focus NFe retornou: {err_api}")
+
                     st.rerun()
+
                 except Exception as ex:
-                    st.error(f"Erro ao registar configurações: {ex}")
+                    st.error(f"Erro ao salvar configurações no banco: {ex}")
+        #FINAL DO BLOCO

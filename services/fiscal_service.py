@@ -19,20 +19,24 @@ def limpar_documento(doc):
     """Remove pontuações e deixa apenas os dígitos de CPF ou CNPJ."""
     return re.sub(r"\D", "", str(doc or ""))
 
+#Inicio do bloco
 def cadastrar_ou_atualizar_empresa(dados_empresa):
     """
     Cadastra ou atualiza o emitente (MEI / Empresa) na Focus NFe.
-    Necessário antes de autorizar a primeira emissão de NFS-e.
+    O endpoint de gestão de empresas reside sempre em api.focusnfe.com.br.
     """
-    token, base_url = _obter_config()
+    token, _ = _obter_config()
     cnpj = limpar_documento(dados_empresa.get("cnpj"))
+    
+    # URL da API de empresas é sempre na API principal
+    url_base_empresas = "https://api.focusnfe.com.br/v2"
     
     payload = {
         "nome": dados_empresa.get("razao_social"),
         "nome_fantasia": dados_empresa.get("nome_fantasia") or dados_empresa.get("razao_social"),
         "cnpj": cnpj,
         "inscricao_municipal": str(dados_empresa.get("inscricao_municipal") or ""),
-        "regime_tributario": int(dados_empresa.get("regime_tributario", 1)), # 1 = Simples Nacional / MEI
+        "regime_tributario": int(dados_empresa.get("regime_tributario", 1)),
         "optante_simples_nacional": True
     }
     
@@ -41,21 +45,21 @@ def cadastrar_ou_atualizar_empresa(dados_empresa):
     if dados_empresa.get("telefone"):
         payload["telefone"] = dados_empresa["telefone"]
 
-    # Endpoint da sub-empresa na Focus NFe
-    url = f"{base_url}/empresas/{cnpj}"
-    resp = requests.put(url, json=payload, auth=(token, ""), timeout=15)
+    url_put = f"{url_base_empresas}/empresas/{cnpj}"
+    resp = requests.put(url_put, json=payload, auth=(token, ""), timeout=15)
     
     if resp.status_code in [200, 201]:
         return resp.json()
     elif resp.status_code == 404:
-        # Se não existe, cria via POST
-        url_post = f"{base_url}/empresas"
+        url_post = f"{url_base_empresas}/empresas"
         resp_post = requests.post(url_post, json=payload, auth=(token, ""), timeout=15)
         if resp_post.status_code in [200, 201]:
             return resp_post.json()
         raise Exception(f"Erro ao cadastrar empresa na Focus NFe: {resp_post.text}")
     else:
         raise Exception(f"Falha na comunicação cadastral: {resp.text}")
+    
+    #final do bloco
 
 def emitir_nfse(referencia, dados_nota):
     """
