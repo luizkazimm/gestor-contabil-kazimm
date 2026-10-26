@@ -756,7 +756,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                         #    conn_sel
                         #)
                         df_todos_cli = carregar_todos_clientes_completos()
-                        conn_sel.close()
+                        #conn_sel.close()
 
                         if df_todos_cli.empty:
                             st.info("💡 Nenhum cliente cadastrado para edição.")
