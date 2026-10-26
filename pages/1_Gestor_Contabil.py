@@ -10,7 +10,8 @@ from database import (
     carregar_plano_contas, 
     carregar_lancamentos,
     carregar_provisoes_pendentes,
-    carregar_dados_cliente_ativo, 
+    carregar_dados_cliente_ativo,
+    carregar_todos_clientes_completos, 
     limpar_cache
 )
 from supabase import create_client
