@@ -248,7 +248,7 @@ def carregar_dados_cliente_ativo(cliente_id):
         return pd.read_sql_query(query, conn, params=(cliente_id,))
     finally:
         conn.close()
-        
+
 def limpar_cache():
     """Invalida apenas o cache de movimentações contábeis."""
     carregar_lancamentos.clear()
@@ -268,3 +268,47 @@ def carregar_todos_clientes_completos():
         return pd.read_sql_query(query, conn)
     finally:
         conn.close()
+
+# -------------------------------------------------------------
+# 5. MÓDULO FISCAL & NFS-E (FOCUS NFE)
+# -------------------------------------------------------------
+
+@st.cache_data(ttl=300)
+def carregar_config_fiscal(cliente_id):
+    """Busca as configurações fiscais da empresa ativa na memória RAM."""
+    conn = get_connection()
+    try:
+        query = """
+            SELECT id, cliente_id, cnpj, razao_social, nome_fantasia, 
+                   inscricao_municipal, regime_tributario, codigo_servico_padrao,
+                   aliquota_iss, item_lista_servico
+            FROM configuracoes_fiscais 
+            WHERE cliente_id = %s 
+            LIMIT 1
+        """
+        return pd.read_sql_query(query, conn, params=(cliente_id,))
+    finally:
+        conn.close()
+
+@st.cache_data(ttl=60)
+def carregar_notas_fiscais(cliente_id):
+    """Busca o histórico de NFS-e emitidas para a empresa ativa."""
+    conn = get_connection()
+    try:
+        query = """
+            SELECT id, cliente_id, numero_nfse, chave_acesso, data_emissao, 
+                   tomador_nome, tomador_documento, descricao_servico, 
+                   valor_total, status, nuvem_fiscal_id AS referencia_externa, 
+                   pdf_url, xml_url, mensagem_erro 
+            FROM notas_fiscais 
+            WHERE cliente_id = %s 
+            ORDER BY data_emissao DESC
+        """
+        return pd.read_sql_query(query, conn, params=(cliente_id,))
+    finally:
+        conn.close()
+
+def limpar_cache_fiscal():
+    """Invalida cirurgicamente apenas o cache de configurações e notas fiscais."""
+    carregar_config_fiscal.clear()
+    carregar_notas_fiscais.clear()
