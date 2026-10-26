@@ -219,14 +219,36 @@ def carregar_provisoes_pendentes(cliente_id):
 
 @st.cache_data(ttl=300)
 def carregar_dados_cliente_ativo(cliente_id):
-    """Busca dados cadastrais básicos do cliente ativo em memória."""
+    """Busca os dados cadastrais completos da empresa ativa e guarda em memória."""
     conn = get_connection()
     try:
-        query = "SELECT nome, regime, COALESCE(plano, 'gratis') AS plano FROM clientes WHERE id = %s"
+        query = """
+            SELECT 
+                id, 
+                nome, 
+                nome as "Razão Social",
+                cnpj_cpf, 
+                cnpj_cpf as "CNPJ",
+                cnpj_cpf as "CNPJ/CPF",
+                COALESCE(cpf, '-') as "CPF Titular",
+                regime,
+                regime as "Regime Contábil",
+                COALESCE(capital_social, 0.00) as "Capital Social",
+                data_abertura as "Data Abertura",
+                COALESCE(limite_faturamento, 81000.00) as limite,
+                COALESCE(limite_faturamento, 81000.00) as "Limite Faturamento (R$)",
+                COALESCE(telefone, '-') as "Telefone",
+                COALESCE(cnae_atividade, '-') as "CNAE",
+                COALESCE(cnae_atividade, '-') as "CNAE / Atividade",
+                logo_base64,
+                COALESCE(plano, 'gratis') AS plano
+            FROM clientes 
+            WHERE id = %s
+        """
         return pd.read_sql_query(query, conn, params=(cliente_id,))
     finally:
         conn.close()
-
+        
 def limpar_cache():
     """Invalida apenas o cache de movimentações contábeis."""
     carregar_lancamentos.clear()
