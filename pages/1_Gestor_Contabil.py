@@ -1381,14 +1381,16 @@ elif opcao == "Novo Lançamento":
                             info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + (f" - {nome_cliente_rec.strip()}" if nome_cliente_rec.strip() else "") + "]"
                             hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
 
-                            conn = get_connection()
-                            cursor = conn.cursor()
-                            cursor.execute(
-                                "INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) VALUES (%s, %s, %s, %s, %s, %s)",
-                                (cliente_ativo_id, str(data), conta_financeira, categoria, valor, hist_final.strip())
-                            )
-                            conn.commit()
-                            conn.close()
+                            # Gravação ultrarrápida via API REST do Supabase
+                            supabase.table("lancamentos").insert({
+                                "cliente_id": cliente_ativo_id,
+                                "data": str(data),
+                                "conta_debito": conta_financeira,
+                                "conta_credito": categoria,
+                                "valor": float(valor),
+                                "historico": hist_final.strip()
+                            }).execute()
+
                             limpar_cache()
                             st.success("✅ Entrada registrada com sucesso!")
                             st.rerun() # Limpa o formulário
@@ -1448,14 +1450,16 @@ elif opcao == "Novo Lançamento":
                             info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + "]"
                             hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
 
-                            conn = get_connection()
-                            cursor = conn.cursor()
-                            cursor.execute(
-                                "INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) VALUES (%s, %s, %s, %s, %s, %s)",
-                                (cliente_ativo_id, str(data), categoria, conta_financeira, valor, hist_final.strip())
-                            )
-                            conn.commit()
-                            conn.close()
+                            # Gravação ultrarrápida via API REST do Supabase
+                            supabase.table("lancamentos").insert({
+                                "cliente_id": cliente_ativo_id,
+                                "data": str(data),
+                                "conta_debito": categoria,
+                                "conta_credito": conta_financeira,
+                                "valor": float(valor),
+                                "historico": hist_final.strip()
+                            }).execute()
+
                             limpar_cache()
                             st.success("✅ Saída registrada com sucesso!")
                             st.rerun() # Limpa o formulário
@@ -1958,31 +1962,10 @@ elif opcao == "Ver Lançamentos":
     else:
         conn = get_connection()
         
-        # 1. BUSCA DADOS CADASTRAIS DO CLIENTE ATIVO PARA O CABEÇALHO
-        try:
-            df_clientes_cad = pd.read_sql_query(
-                """
-                SELECT 
-                    id, 
-                    nome as "Razão Social", 
-                    cnpj_cpf as "CNPJ/CPF", 
-                    regime as "Regime Contábil",
-                    COALESCE(limite_faturamento, 81000.00) as "Limite Faturamento (R$)",
-                    COALESCE(telefone, '-') as "Telefone",
-                    COALESCE(cnae_atividade, '-') as "CNAE / Atividade"
-                FROM clientes 
-                WHERE user_id = %s AND id = %s
-                """,
-                conn,
-                params=(user_id_atual, cliente_ativo_id),
-            )
-        except Exception:
-            df_clientes_cad = pd.read_sql_query(
-                "SELECT id, nome as 'Razão Social', cnpj_cpf as 'CNPJ/CPF', regime as 'Regime Contábil', 81000.00 as 'Limite Faturamento (R$)', '-' as 'Telefone', '-' as 'CNAE / Atividade' FROM clientes WHERE user_id = %s AND id = %s",
-                conn,
-                params=(user_id_atual, cliente_ativo_id),
-            )
+        # 1. OTIMIZAÇÃO: Usa os dados que já estão na memória RAM (Zero latência)
+        df_clientes_cad = df_info_cli
 
+        
         # 2. BUSCA LANÇAMENTOS DO CLIENTE
         conn.close()
         # OTIMIZAÇÃO: Busca o histórico diretamente da memória RAM
@@ -2142,26 +2125,12 @@ elif opcao == "Ver Lançamentos":
                             )
                         cid_val = int(cid_raw) if cid_raw else None
 
-                        
-                       # 1. Busca as contas cadastradas no Plano de Contas Híbrido
-                        try:
-                            conn = get_connection()
-                            df_plano = pd.read_sql(
-                                "SELECT * FROM plano_contas WHERE cliente_id IS NULL OR cliente_id = %s ORDER BY codigo ASC;", 
-                                conn, 
-                                params=(cid_val,)
-                            )
-                            
-                            if not df_plano.empty:
-                                col_desc = next(
-                                    (c for c in ['descricao', 'nome_conta', 'nome', 'titulo'] if c in df_plano.columns), 
-                                    df_plano.columns[1]
-                                )
-                                lista_contas = (df_plano['codigo'].astype(str) + " - " + df_plano[col_desc].astype(str)).tolist()
-                            else:
-                                lista_contas = []
-                        except Exception as e:
-                            st.error(f"Erro ao carregar Plano de Contas: {e}")
+                        # 1. OTIMIZAÇÃO: Busca as contas direto da memória RAM (Sem conexões lentas)
+                        df_plano = carregar_plano_contas(cid_val)
+
+                        if not df_plano.empty:
+                            lista_contas = (df_plano['codigo'].astype(str) + " - " + df_plano['descricao'].astype(str)).tolist()
+                        else:
                             lista_contas = []
 
                         # 2. Pega as contas atuais do lançamento selecionado
@@ -2219,14 +2188,8 @@ elif opcao == "Ver Lançamentos":
                         st.write(f"**Histórico:** {row_alvo['historico']}")
 
                         if st.button("🚨 Confirmar Exclusão do Lançamento"):
-                            conn_del = get_connection()
-                            cursor_del = conn_del.cursor()
-                            cursor_del.execute(
-                                "DELETE FROM lancamentos WHERE id = %s AND cliente_id = %s",
-                                (id_alvo, cliente_ativo_id)
-                            )
-                            conn_del.commit()
-                            conn_del.close()
+                            # Exclusão instantânea via API REST (Sem abrir cursor ou commit)
+                            supabase.table("lancamentos").delete().eq("id", id_alvo).eq("cliente_id", cliente_ativo_id).execute()
                             limpar_cache()
                             st.success(f"Lançamento ID #{id_alvo} excluído com sucesso!")
                             st.rerun()
