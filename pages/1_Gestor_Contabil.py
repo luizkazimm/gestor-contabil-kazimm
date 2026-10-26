@@ -798,7 +798,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                                         # Prossegue com a conversão e o salvamento normal
                                         logo_b64 = processar_logo_empresa(arquivo_upd_logo)
                                 
-                                btn_atualizar = st.form_submit_button("💾 Salvar Alterações do Cliente", use_container_width=True)
+                                btn_atualizar = st.form_submit_button("💾 Salvar Alterações do Cliente")
 
                                 if btn_atualizar:
                                     logo_b64 = processar_logo_empresa(arquivo_upd_logo)
@@ -844,7 +844,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                             st.markdown("---")
                             arquivo_novo_logo = st.file_uploader("Enviar Logotipo (Opcional)", type=["png", "jpg", "jpeg"], key="upd_novo_logo")
 
-                            btn_cad_novo = st.form_submit_button(" Adicionar Empresa", use_container_width=True)
+                            btn_cad_novo = st.form_submit_button(" Adicionar Empresa")
 
                             if btn_cad_novo:
                                 if n_nome and n_cnpj:
@@ -891,7 +891,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                             u_email = st.text_input("E-mail do Cliente / Usuário", placeholder="exemplo@gmail.com").strip().lower()
                             u_senha = st.text_input("Senha Provisória (mínimo 6 caracteres)", type="password")
 
-                            btn_criar_user = st.form_submit_button("🔑 Salvar e Liberar Acesso do Cliente", use_container_width=True)
+                            btn_criar_user = st.form_submit_button("🔑 Salvar e Liberar Acesso do Cliente")
 
                             if btn_criar_user:
                                 if u_email and len(u_senha) >= 6:
