@@ -74,7 +74,8 @@ def emitir_nfse(referencia, dados_nota):
         "data_emissao": dados_nota.get("data_emissao"),
         "prestador": {
             "cnpj": cnpj_prestador,
-            "inscricao_municipal": str(dados_nota.get("inscricao_municipal") or "")
+            "inscricao_municipal": str(dados_nota.get("inscricao_municipal") or ""),
+            "codigo_municipio": str(dados_nota.get("codigo_municipio") or "")
         },
         "tomador": {
             "razao_social": dados_nota.get("tomador_nome"),

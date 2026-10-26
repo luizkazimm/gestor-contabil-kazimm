@@ -147,6 +147,7 @@ with tab_emitir:
                         "data_emissao": datetime.now().strftime("%Y-%m-%d"),
                         "cnpj_prestador": cfg["cnpj"],
                         "inscricao_municipal": cfg.get("inscricao_municipal", ""),
+                        "codigo_municipio": cfg.get("codigo_municipio", ""),
                         "tomador_documento": tomador_doc,
                         "tomador_nome": tomador_nome,
                         "tomador_email": tomador_email,
@@ -281,6 +282,7 @@ with tab_config:
     val_razao = df_cfg.iloc[0]["razao_social"] if not df_cfg.empty else nome_empresa
     val_fantasia = df_cfg.iloc[0]["nome_fantasia"] if not df_cfg.empty else ""
     val_im = df_cfg.iloc[0]["inscricao_municipal"] if not df_cfg.empty else ""
+    val_cod_mun = df_cfg.iloc[0]["codigo_municipio"] if not df_cfg.empty and "codigo_municipio" in df_cfg.columns else ""#Municipio
     val_item = df_cfg.iloc[0]["item_lista_servico"] if not df_cfg.empty else "0107"
     val_aliq = float(df_cfg.iloc[0]["aliquota_iss"] or 0.0) if not df_cfg.empty else 0.0
     
@@ -293,6 +295,7 @@ with tab_config:
         with col_c2:
             cfg_fantasia = st.text_input("Nome Fantasia", value=str(val_fantasia)).strip()
             cfg_im = st.text_input("Inscrição Municipal", value=str(val_im)).strip()
+            cfg_cod_mun = st.text_input("Código IBGE do Município *", value=str(val_cod_mun or ""), help="Código de 7 dígitos da cidade da empresa (ex: 3550308)").strip()
             cfg_aliq = st.number_input("Alíquota ISS Padrão (%)", value=val_aliq, step=0.5, format="%.2f")
         
         salvar_config = st.form_submit_button("💾 Guardar e Sincronizar Emitente")
@@ -310,21 +313,21 @@ with tab_config:
                         cur.execute(
                             """
                             INSERT INTO configuracoes_fiscais (
-                                cliente_id, cnpj, razao_social, nome_fantasia, 
-                                inscricao_municipal, item_lista_servico, aliquota_iss
-                            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                            """,
-                            (cliente_ativo_id, cfg_cnpj, cfg_razao, cfg_fantasia, cfg_im, cfg_item, cfg_aliq)
-                        )
+                            cliente_id, cnpj, razao_social, nome_fantasia, 
+                            inscricao_municipal, item_lista_servico, aliquota_iss, codigo_municipio
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (cliente_ativo_id, cfg_cnpj, cfg_razao, cfg_fantasia, cfg_im, cfg_item, cfg_aliq, cfg_cod_mun)
+                    )
                     else:
                         cur.execute(
                             """
                             UPDATE configuracoes_fiscais 
                             SET cnpj = %s, razao_social = %s, nome_fantasia = %s, 
-                                inscricao_municipal = %s, item_lista_servico = %s, aliquota_iss = %s 
+                                inscricao_municipal = %s, item_lista_servico = %s, aliquota_iss = %s, codigo_municipio = %s 
                             WHERE cliente_id = %s
                             """,
-                            (cfg_cnpj, cfg_razao, cfg_fantasia, cfg_im, cfg_item, cfg_aliq, cliente_ativo_id)
+                            (cfg_cnpj, cfg_razao, cfg_fantasia, cfg_im, cfg_item, cfg_aliq, cfg_cod_mun, cliente_ativo_id)
                         )
                     conn.commit()
                     conn.close()

@@ -281,7 +281,7 @@ def carregar_config_fiscal(cliente_id):
         query = """
             SELECT id, cliente_id, cnpj, razao_social, nome_fantasia, 
                    inscricao_municipal, regime_tributario, codigo_servico_padrao,
-                   aliquota_iss, item_lista_servico
+                   aliquota_iss, item_lista_servico, codigo_municipio
             FROM configuracoes_fiscais 
             WHERE cliente_id = %s 
             LIMIT 1
