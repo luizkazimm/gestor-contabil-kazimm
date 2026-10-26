@@ -1,22 +1,66 @@
 import psycopg2
+from psycopg2 import pool
 import streamlit as st
 import pandas as pd
 import json
 import os
 
 # -------------------------------------------------------------
-# 1. CONEXÃO COM O SUPABASE
+# 1. CONEXÃO COM POOL PERSISTENTE (SUPABASE)
 # -------------------------------------------------------------
-def get_connection():
+@st.cache_resource
+def _iniciar_pool():
+    """Mantém até 10 conexões TCP/SSL permanentemente abertas na memória do Streamlit Cloud."""
     db = st.secrets["supabase"]
-    return psycopg2.connect(
+    return pool.ThreadedConnectionPool(
+        minconn=1,
+        maxconn=10,
         host=db["host"],
-        port=db["port"],
+        port=int(db["port"]),
         dbname=db["dbname"],
         user=db["user"],
         password=db["password"],
         sslmode=db["sslmode"]
     )
+
+class ConexaoPoolWrapper:
+    """Intercepta o conn.close() para devolver a conexão ao pool em vez de destruí-la."""
+    def __init__(self, pool_obj, raw_conn):
+        self._pool = pool_obj
+        self._conn = raw_conn
+
+    def close(self):
+        if self._conn is not None:
+            try:
+                self._conn.rollback()  # Garante limpeza de transações pendentes
+            except Exception:
+                pass
+            self._pool.putconn(self._conn)
+            self._conn = None
+
+    def commit(self):
+        return self._conn.commit()
+
+    def rollback(self):
+        return self._conn.rollback()
+
+    def cursor(self, *args, **kwargs):
+        return self._conn.cursor(*args, **kwargs)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+def get_connection():
+    """Retira uma conexão pré-aquecida do pool em milissegundos."""
+    p = _iniciar_pool()
+    raw_conn = p.getconn()
+    return ConexaoPoolWrapper(p, raw_conn)
 
 # -------------------------------------------------------------
 # 2. ESTRUTURA DO BANCO (Executado apenas na instalação)
@@ -187,3 +231,20 @@ def limpar_cache():
     """Invalida apenas o cache de movimentações contábeis."""
     carregar_lancamentos.clear()
     carregar_provisoes_pendentes.clear()
+
+@st.cache_data(ttl=300)
+def carregar_todos_clientes_completos():
+    """Busca a carteira completa de clientes para o painel admin e guarda na RAM."""
+    conn = get_connection()
+    try:
+        query = """
+            SELECT id, nome, cnpj_cpf, COALESCE(cpf, '') as cpf, regime, 
+                   COALESCE(capital_social, 0.00) as capital_social, data_abertura,
+                   COALESCE(limite_faturamento, 81000.00) as limite, 
+                   COALESCE(telefone, '') as telefone, COALESCE(cnae_atividade, '') as cnae 
+            FROM clientes ORDER BY nome ASC
+        """
+        return pd.read_sql_query(query, conn)
+    finally:
+        conn.close()
+        

@@ -743,17 +743,18 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
                 # ABA 1: EDITAR (AGORA COM UPLOAD DE LOGO)
                 with tab_edit:
-                        conn_sel = get_connection()
-                        df_todos_cli = pd.read_sql_query(
-                            """
-                            SELECT id, nome, cnpj_cpf, COALESCE(cpf, '') as cpf, regime, 
-                                   COALESCE(capital_social, 0.00) as capital_social, data_abertura,
-                                   COALESCE(limite_faturamento, 81000.00) as limite, 
-                                   COALESCE(telefone, '') as telefone, COALESCE(cnae_atividade, '') as cnae 
-                            FROM clientes ORDER BY nome ASC
-                            """,
-                            conn_sel
-                        )
+                        #conn_sel = get_connection()
+                        #df_todos_cli = pd.read_sql_query(
+                        #    """
+                        #    SELECT id, nome, cnpj_cpf, COALESCE(cpf, '') as cpf, regime, 
+                        #           COALESCE(capital_social, 0.00) as capital_social, data_abertura,
+                        #           COALESCE(limite_faturamento, 81000.00) as limite, 
+                        #           COALESCE(telefone, '') as telefone, COALESCE(cnae_atividade, '') as cnae 
+                        #    FROM clientes ORDER BY nome ASC
+                        #    """,
+                        #    conn_sel
+                        #)
+                        df_todos_cli = carregar_todos_clientes_completos()
                         conn_sel.close()
 
                         if df_todos_cli.empty:
@@ -865,10 +866,12 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
                 # ABA 3: CRIAR OU VINCULAR LOGIN DE USUÁRIO À EMPRESA (BLINDADO)
                 with tab_usuario:
-                    conn_cli = get_connection()
-                    df_cli_vinc = pd.read_sql_query("SELECT id, nome, cnpj_cpf FROM clientes ORDER BY nome ASC", conn_cli)
-                    conn_cli.close()
+                    #conn_cli = get_connection()
+                    #df_cli_vinc = pd.read_sql_query("SELECT id, nome, cnpj_cpf FROM clientes ORDER BY nome ASC", conn_cli)
+                    #conn_cli.close()
 
+                    df_cli_vinc = df_todos_cli[['id', 'nome', 'cnpj_cpf']]
+                    
                     if df_cli_vinc.empty:
                         st.info("Cadastre uma empresa na carteira antes de criar um login de acesso.")
                     else:
@@ -942,26 +945,35 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                 # ABA 4: LISTA COMPLETA DA CARTEIRA DE CLIENTES
                 with tab_lista:
                     st.markdown("##### Carteira de Clientes Cadastrados")
-                    conn_lista = get_connection()
-                    df_todos_clientes = pd.read_sql_query(
-                        """
-                        SELECT 
-                            id as "ID",
-                            nome as "Razão Social", 
-                            cnpj_cpf as "CNPJ", 
-                            COALESCE(cpf, '-') as "CPF Titular",
-                            regime as "Regime Contábil",
-                            COALESCE(capital_social, 0.00) as "Capital Social",
-                            data_abertura as "Abertura",
-                            COALESCE(limite_faturamento, 81000.00) as "Teto (R$)",
-                            COALESCE(telefone, '-') as "Telefone",
-                            COALESCE(cnae_atividade, '-') as "CNAE"
-                        FROM clientes 
-                        ORDER BY nome ASC
-                        """,
-                        conn_lista
-                    )
-                    conn_lista.close()
+                    #**************************************************
+                    #PARÂMETRO SUBSTITUÍDO - 26/10/26
+                    #**************************************************
+                    #conn_lista = get_connection()
+                    #df_todos_clientes = pd.read_sql_query(
+                    #    """
+                    #    SELECT 
+                    #        id as "ID",
+                    #        nome as "Razão Social", 
+                    #        cnpj_cpf as "CNPJ", 
+                    #        COALESCE(cpf, '-') as "CPF Titular",
+                    #        regime as "Regime Contábil",
+                    #        COALESCE(capital_social, 0.00) as "Capital Social",
+                    #        data_abertura as "Abertura",
+                    #        COALESCE(limite_faturamento, 81000.00) as "Teto (R$)",
+                    #        COALESCE(telefone, '-') as "Telefone",
+                    #        COALESCE(cnae_atividade, '-') as "CNAE"
+                    #    FROM clientes 
+                    #    ORDER BY nome ASC
+                    #    """,
+                    #    conn_lista
+                    #)
+                    #conn_lista.close()
+
+                    df_todos_clientes = df_todos_cli.rename(columns={
+                        "nome": "Razão Social", "cnpj_cpf": "CNPJ", "cpf": "CPF Titular",
+                        "regime": "Regime Contábil", "capital_social": "Capital Social",
+                        "data_abertura": "Abertura", "limite": "Teto (R$)", "telefone": "Telefone", "cnae": "CNAE"
+                    })
 
                     if df_todos_clientes.empty:
                         st.info("Nenhum cliente cadastrado até o momento.")
