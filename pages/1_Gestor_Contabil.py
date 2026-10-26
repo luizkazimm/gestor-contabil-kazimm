@@ -1234,64 +1234,38 @@ elif opcao == "Plano de Contas":
 # Fim do BLOCO
 
 # BLOCO DE LANÇAMENTOS - Novo lançamento
+# ==========================================
+# CÓDIGO OTIMIZADO (100% MEMÓRIA RAM)
+# ==========================================
 elif opcao == "Novo Lançamento":
     st.subheader("Registro de Lançamento Contábil")
 
-    # ==========================================
-    # TRAVA DE LIMITE MENSAL (FREEMIUM)
-    # ==========================================
     plano_atual = st.session_state.get("plano_ativo", "gratis")
     limite_mes = REGRAS_PLANOS.get(plano_atual, {}).get("limite_lancamentos_mes", 25)
 
-    # 1. Identifica o ano e mês corrente no padrão YYYY-MM
     from datetime import datetime
     mes_atual_cod = datetime.now().strftime("%Y-%m")
     
-    # 2. Consulta a contagem de lançamentos do cliente no mês atual
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT COUNT(*) 
-            FROM lancamentos 
-            WHERE cliente_id = %s 
-              AND TO_CHAR(data::date, 'YYYY-MM') = %s
-            """,
-            (cliente_ativo_id, mes_atual_cod)
-        )
-        total_mes = cursor.fetchone()[0]
-    except Exception as e:
+    # 1. OTIMIZAÇÃO: Conta os lançamentos do mês direto da memória RAM
+    if not df_lanc_global.empty and "data" in df_lanc_global.columns:
+        total_mes = int(df_lanc_global[df_lanc_global["data"].astype(str).str.startswith(mes_atual_cod)].shape[0])
+    else:
         total_mes = 0
-    finally:
-        conn.close()
 
-    # 3. Notificação educativa de consumo para usuários do plano Grátis
     if total_mes < limite_mes and plano_atual == "gratis":
         st.info(f"📊 **Consumo do Plano Gratuito:** {total_mes} de {limite_mes} lançamentos utilizados neste mês.")
 
-    # 4. Bloqueio com interrupção de fluxo quando o limite é atingido
     if total_mes >= limite_mes:
         st.error(f"⚠️ **Limite mensal atingido ({total_mes} de {limite_mes} lançamentos) para o período de {mes_atual_cod}.**")
         exibir_bloqueio_upgrade("Lançamentos Ilimitados", plano_minimo="pro")
-        st.stop()  # Impede a renderização e o envio do formulário
+        st.stop()
 
-
-    # ==========================================
-    # O CÓDIGO DO FORMULÁRIO CONTINUA A PARTIR DAQUI
-    # ==========================================
-
-    conn = get_connection()
-    df_clientes = pd.read_sql_query(
-        "SELECT id, nome, regime FROM clientes WHERE user_id = %s AND id = %s", 
-        conn, 
-        params=(st.session_state.user.id, st.session_state.cliente_id_ativo)
-    )
+    # 2. OTIMIZAÇÃO: Reutiliza o cliente e plano de contas já carregados na RAM
+    regime_cliente = regime_empresa if 'regime_empresa' in locals() else "MEI (Microempreendedor Individual)"
+    cliente_selecionado = nome_empresa if 'nome_empresa' in locals() else "Cliente"
+    df_contas = carregar_plano_contas(cliente_ativo_id)
     
-    # OTIMIZAÇÃO: Busca o plano de contas da memória RAM
-    conn.close()
-    df_contas = carregar_plano_contas(st.session_state.cliente_id_ativo)
-
+    
     # 1. Filtra dinamicamente as Contas Financeiras (Caixas e Bancos / Ativo / Grupo 1.1)
     df_fin = df_contas[
         df_contas["tipo"].str.contains("Ativo", case=False, na=False) | 
@@ -1324,14 +1298,16 @@ elif opcao == "Novo Lançamento":
     else:
         opcoes_rec = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_contas.iterrows()]
 
-    if df_clientes.empty:
+# Linha modificada - 26/10/2026
+    if not cliente_ativo_id or df_info_cli.empty:
         st.warning("Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral.")
     else:
-        dict_clientes_id = dict(zip(df_clientes["nome"], df_clientes["id"]))
-        dict_clientes_regime = dict(zip(df_clientes["nome"], df_clientes["regime"]))
-
-        cliente_selecionado = list(dict_clientes_id.keys())[0]
-        regime_cliente = dict_clientes_regime[cliente_selecionado]
+        cliente_selecionado = df_info_cli.iloc[0]["nome"]
+        regime_cliente = df_info_cli.iloc[0]["regime"]
+        
+        # Garante compatibilidade caso o formulário ainda use dict_clientes_id
+        dict_clientes_id = {cliente_selecionado: cliente_ativo_id}
+#Fim da consulta
 
         # st.info(f"Cliente Ativo: **{cliente_selecionado}** | Regime: **{regime_cliente}**")
 
@@ -1409,7 +1385,7 @@ elif opcao == "Novo Lançamento":
                             cursor = conn.cursor()
                             cursor.execute(
                                 "INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) VALUES (%s, %s, %s, %s, %s, %s)",
-                                (dict_clientes_id[cliente_selecionado], str(data), conta_financeira, categoria, valor, hist_final.strip())
+                                (cliente_ativo_id, str(data), conta_financeira, categoria, valor, hist_final.strip())
                             )
                             conn.commit()
                             conn.close()
@@ -1476,7 +1452,7 @@ elif opcao == "Novo Lançamento":
                             cursor = conn.cursor()
                             cursor.execute(
                                 "INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) VALUES (%s, %s, %s, %s, %s, %s)",
-                                (dict_clientes_id[cliente_selecionado], str(data), categoria, conta_financeira, valor, hist_final.strip())
+                                (cliente_ativo_id, str(data), categoria, conta_financeira, valor, hist_final.strip())
                             )
                             conn.commit()
                             conn.close()
@@ -1519,7 +1495,7 @@ elif opcao == "Novo Lançamento":
                         cursor = conn.cursor()
                         cursor.execute(
                             "INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) VALUES (%s, %s, %s, %s, %s, %s)",
-                            (dict_clientes_id[cliente_selecionado], str(data), conta_debito, conta_credito, valor, hist_final.strip())
+                            (cliente_ativo_id, str(data), conta_debito, conta_credito, valor, hist_final.strip())
                         )
                         conn.commit()
                         conn.close()

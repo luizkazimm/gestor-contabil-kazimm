@@ -230,8 +230,7 @@ def carregar_dados_cliente_ativo(cliente_id):
 def limpar_cache():
     """Invalida apenas o cache de movimentações contábeis."""
     carregar_lancamentos.clear()
-    carregar_provisoes_pendentes.clear()
-
+    
 @st.cache_data(ttl=300)
 def carregar_todos_clientes_completos():
     """Busca a carteira completa de clientes para o painel admin e guarda na RAM."""
@@ -247,4 +246,3 @@ def carregar_todos_clientes_completos():
         return pd.read_sql_query(query, conn)
     finally:
         conn.close()
-        
