@@ -15,7 +15,7 @@ from database import (
 from services.fiscal_service import (
     cadastrar_ou_atualizar_empresa,
     emitir_nfse,
-    consultar_nfse,
+    consultar_status_nfse,
     limpar_documento
 )
 
@@ -145,7 +145,7 @@ with tab_emitir:
                     
                     dados_envio = {
                         "data_emissao": datetime.now().strftime("%Y-%m-%d"),
-                        "cnpj_prestador": cfg["cnpj"],
+                        "cnpj_prestador": cfg.get("cnpj", ""),
                         "inscricao_municipal": cfg.get("inscricao_municipal", ""),
                         "codigo_municipio": cfg.get("codigo_municipio", ""),
                         "tomador_documento": tomador_doc,

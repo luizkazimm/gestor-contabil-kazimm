@@ -21,46 +21,70 @@ def limpar_documento(doc):
 
 def emitir_nfse(referencia, dados_nota):
     """
-    Transmite a NFS-e Nacional pelo endpoint oficial /v2/nfsen.
+    Transmite a Declaração de Prestação de Serviços (DPS) pelo endpoint nacional /v2/nfsen.
     """
     token, base_url = _obter_config()
-    cnpj_prestador = limpar_documento(dados_nota.get("cnpj_prestador"))
+
+    cnpj_bruto = (
+        dados_nota.get("cnpj_prestador")
+        or dados_nota.get("cnpj")
+        or dados_nota.get("prestador_cnpj")
+        or ""
+    )
+    cnpj_prestador = limpar_documento(cnpj_bruto)
     tomador_doc = limpar_documento(dados_nota.get("tomador_documento", ""))
     cod_mun = str(dados_nota.get("codigo_municipio", "")).strip()
 
-    # Estrutura padrão compatível com a NFS-e Nacional da Focus NFe
-    payload = {
-        "data_emissao": datetime.now().strftime("%Y-%m-%d"),
-        "prestador": {
-            "cnpj": cnpj_prestador,
-            "codigo_municipio": cod_mun or "3300456"
-        },
-        "tomador": {
-            "razao_social": dados_nota.get("tomador_nome", "Consumidor Final")
-        },
-        "servico": {
-            "valor_servicos": float(dados_nota.get("valor_total", 0.0)),
-            "discriminacao": dados_nota.get("descricao_servico", "Prestação de serviços"),
-            "item_lista_servico": str(dados_nota.get("item_lista_servico") or "010701"),
-            "aliquota": float(dados_nota.get("aliquota_iss", 0.0)),
-            "iss_retido": False
-        }
-    }
+    if not cnpj_prestador:
+        raise Exception(
+            "O CNPJ do PRESTADOR (sua empresa) não foi encontrado. "
+            "Acesse a aba 'Configuração Fiscal' e confirme se o seu CNPJ está salvo."
+        )
 
-    # Documento do tomador (CPF ou CNPJ)
+    cod_mun_int = int(cod_mun) if cod_mun.isdigit() else 3300456
+
+# Payload estruturado para o endpoint /v2/nfsen com data e hora completas (dhEmi)
+    agora = datetime.now()
+
+    # Enquadramento Simples Nacional: 1 = Não optante | 2 = MEI | 3 = ME/EPP
+    opcao_simples = int(dados_nota.get("regime_tributario") or 2)
+    codigo_simples_nacional = 2 if opcao_simples == 1 else opcao_simples
+
+    payload = {
+        "cnpj_prestador": cnpj_prestador,
+        "codigo_municipio_emissora": cod_mun_int,
+        "codigo_municipio_prestacao": cod_mun_int,
+        "codigo_municipio_incidencia": cod_mun_int,
+        "data_emissao": agora.strftime("%Y-%m-%dT%H:%M:%S-03:00"),
+        "data_competencia": agora.strftime("%Y-%m-%d"),
+        "codigo_opcao_simples_nacional": codigo_simples_nacional,
+        "regime_especial_tributacao": 0,
+        "codigo_tributacao_nacional_iss": str(dados_nota.get("item_lista_servico") or "010701"),
+        "descricao_servico": dados_nota.get("descricao_servico", "Prestação de serviços"),
+        "valor_servico": float(dados_nota.get("valor_total", 0.0)),
+        "aliquota": float(dados_nota.get("aliquota_iss", 0.0)),
+        "tributacao_iss": 1,
+        "iss_retido": False,
+        "tipo_retencao_iss": 1
+    }
+    
+    # Dados do Tomador
     if len(tomador_doc) == 14:
-        payload["tomador"]["cnpj"] = tomador_doc
+        payload["cnpj_tomador"] = tomador_doc
     elif len(tomador_doc) == 11:
-        payload["tomador"]["cpf"] = tomador_doc
+        payload["cpf_tomador"] = tomador_doc
+
+    if dados_nota.get("tomador_nome"):
+        payload["razao_social_tomador"] = dados_nota["tomador_nome"]
 
     if dados_nota.get("tomador_email"):
-        payload["tomador"]["email"] = dados_nota["tomador_email"]
+        payload["email_tomador"] = dados_nota["tomador_email"]
 
     im_prestador = str(dados_nota.get("inscricao_municipal") or "").strip()
     if im_prestador:
-        payload["prestador"]["inscricao_municipal"] = im_prestador
+        payload["inscricao_municipal_prestador"] = im_prestador
 
-    # Rota nacional oficial
+    # Endpoint oficial da NFS-e Nacional
     url = f"{base_url}/v2/nfsen?ref={referencia}"
     resp = requests.post(url, json=payload, auth=(token, ""), timeout=25)
 
@@ -68,7 +92,7 @@ def emitir_nfse(referencia, dados_nota):
         return resp.json()
     else:
         raise Exception(f"Erro retornado pela Focus NFe: {resp.text}")
-
+    
 
 def consultar_nfse(referencia):
     """
@@ -80,7 +104,8 @@ def consultar_nfse(referencia):
     if resp.status_code == 200:
         return resp.json()
     raise Exception(f"Erro ao consultar documento: {resp.text}")
-
+# Alias para compatibilidade com o Gestor Fiscal
+consultar_status_nfse = consultar_nfse
 
 def cadastrar_ou_atualizar_empresa(dados_empresa):
     """
@@ -96,8 +121,10 @@ def cadastrar_ou_atualizar_empresa(dados_empresa):
         "inscricao_municipal": str(dados_empresa.get("inscricao_municipal") or ""),
         "regime_tributario": int(dados_empresa.get("regime_tributario", 1)),
         "optante_simples_nacional": True,
+        # Habilitações para NFS-e Nacional (Homologação e Produção)
         "habilita_nfsen": True,
-        "habilita_nfsen_homologacao": True
+        "habilita_nfsen_homologacao": True,
+        "habilita_nfsen_producao": True
     }
 
     if dados_empresa.get("email"):
