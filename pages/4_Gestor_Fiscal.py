@@ -19,9 +19,6 @@ from services.fiscal_service import (
     limpar_documento
 )
 
-# Garante o funcionamento da chamada na linha 242
-consultar_status_nfse = consultar_nfse
-
 # -------------------------------------------------------------
 # CONFIGURAÇÃO DE SESSÃO E CONTEXTO MULTI-TENANT
 # -------------------------------------------------------------
