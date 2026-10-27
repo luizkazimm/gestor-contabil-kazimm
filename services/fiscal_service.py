@@ -87,7 +87,7 @@ def emitir_nfse(referencia, dados_nota):
         "servico": {
             "valor_servicos": float(dados_nota.get("valor_total", 0.0)),
             "discriminacao": dados_nota.get("descricao_servico", ""),
-            "item_lista_servico": str(dados_nota.get("item_lista_servico", "0107")),
+            "item_lista_servico": str(dados_nota.get("item_lista_servico", "010701")),
             "aliquota": float(dados_nota.get("aliquota_iss", 0.0)),
             "iss_retido": False
         }

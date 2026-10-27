@@ -111,8 +111,8 @@ with tab_emitir:
             with col_s1:
                 item_lc = st.text_input(
                     "Item LC 116 / Código do Serviço *",
-                    value=str(cfg.get("item_lista_servico") or "0107"),
-                    help="Código complementar da Lei Complementar 116 (Ex: 0107, 1401)"
+                    value=str(cfg.get("item_lista_servico") or "010701"),
+                    help="Código de 6 dígitos da NFS-e Nacional: 2 dígitos do Item, 2 do Subitem e 2 do Desdobro (Ex: 010701, 010101)"
                 ).strip()
             with col_s2:
                 aliq_iss = st.number_input(
@@ -235,7 +235,7 @@ with tab_historico:
                     elif "erro" in st_atual or "rejeitad" in st_atual:
                         st.error("🔴 Rejeitada / Erro")
                         if row["mensagem_erro"]:
-                            st.caption(str(row["mensagem_erro"])[:45])
+                            st.caption(str(row["mensagem_erro"]))
                     else:
                         st.warning("🟡 Em Processamento")
                         if st.button("🔄 Consultar", key=f"btn_sync_{row['id']}"):
@@ -283,7 +283,7 @@ with tab_config:
     val_fantasia = df_cfg.iloc[0]["nome_fantasia"] if not df_cfg.empty else ""
     val_im = df_cfg.iloc[0]["inscricao_municipal"] if not df_cfg.empty else ""
     val_cod_mun = df_cfg.iloc[0]["codigo_municipio"] if not df_cfg.empty and "codigo_municipio" in df_cfg.columns else ""#Municipio
-    val_item = df_cfg.iloc[0]["item_lista_servico"] if not df_cfg.empty else "0107"
+    val_item = df_cfg.iloc[0]["item_lista_servico"] if not df_cfg.empty and df_cfg.iloc[0]["item_lista_servico"] else "010701"
     val_aliq = float(df_cfg.iloc[0]["aliquota_iss"] or 0.0) if not df_cfg.empty else 0.0
     
     with st.form("form_dados_fiscais_empresa"):
