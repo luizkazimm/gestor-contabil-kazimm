@@ -15,7 +15,7 @@ from database import (
 from services.fiscal_service import (
     cadastrar_ou_atualizar_empresa,
     emitir_nfse,
-    consultar_status_nfse,
+    consultar_nfse,
     limpar_documento
 )
 
