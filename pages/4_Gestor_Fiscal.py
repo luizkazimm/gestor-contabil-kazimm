@@ -133,7 +133,7 @@ with tab_emitir:
             
             integrar_caixa = st.checkbox("🟢 Registrar automaticamente a receita no Livro Caixa Contábil", value=True)
             
-            btn_transmitir = st.form_submit_button("🚀 Autorizar e Emitir NFS-e", type="primary", use_container_width=True)
+            btn_transmitir = st.form_submit_button("🚀 Autorizar e Emitir NFS-e")
             
             if btn_transmitir:
                 if not tomador_doc or not tomador_nome or not desc_servico or valor_servico <= 0:
