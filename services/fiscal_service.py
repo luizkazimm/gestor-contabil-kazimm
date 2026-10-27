@@ -37,7 +37,10 @@ def cadastrar_ou_atualizar_empresa(dados_empresa):
         "cnpj": cnpj,
         "inscricao_municipal": str(dados_empresa.get("inscricao_municipal") or ""),
         "regime_tributario": int(dados_empresa.get("regime_tributario", 1)),
-        "optante_simples_nacional": True
+        "optante_simples_nacional": True,
+        # Habilitação para o Padrão Nacional da NFS-e (MEI / Belford Roxo)
+        "habilita_nfsen": True,
+        "habilita_nfsen_homologacao": True
     }
     
     if dados_empresa.get("email"):
