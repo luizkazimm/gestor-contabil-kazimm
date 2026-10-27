@@ -15,9 +15,12 @@ from database import (
 from services.fiscal_service import (
     cadastrar_ou_atualizar_empresa,
     emitir_nfse,
-    consultar_status_nfse,
+    consultar_nfse as consultar_status_nfse,
     limpar_documento
 )
+
+# Garante o funcionamento da chamada na linha 242
+consultar_status_nfse = consultar_nfse
 
 # -------------------------------------------------------------
 # CONFIGURAÇÃO DE SESSÃO E CONTEXTO MULTI-TENANT

@@ -67,7 +67,7 @@ def emitir_nfse(referencia, dados_nota):
         "iss_retido": False,
         "tipo_retencao_iss": 1
     }
-    
+
     # Dados do Tomador
     if len(tomador_doc) == 14:
         payload["cnpj_tomador"] = tomador_doc
@@ -104,8 +104,7 @@ def consultar_nfse(referencia):
     if resp.status_code == 200:
         return resp.json()
     raise Exception(f"Erro ao consultar documento: {resp.text}")
-# Alias para compatibilidade com o Gestor Fiscal
-consultar_status_nfse = consultar_nfse
+
 
 def cadastrar_ou_atualizar_empresa(dados_empresa):
     """
@@ -145,3 +144,6 @@ def cadastrar_ou_atualizar_empresa(dados_empresa):
         raise Exception(f"Erro ao cadastrar empresa na Focus NFe: {resp_post.text}")
     else:
         raise Exception(f"Falha na comunicação cadastral: {resp.text}")
+
+# Alias de compatibilidade
+consultar_status_nfse = consultar_nfse
