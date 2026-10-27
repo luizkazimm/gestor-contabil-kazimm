@@ -64,34 +64,69 @@ def cadastrar_ou_atualizar_empresa(dados_empresa):
     
     #final do bloco
 
+#Inicio do BLOCO
 def emitir_nfse(referencia, dados_nota):
     """
-    Envia a requisição de emissão de NFS-e para a Focus NFe.
-    O parâmetro 'referencia' é o identificador único interno (ex: 'nfse_cli_1_102').
+    Transmite a Declaração de Prestação de Serviços (DPS) pelo endpoint nacional /v2/nfsen.
     """
     token, base_url = _obter_config()
-    doc_tomador = limpar_documento(dados_nota.get("tomador_documento"))
     cnpj_prestador = limpar_documento(dados_nota.get("cnpj_prestador"))
-    
+    tomador_doc = limpar_documento(dados_nota.get("tomador_documento", ""))
+    cod_mun = str(dados_nota.get("codigo_municipio", "")).strip()
+
+    # Payload estruturado para o padrão NFS-e Nacional (/v2/nfsen)
     payload = {
-        "data_emissao": dados_nota.get("data_emissao"),
-        "prestador": {
-            "cnpj": cnpj_prestador,
-            "inscricao_municipal": str(dados_nota.get("inscricao_municipal") or ""),
-            "codigo_municipio": str(dados_nota.get("codigo_municipio") or "")
-        },
-        "tomador": {
-            "razao_social": dados_nota.get("tomador_nome"),
-            "email": dados_nota.get("tomador_email", "")
-        },
-        "servico": {
-            "valor_servicos": float(dados_nota.get("valor_total", 0.0)),
-            "discriminacao": dados_nota.get("descricao_servico", ""),
-            "item_lista_servico": str(dados_nota.get("item_lista_servico", "010701")),
-            "aliquota": float(dados_nota.get("aliquota_iss", 0.0)),
-            "iss_retido": False
-        }
+        "data_emissao": datetime.now().strftime("%Y-%m-%dT%H:%M:%S-03:00"),
+        "data_competencia": datetime.now().strftime("%Y-%m-%d"),
+        "codigo_municipio_emissora": int(cod_mun) if cod_mun.isdigit() else 3300456,
+        "codigo_municipio_prestacao": int(cod_mun) if cod_mun.isdigit() else 3300456,
+        "cnpj_prestador": cnpj_prestador,
+        "codigo_opcao_simples_nacional": 1,  # 1 = MEI optante pelo Simples Nacional
+        "regime_especial_tributacao": 0,       # 0 = Nenhum
+        "codigo_tributacao_nacional_iss": str(dados_nota.get("item_lista_servico") or "010701"),
+        "descricao_servico": dados_nota.get("descricao_servico", "Prestação de serviços"),
+        "valor_servico": float(dados_nota.get("valor_total", 0.0)),
+        "tributacao_iss": 1                    # 1 = Tributável no município
     }
+
+    # Vincula tomador (CPF ou CNPJ)
+    if len(tomador_doc) == 14:
+        payload["cnpj_tomador"] = tomador_doc
+    elif len(tomador_doc) == 11:
+        payload["cpf_tomador"] = tomador_doc
+
+    if dados_nota.get("tomador_nome"):
+        payload["razao_social_tomador"] = dados_nota["tomador_nome"]
+
+    # Inscrição municipal apenas se existir e estiver cadastrada no emissor
+    im_prestador = str(dados_nota.get("inscricao_municipal") or "").strip()
+    if im_prestador:
+        payload["inscricao_municipal_prestador"] = im_prestador
+
+    # Endpoint oficial da NFS-e Nacional
+    url = f"{base_url}/v2/nfsen?ref={referencia}"
+    
+    resp = requests.post(url, json=payload, auth=(token, ""), timeout=25)
+    
+    if resp.status_code in [200, 201, 202]:
+        return resp.json()
+    else:
+        raise Exception(f"Erro retornado pela Focus NFe: {resp.text}")
+
+
+def consultar_nfse(referencia):
+    """
+    Consulta o status de processamento da NFS-e Nacional pelo endpoint /v2/nfsen.
+    """
+    token, base_url = _obter_config()
+    url = f"{base_url}/v2/nfsen/{referencia}?completo=1"
+    
+    resp = requests.get(url, auth=(token, ""), timeout=15)
+    if resp.status_code == 200:
+        return resp.json()
+    raise Exception(f"Erro ao consultar documento: {resp.text}")
+# FIM DO BLOCO
+
     
     # Define se o tomador é pessoa física ou jurídica
     if len(doc_tomador) == 14:
