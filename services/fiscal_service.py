@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
 import re
+from datetime import datetime
+
 
 def _obter_config():
     """Lê as credenciais da Focus NFe configuradas no secrets.toml."""
