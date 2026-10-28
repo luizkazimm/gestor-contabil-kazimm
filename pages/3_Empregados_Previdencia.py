@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, date
 from database import get_connection
+from ui_theme import aplicar_tema_global, exibir_cabecalho
 
 # -----------------------------------------------------------------------------
 # 1. FUNÇÕES AUXILIARES E REGRAS DE ACESSO
@@ -61,7 +62,9 @@ nome_cliente = df_cli.iloc[0]["nome"]
 plano_cliente = str(df_cli.iloc[0]["plano"]).lower()
 
 # Cabeçalho do Módulo
-st.title("👥 Empregados & Previdência MEI")
+aplicar_tema_global()
+exibir_cabecalho("Empregados / Previdência", "Gestão de Folha, Guias & eSocial")
+
 st.info(f"👤 Cliente Ativo: **{nome_cliente}** | Regime: **MEI** | 💳 **{REGRAS_PLANOS.get(plano_cliente, {}).get('nome', 'Plano Gratuito')}**")
 
 # Trava Freemium

@@ -1,22 +1,30 @@
 import streamlit as st
 
-def aplicar_estilo_moderno():
+def aplicar_tema_global():
+    """
+    Injeta as regras visuais padronizadas em toda a aplicação:
+    - Tipografia moderna e limpa
+    - Barra lateral com cartões de navegação
+    - Cards de métricas com efeito hover
+    - Botões primários e de perigo (Logout)
+    - Inputs e tabelas refinados
+    """
     st.markdown("""
     <style>
-    /* 1. Tipografia global limpa */
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     
-    html, body, [class*="css"] {
+    /* Aplica fonte moderna sem forçar em todas as classes internas do login */
+    html, body, .stApp {
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
-    /* 2. Barra lateral estilo Omie */
+    /* Barra lateral */
     [data-testid="stSidebar"] {
-        background: #F8FAFC !important;
+        background-color: #F8FAFC !important;
         border-right: 1px solid #E2E8F0;
     }
 
-    /* 3. Container do Menu de Navegação */
+    /* Container do Menu de Navegação */
     div[role="radiogroup"] {
         display: flex !important;
         flex-direction: column !important;
@@ -25,7 +33,15 @@ def aplicar_estilo_moderno():
         padding-top: 6px;
     }
 
-    /* 4. Estilo do Cartão (label) */
+    /* Oculta círculo original preservando texto */
+    div[role="radiogroup"] label input {
+        display: none !important;
+    }
+    div[role="radiogroup"] label > div:first-child:not([data-testid="stMarkdownContainer"]) {
+        display: none !important;
+    }
+
+    /* Cartão do Menu em Repouso */
     div[role="radiogroup"] label {
         background-color: #FFFFFF !important;
         border: 1px solid #E2E8F0 !important;
@@ -40,18 +56,6 @@ def aplicar_estilo_moderno():
         width: 100% !important;
     }
 
-    /* OCULTA APENAS O CÍRCULO E O INPUT, PRESERVANDO O TEXTO */
-    /* Esconde o input real para que não ocupe espaço */
-    div[role="radiogroup"] label input {
-        display: none !important;
-    }
-    
-    /* Esconde a representação visual (bolinha) desenhada pelo Streamlit/BaseWeb */
-    div[role="radiogroup"] label > div:first-child:not([data-testid="stMarkdownContainer"]) {
-        display: none !important;
-    }
-
-    /* 5. Garante que o texto (p) seja exibido corretamente e preencha o botão */
     div[role="radiogroup"] label p {
         display: block !important;
         color: #334155 !important;
@@ -61,7 +65,7 @@ def aplicar_estilo_moderno():
         width: 100% !important;
     }
 
-    /* Hover: Elevação sutil e borda verde-azulada */
+    /* Hover no Menu */
     div[role="radiogroup"] label:hover {
         border-color: #00A3B4 !important;
         background-color: #F0FDFA !important;
@@ -69,7 +73,7 @@ def aplicar_estilo_moderno():
         box-shadow: 0 4px 12px rgba(0, 163, 180, 0.12) !important;
     }
 
-    /* 6. Cartão Ativo / Selecionado (Destaque Omie com Gradiente Turquesa) */
+    /* Cartão Ativo / Selecionado (Destaque Omie) */
     div[role="radiogroup"] label:has(input:checked) {
         background: linear-gradient(135deg, #00A3B4 0%, #088395 100%) !important;
         border-color: #008290 !important;
@@ -82,7 +86,7 @@ def aplicar_estilo_moderno():
         font-weight: 700 !important;
     }
 
-    /* 7. Botão Sair / Logout */
+    /* Botão Sair / Logout */
     div[data-testid="stSidebar"] button:has(p:contains("Sair")) {
         background-color: #FEE2E2 !important;
         border: 1px solid #FCA5A5 !important;
@@ -94,5 +98,58 @@ def aplicar_estilo_moderno():
         background-color: #DC2626 !important;
         color: #FFFFFF !important;
     }
+
+    /* Cards de Métricas (Dashboard) */
+    [data-testid="stMetric"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 12px !important;
+        padding: 14px 18px !important;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04) !important;
+        transition: transform 0.2s ease;
+    }
+    [data-testid="stMetric"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08) !important;
+    }
+
+    /* Abas superiores (Tabs) */
+    button[data-baseweb="tab"] {
+        font-weight: 600 !important;
+        font-size: 0.92rem !important;
+        padding: 8px 16px !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #00A3B4 !important;
+        border-bottom-color: #00A3B4 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
+
+
+def exibir_cabecalho(titulo: str, subtitulo: str = "Plataforma de Gestão Integrada"):
+    """
+    Renderiza o cabeçalho padronizado do Kazimm com logo e tipografia limpa.
+    """
+    col_logo, col_titulo = st.columns([1, 5], vertical_alignment="center")
+    
+    with col_logo:
+        # Usa o arquivo de logo existente na raiz do projeto
+        st.image("assets/Logo.png", width=300)
+        
+    with col_titulo:
+        st.markdown(f"""
+            <div style="line-height: 1.25; margin-left: 5px;">
+                <span style="font-size: 0.80rem; font-weight: 700; color: #00A3B4; text-transform: uppercase; letter-spacing: 0.8px;">
+                    {subtitulo}
+                </span>
+                <h2 style="margin: 2px 0 0 0; padding: 0; font-size: 1.65rem; color: #0F172A; font-weight: 800;">
+                    {titulo}
+                </h2>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<hr style='margin: 12px 0 22px 0; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
+
+# Alias para não quebrar chamadas antigas no app.py
+aplicar_estilo_moderno = aplicar_tema_global

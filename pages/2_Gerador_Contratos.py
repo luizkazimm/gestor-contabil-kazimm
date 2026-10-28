@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, date
 from database import get_connection
+from ui_theme import aplicar_tema_global, exibir_cabecalho
 
 # Tenta importar a biblioteca de valor por extenso
 try:
@@ -446,7 +447,9 @@ if "contrato_editar" in st.session_state and st.session_state["contrato_editar"]
 # -----------------------------------------------------------------------------
 # 4. INTERFACE PRINCIPAL
 # -----------------------------------------------------------------------------
-st.title("📑 Gestão de Contratos MEI")
+aplicar_tema_global()
+exibir_cabecalho("Gestão de Contratos MEI", "Elaboração & Documentos Jurídicos")
+
 st.info(f"👤 Contratado: **{cliente_info['nome']}** | CNPJ/CPF: **{cliente_info['cnpj_cpf']}**")
 
 tab_novo, tab_historico = st.tabs(["📝 Elaborar Novo Contrato", "📂 Meus Contratos Salvos"])

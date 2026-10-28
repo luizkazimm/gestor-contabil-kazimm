@@ -16,6 +16,8 @@ from database import (
 )
 from supabase import create_client
 
+from ui_theme import aplicar_tema_global, exibir_cabecalho
+
 # 1. Configuração da página (DEVE SER O PRIMEIRO COMANDO STREAMLIT) - Linha comentada 25/10/2026
 st.set_page_config(page_title="Gestor Contábil Kazimm", layout="wide")
 
@@ -241,11 +243,13 @@ def exibir_bloqueio_upgrade(nome_recurso: str, plano_minimo: str = "pro"):
 
 # --- TRAVA DE SEGURANÇA ---
 if 'user' not in st.session_state or st.session_state.user is None:
-    st.warning(" Você precisa fazer login para acessar o Gestor Contábil.")
+    st.warning
+    (" Você precisa fazer login para acessar o Gestor Contábil.")
     st.stop()
     
 #Título de Inicialização
-st.title("Kazimm - Sistema de Gestão Contábil")
+aplicar_tema_global()
+exibir_cabecalho("Gestor Contábil", "Visão Financeira & Livro Caixa")
 #init_db()
 
 # 4. Busca os Clientes do Usuário no Banco de Dados
