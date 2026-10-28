@@ -2,29 +2,29 @@ import streamlit as st
 
 def aplicar_tema_global():
     """
-    Injeta as regras visuais padronizadas em toda a aplicação:
-    - Tipografia moderna e limpa
-    - Barra lateral com cartões de navegação
-    - Cards de métricas com efeito hover
-    - Botões primários e de perigo (Logout)
-    - Inputs e tabelas refinados
+    Injeta as regras visuais padronizadas em toda a aplicação (Estilo Kazimm / Montserrat)
     """
     st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    
-    /* Aplica fonte moderna sem forçar em todas as classes internas do login */
+    /* 1. Importação das fontes Montserrat e Inter */
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap');
+
     html, body, .stApp {
-        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    /* Barra lateral */
+    /* Títulos padronizados em Montserrat */
+    h1, h2, h3, [data-testid="stHeader"] {
+        font-family: 'Montserrat', sans-serif !important;
+    }
+
+    /* 2. Barra lateral clean */
     [data-testid="stSidebar"] {
         background-color: #F8FAFC !important;
         border-right: 1px solid #E2E8F0;
     }
 
-    /* Container do Menu de Navegação */
+    /* 3. Container do Menu de Navegação */
     div[role="radiogroup"] {
         display: flex !important;
         flex-direction: column !important;
@@ -73,7 +73,7 @@ def aplicar_tema_global():
         box-shadow: 0 4px 12px rgba(0, 163, 180, 0.12) !important;
     }
 
-    /* Cartão Ativo / Selecionado (Destaque Omie) */
+    /* Cartão Ativo / Selecionado */
     div[role="radiogroup"] label:has(input:checked) {
         background: linear-gradient(135deg, #00A3B4 0%, #088395 100%) !important;
         border-color: #008290 !important;
@@ -112,44 +112,28 @@ def aplicar_tema_global():
         transform: translateY(-2px);
         box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08) !important;
     }
-
-    /* Abas superiores (Tabs) */
-    button[data-baseweb="tab"] {
-        font-weight: 600 !important;
-        font-size: 0.92rem !important;
-        padding: 8px 16px !important;
-    }
-    button[data-baseweb="tab"][aria-selected="true"] {
-        color: #00A3B4 !important;
-        border-bottom-color: #00A3B4 !important;
-    }
     </style>
     """, unsafe_allow_html=True)
 
 
 def exibir_cabecalho(titulo: str, subtitulo: str = "Plataforma de Gestão Integrada"):
     """
-    Renderiza o cabeçalho padronizado do Kazimm com logo e tipografia limpa.
+    Renderiza o cabeçalho padronizado com logo e tipografia Montserrat.
     """
-    col_logo, col_titulo = st.columns([1, 5], vertical_alignment="center")
-    
-    with col_logo:
-        # Usa o arquivo de logo existente na raiz do projeto
-        st.image("assets/Logo.png", width=300)
-        
-    with col_titulo:
-        st.markdown(f"""
-            <div style="line-height: 1.25; margin-left: 5px;">
-                <span style="font-size: 0.80rem; font-weight: 700; color: #00A3B4; text-transform: uppercase; letter-spacing: 0.8px;">
-                    {subtitulo}
-                </span>
-                <h2 style="margin: 2px 0 0 0; padding: 0; font-size: 1.65rem; color: #0F172A; font-weight: 800;">
-                    {titulo}
-                </h2>
-            </div>
-        """, unsafe_allow_html=True)
+    st.image("assets/Logo.png", width=180)
 
-    st.markdown("<hr style='margin: 12px 0 22px 0; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
+    st.markdown(f"""
+        <div style="margin-top: 6px; margin-bottom: 4px; font-family: 'Montserrat', sans-serif;">
+            <span style="font-size: 0.85rem; font-weight: 700; color: #00A3B4; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 2px;">
+                {subtitulo}
+            </span>
+            <h1 style="margin: 0; padding: 0; font-size: 1.85rem; color: #007791; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2;">
+                {titulo}
+            </h1>
+        </div>
+    """, unsafe_allow_html=True)
 
-# Alias para não quebrar chamadas antigas no app.py
+    st.markdown("<hr style='margin: 10px 0 20px 0; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
+
+# Alias de compatibilidade
 aplicar_estilo_moderno = aplicar_tema_global
