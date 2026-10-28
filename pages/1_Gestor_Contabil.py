@@ -252,8 +252,8 @@ if 'user' not in st.session_state or st.session_state.user is None:
     st.stop()
     
 #Título de Inicialização
-aplicar_tema_global()
-exibir_cabecalho("Gestor Contábil", "Visão Financeira & Livro Caixa")
+#aplicar_tema_global()
+#exibir_cabecalho("Gestor Contábil", "Visão Financeira & Livro Caixa")
 #init_db()
 
 # 4. Busca os Clientes do Usuário no Banco de Dados
