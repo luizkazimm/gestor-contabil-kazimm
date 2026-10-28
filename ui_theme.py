@@ -112,8 +112,16 @@ def aplicar_tema_global():
         transform: translateY(-2px);
         box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08) !important;
     }
+    /* Força o container principal a ocupar 100% da tela */
+    .block-container {
+        max-width: 98% !important;
+        padding-left: 2.5rem !important;
+        padding-right: 2.5rem !important;
+        padding-top: 1.5rem !important;
+    }
     </style>
     """, unsafe_allow_html=True)
+    
 
 
 def exibir_cabecalho(titulo: str, subtitulo: str = "Plataforma de Gestão Integrada"):

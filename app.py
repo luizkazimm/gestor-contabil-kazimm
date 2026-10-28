@@ -5,6 +5,7 @@ from ui_theme import aplicar_estilo_moderno
 st.set_page_config(
     page_title="Kazimm Gestao", 
     page_icon="🏢",
+    layout="wide",
     initial_sidebar_state="expanded"
     )
 # Aplica o tema visual moderno
