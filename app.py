@@ -1,11 +1,14 @@
 import streamlit as st
 from supabase import create_client
+from ui_theme import aplicar_estilo_moderno
 
 st.set_page_config(
     page_title="Kazimm Gestao", 
     page_icon="🏢",
     initial_sidebar_state="expanded"
     )
+# Aplica o tema visual moderno
+aplicar_estilo_moderno()
 
 # -----------------------------------------------------------------------------
 # ESTILO ELEGANTE E PROPORCIONAL DA TELA DE LOGIN (APP.PY)
