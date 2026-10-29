@@ -16,7 +16,7 @@ from database import (
 )
 from supabase import create_client
 
-from ui_theme import aplicar_tema_global, exibir_cabecalho, exibir_menu_modulos_topo
+from ui_theme import ICONES, aplicar_tema_global, exibir_cabecalho, exibir_menu_modulos_topo
 
 # 1. Configuração da página (DEVE SER O PRIMEIRO COMANDO STREAMLIT)
 #st.set_page_config(page_title="Gestor Contábil Kazimm", layout="wide")
@@ -55,129 +55,133 @@ except Exception as e:
 # -----------------------------------------------------------------------------
 # ESTILO GLOBAL & RESPONSIVIDADE MOBILE ISOLADA (GESTOR CONTÁBIL)
 # -----------------------------------------------------------------------------
-st.markdown("""
-    <!-- Carrega Montserrat e Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
 
-    <style>
-    /* 1. TÍTULOS EM MONTSERRAT */
-    h1, h2, h3, h4, h5, h6,
-    [data-testid="stHeader"], [data-testid="stSubheader"],
-    [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2,
-    [data-testid="stMarkdownContainer"] h3, [data-testid="stMarkdownContainer"] h4 {
-        font-family: 'Montserrat', sans-serif !important;
-        color: #0176A1 !important;
-        font-weight: 700 !important;
-    }
+#Início do CSS
 
-    /* 2. ESTILO DOS CARTÕES KPI (DESKTOP PADRÃO - PERFEITO) */
-    .kpi-card {
-        background-color: #FFFFFF;
-        border: 1.5px solid #CBD5E1;
-        border-radius: 10px;
-        padding: 14px 16px;
-        text-align: left;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-        margin-bottom: 8px;
-    }
+# st.markdown("""
+#     <!-- Carrega Montserrat e Inter -->
+#     <link rel="preconnect" href="https://fonts.googleapis.com">
+#     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+#     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
 
-    .kpi-label {
-        font-family: 'Inter', sans-serif !important;
-        font-size: 0.85rem !important;
-        font-weight: 600 !important;
-        color: #475569 !important;
-        margin: 0 0 6px 0 !important;
-    }
+#     <style>
+#     /* 1. TÍTULOS EM MONTSERRAT */
+#     h1, h2, h3, h4, h5, h6,
+#     [data-testid="stHeader"], [data-testid="stSubheader"],
+#     [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2,
+#     [data-testid="stMarkdownContainer"] h3, [data-testid="stMarkdownContainer"] h4 {
+#         font-family: 'Montserrat', sans-serif !important;
+#         color: #0176A1 !important;
+#         font-weight: 700 !important;
+#     }
 
-    .kpi-value {
-        font-family: 'Montserrat', sans-serif !important;
-        font-size: 2.0rem !important;
-        font-weight: 700 !important;
-        margin: 0 !important;
-        line-height: 1.2 !important;
-    }
+#     /* 2. ESTILO DOS CARTÕES KPI (DESKTOP PADRÃO - PERFEITO) */
+#     .kpi-card {
+#         background-color: #FFFFFF;
+#         border: 1.5px solid #CBD5E1;
+#         border-radius: 10px;
+#         padding: 14px 16px;
+#         text-align: left;
+#         box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+#         margin-bottom: 8px;
+#     }
 
-    /* Cores dos Valores */
-    .kpi-value.receita { color: #059669 !important; }
-    .kpi-value.despesa { color: #DC2626 !important; }
-    .kpi-value.saldo   { color: #0F172A !important; }
-    .kpi-value.prov    { color: #D97706 !important; }
+#     .kpi-label {
+#         font-family: 'Inter', sans-serif !important;
+#         font-size: 0.85rem !important;
+#         font-weight: 600 !important;
+#         color: #475569 !important;
+#         margin: 0 0 6px 0 !important;
+#     }
 
-    /* 3. BORDAS E CONTRASTE REFORÇADO NAS CAIXAS E BOTÕES */
-    div[data-baseweb="input"], 
-    div[data-baseweb="select"] > div {
-        background-color: #F8FAFC !important;
-        border: 0.5px solid #CBD5E1 !important;
-        border-radius: 8px !important;
-    }
+#     .kpi-value {
+#         font-family: 'Montserrat', sans-serif !important;
+#         font-size: 2.0rem !important;
+#         font-weight: 700 !important;
+#         margin: 0 !important;
+#         line-height: 1.2 !important;
+#     }
 
-    div[data-baseweb="input"]:focus-within, 
-    div[data-baseweb="select"] > div:focus-within {
-        border-color: #1E3A8A !important;
-        background-color: #FFFFFF !important;
-        box-shadow: 0px 0px 0px 3px rgba(30, 58, 138, 0.15) !important;
-    }
+#     /* Cores dos Valores */
+#     .kpi-value.receita { color: #059669 !important; }
+#     .kpi-value.despesa { color: #DC2626 !important; }
+#     .kpi-value.saldo   { color: #0F172A !important; }
+#     .kpi-value.prov    { color: #D97706 !important; }
 
-    div.stButton > button, 
-    div.stFormSubmitButton > button,
-    div.stButton > button *, 
-    div.stFormSubmitButton > button * {
-        background-color: #0176A1 !important;
-        color: #FFFFFF !important;
-        border-radius: 2px !important;
-        border: none !important;
-        font-family: 'Montserrat', sans-serif !important;
-        font-weight: 600 !important;
-        font-size: 0.9rem !important;
-    }
+#     /* 3. BORDAS E CONTRASTE REFORÇADO NAS CAIXAS E BOTÕES */
+#     div[data-baseweb="input"], 
+#     div[data-baseweb="select"] > div {
+#         background-color: #F8FAFC !important;
+#         border: 0.5px solid #CBD5E1 !important;
+#         border-radius: 8px !important;
+#     }
 
-    div.stButton > button:hover, 
-    div.stFormSubmitButton > button:hover {
-        background-color: #0176a1 !important;
-        color: #000000 !important;
-    }
+#     div[data-baseweb="input"]:focus-within, 
+#     div[data-baseweb="select"] > div:focus-within {
+#         border-color: #1E3A8A !important;
+#         background-color: #FFFFFF !important;
+#         box-shadow: 0px 0px 0px 3px rgba(30, 58, 138, 0.15) !important;
+#     }
 
-    /* ----------------------------------------------------------------- */
-    /* 4. REGRAS EXCLUSIVAS PARA DISPOSITIVOS MÓVEIS (MAX-WIDTH: 768PX)  */
-    /* ----------------------------------------------------------------- */
-    @media (max-width: 768px) {
-        /* Força as colunas do Streamlit a empilharem verticalmente */
-        [data-testid="stHorizontalBlock"] {
-            flex-direction: column !important;
-            gap: 0.5rem !important;
-        }
+#     div.stButton > button, 
+#     div.stFormSubmitButton > button,
+#     div.stButton > button *, 
+#     div.stFormSubmitButton > button * {
+#         background-color: #0176A1 !important;
+#         color: #FFFFFF !important;
+#         border-radius: 2px !important;
+#         border: none !important;
+#         font-family: 'Montserrat', sans-serif !important;
+#         font-weight: 600 !important;
+#         font-size: 0.9rem !important;
+#     }
 
-        [data-testid="column"] {
-            width: 100% !important;
-            flex: 1 1 100% !important;
-            min-width: 100% !important;
-        }
+#     div.stButton > button:hover, 
+#     div.stFormSubmitButton > button:hover {
+#         background-color: #0176a1 !important;
+#         color: #000000 !important;
+#     }
 
-        /* Ajustes dos Cartões no Telemóvel */
-        .kpi-card {
-            padding: 12px 14px !important;
-            margin-bottom: 8px !important;
-        }
+#     /* ----------------------------------------------------------------- */
+#     /* 4. REGRAS EXCLUSIVAS PARA DISPOSITIVOS MÓVEIS (MAX-WIDTH: 768PX)  */
+#     /* ----------------------------------------------------------------- */
+#     @media (max-width: 768px) {
+#         /* Força as colunas do Streamlit a empilharem verticalmente */
+#         [data-testid="stHorizontalBlock"] {
+#             flex-direction: column !important;
+#             gap: 0.5rem !important;
+#         }
 
-        .kpi-label {
-            font-size: 0.8rem !important;
-        }
+#         [data-testid="column"] {
+#             width: 100% !important;
+#             flex: 1 1 100% !important;
+#             min-width: 100% !important;
+#         }
 
-        .kpi-value {
-            font-size: 1.5rem !important; /* Tamanho proporcional ao ecrã */
-            white-space: nowrap !important; /* Impede a quebra de linha no número */
-        }
+#         /* Ajustes dos Cartões no Telemóvel */
+#         .kpi-card {
+#             padding: 12px 14px !important;
+#             margin-bottom: 8px !important;
+#         }
 
-        /* Botões em largura total para facilitar o toque */
-        div.stButton > button, div.stFormSubmitButton > button {
-            width: 100% !important;
-            min-height: 44px !important;
-        }
-    }
-    </style>
-""", unsafe_allow_html=True)
+#         .kpi-label {
+#             font-size: 0.8rem !important;
+#         }
+
+#         .kpi-value {
+#             font-size: 1.5rem !important; /* Tamanho proporcional ao ecrã */
+#             white-space: nowrap !important; /* Impede a quebra de linha no número */
+#         }
+
+#         /* Botões em largura total para facilitar o toque */
+#         div.stButton > button, div.stFormSubmitButton > button {
+#             width: 100% !important;
+#             min-height: 44px !important;
+#         }
+#     }
+#     </style>
+# """, unsafe_allow_html=True)
+
 
 #Fim do Bloco
 
@@ -283,8 +287,23 @@ def formatar_brl(valor):
 plano_usuario = st.session_state.get("plano_ativo", "gratis")
 regras = REGRAS_PLANOS.get(plano_usuario, REGRAS_PLANOS['gratis'])
 
-item_importacao = "Importação em Lote" if regras['importacao_lote'] else "🔒 Importação em Lote (PRO)"
-item_provisoes = "Provisões (Contas a Pagar)" if regras['provisoes'] else "🔒 Provisões (Contas a Pagar) (PRO)"
+# Mapeamento visual com ícones Material Symbols (sem quebrar a lógica interna)
+ICONES_MENU = {
+    "Dashboard": f"{ICONES['dashboard']} Dashboard",
+    "Cadastrar Conta / Fornecedor": f"{ICONES['fornecedor']} Cadastrar Conta / Fornecedor",
+    "Novo Lançamento": f"{ICONES['adicionar']} Novo Lançamento",
+    "Importação em Lote": f"{ICONES['importar']} Importação em Lote",
+    "Provisões (Contas a Pagar)": f"{ICONES['provisoes']} Provisões (Contas a Pagar)",
+    "Importar Extrato / Excel": f"{ICONES['extrato']} Importar Extrato / Excel",
+    "Ver Lançamentos": f"{ICONES['lancamentos']} Ver Lançamentos",
+    "Conciliação Bancária": f"{ICONES['conciliacao']} Conciliação Bancária",
+    "Plano de Contas": f"{ICONES['plano_contas']} Plano de Contas",
+    "Relatório por Categoria": f"{ICONES['dre']} Relatório por Categoria",
+}
+
+# Itens condicionais baseados no plano
+item_importacao = "Importação em Lote" if regras['importacao_lote'] else f"🔒 Importação em Lote (PRO)"
+item_provisoes = "Provisões (Contas a Pagar)" if regras['provisoes'] else f"🔒 Provisões (Contas a Pagar) (PRO)"
 
 menu_opcoes = [
     "Dashboard",
@@ -299,7 +318,13 @@ menu_opcoes = [
     "Relatório por Categoria"
 ]
 
-opcao = st.sidebar.radio("Navegação Principal", menu_opcoes)
+# format_func injeta o ícone apenas na exibição visual da tela
+opcao = st.sidebar.radio(
+    "Navegação Principal", 
+    menu_opcoes,
+    format_func=lambda x: ICONES_MENU.get(x, x)
+)
+#opcao = st.sidebar.radio("Navegação Principal", menu_opcoes)
 
 # ==========================================
 # NOTIFICAÇÃO GLOBAL DO CLIENTE ATIVO E MINI-DASHBOARD (HUD CORRIGIDO)
@@ -333,7 +358,7 @@ if cliente_ativo_id:
         nome_plano_exibicao = REGRAS_PLANOS.get(plano_cli, {}).get("nome", "Plano MEI Gratuito")
         
         # Faixa azul atualizada com a etiqueta do plano
-        st.info(f"👤 Cliente Ativo em Atendimento: **{nome_empresa}** | Regime: **{regime_empresa}** | 💳 **{nome_plano_exibicao}**")
+        st.info(f"{ICONES['cliente']} **Cliente Ativo em Atendimento:** {nome_empresa} | Regime: **{regime_empresa}** | {ICONES['cartao']} **{nome_plano_exibicao}**")
 #Fim da Alteração - PLANO
 #                 
         # 2. Cálculos Globais com Desdobramento de Caixa e Bancos
