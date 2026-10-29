@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# Garante que o Linux encontre os módulos da raiz (ui_theme, database, etc.)
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+    
 from datetime import datetime, date
 import streamlit as st
 import io
@@ -14,6 +22,7 @@ from database import (
     carregar_todos_clientes_completos, 
     limpar_cache
 )
+
 from supabase import create_client
 
 from ui_theme import ICONES, aplicar_tema_global, exibir_cabecalho, exibir_menu_modulos_topo
