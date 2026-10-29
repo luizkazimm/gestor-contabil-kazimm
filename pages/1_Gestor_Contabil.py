@@ -1,11 +1,10 @@
 import sys
 from pathlib import Path
-
 # Garante que o Linux encontre os módulos da raiz (ui_theme, database, etc.)
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
-    
+
 from datetime import datetime, date
 import streamlit as st
 import io
@@ -27,22 +26,17 @@ from supabase import create_client
 
 from ui_theme import ICONES, aplicar_tema_global, exibir_cabecalho, exibir_menu_modulos_topo
 
-# 1. Configuração da página (DEVE SER O PRIMEIRO COMANDO STREAMLIT)
-#st.set_page_config(page_title="Gestor Contábil Kazimm", layout="wide")
-
-# Ativa o visual e cabeçalho padronizado
 aplicar_tema_global()
 exibir_cabecalho("Gestor Contábil", "Visão Financeira & Livro Caixa")
-exibir_menu_modulos_topo()  # <-- Renderiza os 4 cartões no local desejado
+exibir_menu_modulos_topo()
 
-# Função Auxiliar de Conversão de Imagem
 def processar_logo_empresa(arquivo_imagem):
     """Converte o arquivo de imagem enviado para string Base64 utilizável em tags HTML."""
     if arquivo_imagem is None:
         return None
     try:
         tipo = arquivo_imagem.type
-        # getvalue() garante a leitura completa dos bytes sem risco de stream vazio
+        
         dados_bytes = arquivo_imagem.getvalue()
         if not dados_bytes:
             return None
@@ -52,7 +46,6 @@ def processar_logo_empresa(arquivo_imagem):
         st.error(f"Erro ao converter logotipo: {e}")
         return None
     
-#Bloco para criação de usuários no SUPABASE
 try:
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
@@ -60,143 +53,6 @@ try:
 except Exception as e:
     supabase = None
 
-#Bloco CSS de estilização
-# -----------------------------------------------------------------------------
-# ESTILO GLOBAL & RESPONSIVIDADE MOBILE ISOLADA (GESTOR CONTÁBIL)
-# -----------------------------------------------------------------------------
-
-#Início do CSS
-
-# st.markdown("""
-#     <!-- Carrega Montserrat e Inter -->
-#     <link rel="preconnect" href="https://fonts.googleapis.com">
-#     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-#     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
-
-#     <style>
-#     /* 1. TÍTULOS EM MONTSERRAT */
-#     h1, h2, h3, h4, h5, h6,
-#     [data-testid="stHeader"], [data-testid="stSubheader"],
-#     [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2,
-#     [data-testid="stMarkdownContainer"] h3, [data-testid="stMarkdownContainer"] h4 {
-#         font-family: 'Montserrat', sans-serif !important;
-#         color: #0176A1 !important;
-#         font-weight: 700 !important;
-#     }
-
-#     /* 2. ESTILO DOS CARTÕES KPI (DESKTOP PADRÃO - PERFEITO) */
-#     .kpi-card {
-#         background-color: #FFFFFF;
-#         border: 1.5px solid #CBD5E1;
-#         border-radius: 10px;
-#         padding: 14px 16px;
-#         text-align: left;
-#         box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-#         margin-bottom: 8px;
-#     }
-
-#     .kpi-label {
-#         font-family: 'Inter', sans-serif !important;
-#         font-size: 0.85rem !important;
-#         font-weight: 600 !important;
-#         color: #475569 !important;
-#         margin: 0 0 6px 0 !important;
-#     }
-
-#     .kpi-value {
-#         font-family: 'Montserrat', sans-serif !important;
-#         font-size: 2.0rem !important;
-#         font-weight: 700 !important;
-#         margin: 0 !important;
-#         line-height: 1.2 !important;
-#     }
-
-#     /* Cores dos Valores */
-#     .kpi-value.receita { color: #059669 !important; }
-#     .kpi-value.despesa { color: #DC2626 !important; }
-#     .kpi-value.saldo   { color: #0F172A !important; }
-#     .kpi-value.prov    { color: #D97706 !important; }
-
-#     /* 3. BORDAS E CONTRASTE REFORÇADO NAS CAIXAS E BOTÕES */
-#     div[data-baseweb="input"], 
-#     div[data-baseweb="select"] > div {
-#         background-color: #F8FAFC !important;
-#         border: 0.5px solid #CBD5E1 !important;
-#         border-radius: 8px !important;
-#     }
-
-#     div[data-baseweb="input"]:focus-within, 
-#     div[data-baseweb="select"] > div:focus-within {
-#         border-color: #1E3A8A !important;
-#         background-color: #FFFFFF !important;
-#         box-shadow: 0px 0px 0px 3px rgba(30, 58, 138, 0.15) !important;
-#     }
-
-#     div.stButton > button, 
-#     div.stFormSubmitButton > button,
-#     div.stButton > button *, 
-#     div.stFormSubmitButton > button * {
-#         background-color: #0176A1 !important;
-#         color: #FFFFFF !important;
-#         border-radius: 2px !important;
-#         border: none !important;
-#         font-family: 'Montserrat', sans-serif !important;
-#         font-weight: 600 !important;
-#         font-size: 0.9rem !important;
-#     }
-
-#     div.stButton > button:hover, 
-#     div.stFormSubmitButton > button:hover {
-#         background-color: #0176a1 !important;
-#         color: #000000 !important;
-#     }
-
-#     /* ----------------------------------------------------------------- */
-#     /* 4. REGRAS EXCLUSIVAS PARA DISPOSITIVOS MÓVEIS (MAX-WIDTH: 768PX)  */
-#     /* ----------------------------------------------------------------- */
-#     @media (max-width: 768px) {
-#         /* Força as colunas do Streamlit a empilharem verticalmente */
-#         [data-testid="stHorizontalBlock"] {
-#             flex-direction: column !important;
-#             gap: 0.5rem !important;
-#         }
-
-#         [data-testid="column"] {
-#             width: 100% !important;
-#             flex: 1 1 100% !important;
-#             min-width: 100% !important;
-#         }
-
-#         /* Ajustes dos Cartões no Telemóvel */
-#         .kpi-card {
-#             padding: 12px 14px !important;
-#             margin-bottom: 8px !important;
-#         }
-
-#         .kpi-label {
-#             font-size: 0.8rem !important;
-#         }
-
-#         .kpi-value {
-#             font-size: 1.5rem !important; /* Tamanho proporcional ao ecrã */
-#             white-space: nowrap !important; /* Impede a quebra de linha no número */
-#         }
-
-#         /* Botões em largura total para facilitar o toque */
-#         div.stButton > button, div.stFormSubmitButton > button {
-#             width: 100% !important;
-#             min-height: 44px !important;
-#         }
-#     }
-#     </style>
-# """, unsafe_allow_html=True)
-
-
-#Fim do Bloco
-
-# =========================================================
-# MATRIZ DE PLANOS E PERMISSÕES (FREEMIUM SAAS)
-# =========================================================
 REGRAS_PLANOS = {
     'gratis': {
         'nome': 'Plano MEI Gratuito',
@@ -257,30 +113,20 @@ def exibir_bloqueio_upgrade(nome_recurso: str, plano_minimo: str = "pro"):
         )
     with col_cta2:
         st.caption("Fale com o suporte ou gerencie sua assinatura pelo painel administrativo.")
-#FIM DO BLOCO
 
-# --- TRAVA DE SEGURANÇA ---
 if 'user' not in st.session_state or st.session_state.user is None:
     st.warning
     (" Você precisa fazer login para acessar o Gestor Contábil.")
     st.stop()
     
-#Título de Inicialização
-#aplicar_tema_global()
-#exibir_cabecalho("Gestor Contábil", "Visão Financeira & Livro Caixa")
-#init_db()
 
-# 4. Busca os Clientes do Usuário no Banco de Dados
 clientes_cadastrados = carregar_clientes(st.session_state.user.id)
 
-# 5. Seletor do Cliente Ativo (Definição na Session State)
 if clientes_cadastrados:
     opcoes_clientes = {cli[1]: cli[0] for cli in clientes_cadastrados}
 
-# Barra lateral (sidebar) deixa o seletor visível em qualquer tela
     cliente_selecionado = st.sidebar.selectbox("Cliente em Atendimento", list(opcoes_clientes.keys()))
 
-# Armazena o ID do cliente selecionado no estado da sessão
     st.session_state.cliente_id_ativo = opcoes_clientes[cliente_selecionado]
 else:
     st.session_state.cliente_id_ativo = None
@@ -290,13 +136,9 @@ else:
 def formatar_brl(valor):
     return f"R$ {valor:,.2f}".replace(",", "v").replace(".", ",").replace("v", ".")
 
-
-# Menu Lateral
-# Define os rótulos do menu com base nas permissões do plano ativo
 plano_usuario = st.session_state.get("plano_ativo", "gratis")
 regras = REGRAS_PLANOS.get(plano_usuario, REGRAS_PLANOS['gratis'])
 
-# Mapeamento visual com ícones Material Symbols (sem quebrar a lógica interna)
 ICONES_MENU = {
     "Dashboard": f"{ICONES['dashboard']} Dashboard",
     "Cadastrar Conta / Fornecedor": f"{ICONES['fornecedor']} Cadastrar Conta / Fornecedor",
@@ -310,7 +152,6 @@ ICONES_MENU = {
     "Relatório por Categoria": f"{ICONES['dre']} Relatório por Categoria",
 }
 
-# Itens condicionais baseados no plano
 item_importacao = "Importação em Lote" if regras['importacao_lote'] else f"🔒 Importação em Lote (PRO)"
 item_provisoes = "Provisões (Contas a Pagar)" if regras['provisoes'] else f"🔒 Provisões (Contas a Pagar) (PRO)"
 
@@ -327,17 +168,12 @@ menu_opcoes = [
     "Relatório por Categoria"
 ]
 
-# format_func injeta o ícone apenas na exibição visual da tela
 opcao = st.sidebar.radio(
     "Navegação Principal", 
     menu_opcoes,
     format_func=lambda x: ICONES_MENU.get(x, x)
 )
-#opcao = st.sidebar.radio("Navegação Principal", menu_opcoes)
 
-# ==========================================
-# NOTIFICAÇÃO GLOBAL DO CLIENTE ATIVO E MINI-DASHBOARD (HUD CORRIGIDO)
-# ==========================================
 cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
 if cliente_ativo_id:
@@ -346,31 +182,20 @@ if cliente_ativo_id:
     df_prov_global = carregar_provisoes_pendentes(cliente_ativo_id)
     df_info_cli = carregar_dados_cliente_ativo(cliente_ativo_id)
 
-
-    # 2. Busca os dados cadastrais da empresa ativa
-    #conn = get_connection()
-    #try:
-    #    df_info_cli = pd.read_sql_query(
-    #        "SELECT nome, regime, COALESCE(plano, 'gratis') AS plano FROM clientes WHERE id = %s", 
-    #        conn, params=(cliente_ativo_id,)
-    #    )
-    #finally:
-    #    conn.close()
-        
+       
     if not df_info_cli.empty:
         nome_empresa = df_info_cli.iloc[0]["nome"]
         regime_empresa = df_info_cli.iloc[0]["regime"]
         
-        # 2. AJUSTE AQUI: Salva o plano na sessão e busca o rótulo amigável
+
         plano_cli = str(df_info_cli.iloc[0]["plano"]).lower()
         st.session_state["plano_ativo"] = plano_cli
         nome_plano_exibicao = REGRAS_PLANOS.get(plano_cli, {}).get("nome", "Plano MEI Gratuito")
         
-        # Faixa azul atualizada com a etiqueta do plano
+
         st.info(f"{ICONES['cliente']} **Cliente Ativo em Atendimento:** {nome_empresa} | Regime: **{regime_empresa}** | {ICONES['cartao']} **{nome_plano_exibicao}**")
-#Fim da Alteração - PLANO
-#                 
-        # 2. Cálculos Globais com Desdobramento de Caixa e Bancos
+
+
         filtro_caixa_fisico = "1.1.1.01|caixa geral|caixa físico|dinheiro"
         filtro_bancos = "1.1.1.02|1.1.1.03|banco|itau|bradesco|inter|nubank|cef|bb"
 
@@ -397,7 +222,6 @@ if cliente_ativo_id:
         # Provisões (A Pagar) - Lendo diretamente dos agendamentos pendentes
         a_pagar_g = df_prov_global["valor"].sum() if not df_prov_global.empty else 0.0
 
-        # 3. Renderização Segura em 4 Colunas Nativas
         cor_saldo = "#00875a" if saldo_g >= 0 else "#de350b"
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 
@@ -446,20 +270,16 @@ else:
 
 st.markdown("---")
 
-# =============================================================================
-# BLOCO DASHBOARD MEI
-# =============================================================================
-#if opcao == "Gestão do Cliente & Dashboard MEI" or opcao == "Cadastrar Cliente":
 if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
     st.subheader("Gestão do Cliente - CADASTRO")
 
     user_id_atual = st.session_state.user.id
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
-    # OTIMIZAÇÃO: Aproveita a lista de clientes já carregada em cache
+
     qtd_clientes = len(clientes_cadastrados)
 
-    # IF 1: PRIMEIRO ACESSO (SEM NENHUM CLIENTE NO BANCO)
+
     if qtd_clientes < 1:
         st.info("👋 Bem-vindo, Administrador! Cadastre a primeira empresa para ativar o sistema.")
         with st.form("form_cliente_inicial"):
@@ -477,7 +297,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                 telefone = st.text_input("Telefone de Contato", placeholder="(00) 00000-0000")
                 cnae = st.text_input("Código de Atividade (CNAE)")
 
-            # BLOCO DE UPLOAD DE LOGO (NOVO CLIENTE INICIAL)
+
             st.markdown("---")
             st.markdown("**Logotipo da Empresa (Aparecerá nos Contratos e Relatórios):**")
             arquivo_upd_logo = st.file_uploader(
@@ -487,7 +307,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                 help="Envie um arquivo PNG ou JPG de até 2MB. Recomenda-se imagem com fundo transparente."
             )
 
-            # Prévia visual imediata para o usuário não ficar confuso
+
             if arquivo_upd_logo:
                 st.image(arquivo_upd_logo, width=140, caption="Prévia do arquivo selecionado")
             btn_atualizar = st.form_submit_button("💾 Salvar Alterações do Cliente", use_container_width=True)
@@ -522,7 +342,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                         )
                     conn_up.commit()
                                         
-                    # st.toast sobrevive ao st.rerun() e fica visível no canto inferior direito
+
                     st.session_state["msg_sucesso"] = "Logotipo e dados atualizados com sucesso!"
                     st.rerun()
                 except Exception as err_up:
@@ -557,14 +377,14 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
             else:
                 st.warning("Preencha a Razão Social e o CNPJ.")
 
-    # DASHBOARD + PAINEL DE CONTROLE DO ADMINISTRADOR
+    
     else:
         if not cliente_ativo_id:
             st.warning("Selecione um cliente ativo na barra lateral para visualizar o Dashboard.")
         else:
             conn = get_connection()
             
-            # 1. CONSULTA DADOS CADASTRAIS COMPLETOS (DADOS CCMEI)
+    
             try:
                 df_clientes_cad = pd.read_sql_query(
                     """
@@ -587,7 +407,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                     params=(cliente_ativo_id,),
                 )
             except Exception as err_sql:
-                # DESTRAVA A CONEXÃO: essencial para não causar o InFailedSqlTransaction
+    
                 conn.rollback()
                 st.error(f"Aviso de leitura cadastral: {err_sql}")
                 df_clientes_cad = pd.read_sql_query(
@@ -610,34 +430,15 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                     params=(cliente_ativo_id,),
                 )
 
-            # 2. CONSULTA LANÇAMENTOS DO LIVRO CAIXA
-            #df_lancamentos = pd.read_sql_query(
-            #    "SELECT data, conta_debito, conta_credito, valor, historico FROM lancamentos WHERE cliente_id = %s",
-            #    conn,
-            #    params=(cliente_ativo_id,)
-            #)
-
-            # 3. CONSULTA PROVISÕES (CONTAS A PAGAR)
-            #try:
-            #    df_provisoes = pd.read_sql_query(
-            #        "SELECT valor FROM provisoes WHERE cliente_id = %s AND status = 'Pendente'",
-            #        conn,
-            #        params=(cliente_ativo_id,)
-            #    )
-            #    a_pagar_tot = df_provisoes["valor"].sum() if not df_provisoes.empty else 0.0
-            #except Exception:
-            #    a_pagar_tot = 0.0
-
+    
             conn.close()
-            # 2 e 3. CONSULTAS INSTANTÂNEAS DIRETO DO CACHE
+    
             df_lancamentos = carregar_lancamentos(cliente_ativo_id)
             df_provisoes = carregar_provisoes_pendentes(cliente_ativo_id)
             a_pagar_tot = df_provisoes["valor"].sum() if not df_provisoes.empty else 0.0
 
 
-            # -----------------------------------------------------------------
-            # FICHA CADASTRAL UNIFICADA (DADOS DO CCMEI)
-            # -----------------------------------------------------------------
+    
             if not df_clientes_cad.empty:
                 row_cli = df_clientes_cad.iloc[0]
                 
@@ -670,22 +471,20 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
             st.divider()
 
-            # -----------------------------------------------------------------
-            # PAINEL DE MÉTRICAS (KPIS) - CÁLCULO PADRONIZADO E RIGOROSO
-            # -----------------------------------------------------------------
+    
             st.markdown("##### Painel de Controle Financeiro (MEI)")
 
-            # 1. Receita Realizada: Crédito em Contas do Grupo 3 (Receitas)
+    
             rec_tot = df_lancamentos[
                 df_lancamentos["conta_credito"].str.contains("3\.|Receita", case=False, na=False)
             ]["valor"].sum() if not df_lancamentos.empty else 0.0
 
-            # 2. Despesas Pagas: Débito em Contas do Grupo 4 (Despesas/Estoque)
+    
             desp_tot = df_lancamentos[
                 df_lancamentos["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)
             ]["valor"].sum() if not df_lancamentos.empty else 0.0
 
-            # 3. Saldo em Caixa: (Débitos em Caixa/Banco) - (Créditos em Caixa/Banco)
+    
             filtro_caixa = "1.1.1|Caixa|Banco"
             ent_caixa = df_lancamentos[
                 df_lancamentos["conta_debito"].str.contains(filtro_caixa, case=False, na=False)
@@ -696,10 +495,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
             ]["valor"].sum() if not df_lancamentos.empty else 0.0
 
             saldo_caixa = ent_caixa - sai_caixa
-            #------------------------------------------------------------------------------------------
-            # 2. EXIBIÇÃO DOS CARTÕES EM HTML/CSS
-            #------------------------------------------------------------------------------------------
-            # --- CÁLCULOS PARA DESDOBRAMENTO (BANCO E CAIXA) ---
+    
             filtro_caixa_fisico = "1.1.1.01|caixa geral|caixa físico|dinheiro"
             filtro_bancos = "1.1.1.02|1.1.1.03|banco|itau|bradesco|inter|nubank|cef|bb"
 
@@ -715,11 +511,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
             sai_bc = df_lancamentos[df_lancamentos["conta_credito"].str.contains(filtro_bancos, case=False, na=False)]["valor"].sum() if not df_lancamentos.empty else 0.0
             saldo_disp_bancos = ent_bc - sai_bc
             
-        # Trecho de PAINEL-Dashboard excluído
-            
-            # -----------------------------------------------------------------
-            # ACOMPANHAMENTO DO LIMITE ANUAL MEI
-            # -----------------------------------------------------------------
+    
             percentual_real = (rec_tot / limite_val) * 100 if limite_val > 0 else 0.0
             st.markdown(f"##### Acompanhamento do Limite Anual MEI (Teto: {formatar_brl(limite_val)})")
             
@@ -737,9 +529,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
             st.divider()
 
-            # -----------------------------------------------------------------
-            # DESPESAS POR CATEGORIA (GRÁFICO)
-            # -----------------------------------------------------------------
+    
             st.markdown("##### Despesas por Categoria")
             if not df_lancamentos.empty:
                 df_despesas = df_lancamentos[df_lancamentos["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)].copy()
@@ -767,9 +557,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
             else:
                 st.info(" Nenhum lançamento registrado.")
 
-        # -----------------------------------------------------------------
-        # FERRAMENTAS DO ADMINISTRADOR (EXPANDER EXCLUSIVO)
-        # -----------------------------------------------------------------
+    
         EMAILS_ADMIN = [
             "luizcasemiro@kazimm.com.br",
             "luizti.kazimm@gmail.com"
@@ -785,21 +573,11 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                     " Carteira de Clientes"
                 ])
 
-                # ABA 1: EDITAR (AGORA COM UPLOAD DE LOGO)
+    
                 with tab_edit:
-                        #conn_sel = get_connection()
-                        #df_todos_cli = pd.read_sql_query(
-                        #    """
-                        #    SELECT id, nome, cnpj_cpf, COALESCE(cpf, '') as cpf, regime, 
-                        #           COALESCE(capital_social, 0.00) as capital_social, data_abertura,
-                        #           COALESCE(limite_faturamento, 81000.00) as limite, 
-                        #           COALESCE(telefone, '') as telefone, COALESCE(cnae_atividade, '') as cnae 
-                        #    FROM clientes ORDER BY nome ASC
-                        #    """,
-                        #    conn_sel
-                        #)
+    
                         df_todos_cli = carregar_todos_clientes_completos()
-                        #conn_sel.close()
+    
 
                         if df_todos_cli.empty:
                             st.info("💡 Nenhum cliente cadastrado para edição.")
@@ -829,16 +607,16 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                                     e_tel = st.text_input("Telefone", value=str(row_edit['telefone']))
                                     e_cnae = st.text_input("CNAE / Atividade", value=str(row_edit['cnae']))
 
-                                # BLOCO UPLOAD LOGO NA EDIÇÃO
+    
                                 st.markdown("---")
                                 arquivo_upd_logo = st.file_uploader("Atualizar Logotipo (Opcional)", type=["png", "jpg", "jpeg"], key="upd_logo")
 
                                 if arquivo_upd_logo is not None:
-                                    # 2 MB = 2 * 1024 * 1024 bytes
+    
                                     if arquivo_upd_logo.size > 2 * 1024 * 1024:
                                         st.error("⚠️ O arquivo selecionado excede o limite de 2 MB. Reduza a imagem e tente novamente.")
                                     else:
-                                        # Prossegue com a conversão e o salvamento normal
+    
                                         logo_b64 = processar_logo_empresa(arquivo_upd_logo)
                                 
                                 btn_atualizar = st.form_submit_button("💾 Salvar Alterações do Cliente")
@@ -849,13 +627,13 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                                     cursor_up = conn_up.cursor()
                                     
                                     if logo_b64:
-                                        # Atualiza todos os campos e também a imagem
+    
                                         cursor_up.execute(
                                             "UPDATE clientes SET nome = %s, cnpj_cpf = %s, cpf = %s, regime = %s, capital_social = %s, data_abertura = %s, limite_faturamento = %s, telefone = %s, cnae_atividade = %s, logo_base64 = %s WHERE id = %s",
                                             (e_nome, e_cnpj, e_cpf, e_regime, e_cap_social, e_dt_abertura.strftime("%Y-%m-%d"), e_limite, e_tel, e_cnae, logo_b64, id_cli_editar)
                                         )
                                     else:
-                                        # Se não enviou imagem nova, atualiza apenas os textos
+    
                                         cursor_up.execute(
                                             "UPDATE clientes SET nome = %s, cnpj_cpf = %s, cpf = %s, regime = %s, capital_social = %s, data_abertura = %s, limite_faturamento = %s, telefone = %s, cnae_atividade = %s WHERE id = %s",
                                             (e_nome, e_cnpj, e_cpf, e_regime, e_cap_social, e_dt_abertura.strftime("%Y-%m-%d"), e_limite, e_tel, e_cnae, id_cli_editar)
@@ -866,7 +644,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                                     st.success(f"Dados do cliente '{e_nome}' atualizados!")
                                     st.rerun()
 
-                # ABA 2: CADASTRAR UM NOVO CLIENTE NA CARTEIRA
+    
                 with tab_novo:
                         with st.form("form_novo_cliente_admin"):
                             st.markdown("##### Adicionar Novo MEI à sua Carteira")
@@ -908,12 +686,9 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                                 else:
                                     st.warning("Preencha Razão Social e CNPJ.")
 
-                # ABA 3: CRIAR OU VINCULAR LOGIN DE USUÁRIO À EMPRESA (BLINDADO)
+    
                 with tab_usuario:
-                    #conn_cli = get_connection()
-                    #df_cli_vinc = pd.read_sql_query("SELECT id, nome, cnpj_cpf FROM clientes ORDER BY nome ASC", conn_cli)
-                    #conn_cli.close()
-
+    
                     df_cli_vinc = df_todos_cli[['id', 'nome', 'cnpj_cpf']]
                     
                     if df_cli_vinc.empty:
@@ -941,7 +716,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                                     id_empresa_alvo = dict_cli_vinc[cli_destino_rotulo]
                                     user_id_criado = None
 
-                                    # 1. Tenta criar o usuário no Supabase Auth
+    
                                     try:
                                         res = supabase.auth.sign_up({"email": u_email, "password": u_senha})
                                         if res and res.user:
@@ -949,7 +724,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                                     except Exception:
                                         pass
 
-                                    # 2. Executa a vinculação garantindo insensibilidade de maiúsculas/minúsculas
+    
                                     try:
                                         conn_up_user = get_connection()
                                         cursor_up_user = conn_up_user.cursor()
@@ -971,7 +746,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
                                         conn_up_user.commit()
 
-                                        # Verifica se o user_id foi realmente preenchido
+    
                                         cursor_up_user.execute("SELECT user_id FROM clientes WHERE id = %s", (id_empresa_alvo,))
                                         checar_vincu = cursor_up_user.fetchone()
                                         conn_up_user.close()
@@ -986,32 +761,10 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                                 else:
                                     st.warning("Informe um e-mail válido e uma senha com pelo menos 6 caracteres.")
 
-                # ABA 4: LISTA COMPLETA DA CARTEIRA DE CLIENTES
+    
                 with tab_lista:
                     st.markdown("##### Carteira de Clientes Cadastrados")
-                    #**************************************************
-                    #PARÂMETRO SUBSTITUÍDO - 26/10/26
-                    #**************************************************
-                    #conn_lista = get_connection()
-                    #df_todos_clientes = pd.read_sql_query(
-                    #    """
-                    #    SELECT 
-                    #        id as "ID",
-                    #        nome as "Razão Social", 
-                    #        cnpj_cpf as "CNPJ", 
-                    #        COALESCE(cpf, '-') as "CPF Titular",
-                    #        regime as "Regime Contábil",
-                    #        COALESCE(capital_social, 0.00) as "Capital Social",
-                    #        data_abertura as "Abertura",
-                    #        COALESCE(limite_faturamento, 81000.00) as "Teto (R$)",
-                    #        COALESCE(telefone, '-') as "Telefone",
-                    #        COALESCE(cnae_atividade, '-') as "CNAE"
-                    #    FROM clientes 
-                    #    ORDER BY nome ASC
-                    #    """,
-                    #    conn_lista
-                    #)
-                    #conn_lista.close()
+    
 
                     df_todos_clientes = df_todos_cli.rename(columns={
                         "nome": "Razão Social", "cnpj_cpf": "CNPJ", "cpf": "CPF Titular",
@@ -1023,9 +776,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                         st.info("Nenhum cliente cadastrado até o momento.")
                     else:
                         st.dataframe(df_todos_clientes, use_container_width=True, hide_index=True)
-#fim do bloco
 
-# BLOCO CADASTRAR CONTAS / FORNECEDORES (COM BANNER DE CLIENTE ATIVO)
 elif opcao == "Cadastrar Conta / Fornecedor":
     st.subheader("Gestão de Contas e Fornecedores")
 
@@ -1048,15 +799,9 @@ elif opcao == "Cadastrar Conta / Fornecedor":
             nome_cliente = df_cliente.iloc[0]["nome"]
             regime_cliente = df_cliente.iloc[0]["regime"]
             
-            # Banner informativo do Cliente Ativo (Alterado:13/10/26)
-            # st.info(f"Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
-
-            # -----------------------------------------------------------------
-            # FORMULÁRIOS LADO A LADO
-            # -----------------------------------------------------------------
             col_cadastro, col_edicao = st.columns(2)
 
-            # COLUNA ESQUERDA: CADASTRO
+
             with col_cadastro:
                 st.markdown("##### Cadastro de Contas no Plano de Contas / Fornecedor")
                 with st.form("form_cadastrar_conta_nova", clear_on_submit=True):
@@ -1087,7 +832,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                         else:
                             st.error("Preencha o Código e o Nome da Conta.")
 
-            # COLUNA DIREITA: ALTERAÇÃO / EXCLUSÃO
+
             with col_edicao:
                 st.markdown("##### Alterar ou Excluir Conta / Fornecedor")
                 
@@ -1159,9 +904,6 @@ elif opcao == "Cadastrar Conta / Fornecedor":
                 else:
                     st.info("Nenhuma conta cadastrada para modificar.")
 
-            # -----------------------------------------------------------------
-            # TABELA INFERIOR: PLANO DE CONTAS ATUAL
-            # -----------------------------------------------------------------
             st.markdown("---")
             st.write("### Plano de Contas Atual")
             if 'df_plano' in locals() and not df_plano.empty:
@@ -1170,9 +912,7 @@ elif opcao == "Cadastrar Conta / Fornecedor":
             else:
                 st.info("Nenhuma conta cadastrada no momento.")
                 
-# fim do bloco
 
-# BLOCO DE PLANO DE CONTAS (COM BANNER DE CLIENTE ATIVO)
 elif opcao == "Plano de Contas":
     st.subheader("Plano de Contas Simplificado (MEI)")
 
@@ -1182,7 +922,7 @@ elif opcao == "Plano de Contas":
         st.warning("Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
         conn = get_connection()
-        # 1. Busca os dados do cliente ativo para exibição no banner
+
         df_cliente = pd.read_sql_query(
             "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
             conn, 
@@ -1196,10 +936,7 @@ elif opcao == "Plano de Contas":
             nome_cliente = df_cliente.iloc[0]["nome"]
             regime_cliente = df_cliente.iloc[0]["regime"]
             
-            # Banner informativo do Cliente Ativo (Modificado: 13/10/26)
-            # st.info(f"Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
 
-            # 2. Busca as contas cadastradas no Plano de Contas
             df_plano = pd.read_sql_query(
                 """
                 SELECT 
@@ -1275,12 +1012,6 @@ elif opcao == "Plano de Contas":
                     file_name="plano_de_contas_mei.csv",
                     mime="text/csv",
                 )
-# Fim do BLOCO
-
-# BLOCO DE LANÇAMENTOS - Novo lançamento
-# ==========================================
-# CÓDIGO OTIMIZADO (100% MEMÓRIA RAM)
-# ==========================================
 elif opcao == "Novo Lançamento":
     st.subheader("Registro de Lançamento Contábil")
 
@@ -1290,7 +1021,6 @@ elif opcao == "Novo Lançamento":
     from datetime import datetime
     mes_atual_cod = datetime.now().strftime("%Y-%m")
     
-    # 1. OTIMIZAÇÃO: Conta os lançamentos do mês direto da memória RAM
     if not df_lanc_global.empty and "data" in df_lanc_global.columns:
         total_mes = int(df_lanc_global[df_lanc_global["data"].astype(str).str.startswith(mes_atual_cod)].shape[0])
     else:
@@ -1304,13 +1034,13 @@ elif opcao == "Novo Lançamento":
         exibir_bloqueio_upgrade("Lançamentos Ilimitados", plano_minimo="pro")
         st.stop()
 
-    # 2. OTIMIZAÇÃO: Reutiliza o cliente e plano de contas já carregados na RAM
+
     regime_cliente = regime_empresa if 'regime_empresa' in locals() else "MEI (Microempreendedor Individual)"
     cliente_selecionado = nome_empresa if 'nome_empresa' in locals() else "Cliente"
     df_contas = carregar_plano_contas(cliente_ativo_id)
     
     
-    # 1. Filtra dinamicamente as Contas Financeiras (Caixas e Bancos / Ativo / Grupo 1.1)
+
     df_fin = df_contas[
         df_contas["tipo"].str.contains("Ativo", case=False, na=False) | 
         df_contas["codigo"].str.startswith("1.1") |
@@ -1321,7 +1051,7 @@ elif opcao == "Novo Lançamento":
     else:
         opcoes_financeiras = ["1.1.1.01 - Caixa Geral", "1.1.1.02 - Banco Conta Movimento"]
 
-    # 2. Filtra dinamicamente Fornecedores e Despesas (Grupo 4, Grupo 2, Despesas e Passivos)
+
     df_desp = df_contas[
         df_contas["tipo"].str.contains("Despesa|Passivo", case=False, na=False) | 
         df_contas["codigo"].str.startswith("4") |
@@ -1332,7 +1062,7 @@ elif opcao == "Novo Lançamento":
     else:
         opcoes_fornecedores_despesa = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_contas.iterrows()]
 
-    # 3. Filtra dinamicamente Receitas (Grupo 3 ou Tipo Receita)
+
     df_rec = df_contas[
         df_contas["tipo"].str.contains("Receita", case=False, na=False) | 
         df_contas["codigo"].str.startswith("3")
@@ -1342,18 +1072,15 @@ elif opcao == "Novo Lançamento":
     else:
         opcoes_rec = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_contas.iterrows()]
 
-# Linha modificada - 26/10/2026
+
     if not cliente_ativo_id or df_info_cli.empty:
         st.warning("Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral.")
     else:
         cliente_selecionado = df_info_cli.iloc[0]["nome"]
         regime_cliente = df_info_cli.iloc[0]["regime"]
         
-        # Garante compatibilidade caso o formulário ainda use dict_clientes_id
-        dict_clientes_id = {cliente_selecionado: cliente_ativo_id}
-#Fim da consulta
 
-        # st.info(f"Cliente Ativo: **{cliente_selecionado}** | Regime: **{regime_cliente}**")
+        dict_clientes_id = {cliente_selecionado: cliente_ativo_id}
 
         historicos_padrao = [
             "Digitar Histórico do Zero",
@@ -1366,16 +1093,14 @@ elif opcao == "Novo Lançamento":
             "Pg. Bazar Amigão de Madureita - NFc:",
         ]
 
-        # --- ESTRUTURA MEI / LIVRO CAIXA ---
+
         if "Lançamento Simples" in regime_cliente:
             tab_entrada, tab_saida = st.tabs([
                 "(+) ENTRADAS / RECEITAS", 
                 "(-) SAÍDAS / DESPESAS E ESTOQUE"
             ])
 
-            # -----------------------------------------------------------------
-            # ABA 1: ENTRADAS / RECEITAS
-            # -----------------------------------------------------------------
+
             with tab_entrada:
                 with st.form("form_entrada", clear_on_submit=True):
                     st.markdown("##### ⚡ Registrar Entrada de Caixas / Receitas")
@@ -1395,7 +1120,7 @@ elif opcao == "Novo Lançamento":
 
                     col_s1, col_s2 = st.columns(2)
                     with col_s1:
-                        # --- ALTERAÇÃO: UTILIZA LISTA DINÂMICA DE BANCOS / CAIXA ---
+
                         conta_financeira = st.selectbox(
                             "Conta de Destino (Onde o dinheiro entrou)",
                             opcoes_financeiras,
@@ -1411,7 +1136,7 @@ elif opcao == "Novo Lançamento":
                     salvar_ent = st.form_submit_button("Registrar Entrada")
 
                     if salvar_ent:
-                        # VALIDAÇÕES EXPLÍCITAS
+
                         if not conta_financeira:
                             st.warning("⚠️ Selecione a **Conta de Destino** (onde o dinheiro entrou).")
                         elif not categoria:
@@ -1421,11 +1146,11 @@ elif opcao == "Novo Lançamento":
                         elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
                             st.warning("⚠️ Você escolheu 'Digitar Histórico do Zero'. Por favor, escreva o **Complemento do Histórico**.")
                         else:
-                            # SE PASSOU NAS VALIDAÇÕES, GRAVA NO BANCO
+
                             info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + (f" - {nome_cliente_rec.strip()}" if nome_cliente_rec.strip() else "") + "]"
                             hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
 
-                            # Gravação ultrarrápida via API REST do Supabase
+
                             supabase.table("lancamentos").insert({
                                 "cliente_id": cliente_ativo_id,
                                 "data": str(data),
@@ -1437,11 +1162,8 @@ elif opcao == "Novo Lançamento":
 
                             limpar_cache()
                             st.success("✅ Entrada registrada com sucesso!")
-                            st.rerun() # Limpa o formulário
+                            st.rerun()
 
-            # -----------------------------------------------------------------
-            # ABA 2: SAÍDAS / DESPESAS
-            # -----------------------------------------------------------------
             with tab_saida:
                 with st.form("form_saida", clear_on_submit=True):
                     st.markdown("##### Registrar Pagamento de Despesa / Fornecedor")
@@ -1459,14 +1181,14 @@ elif opcao == "Novo Lançamento":
 
                     col_s1, col_s2 = st.columns(2)
                     with col_s1:
-                        # --- ALTERAÇÃO: UTILIZA LISTA DINÂMICA DE BANCOS / CAIXA (RESOLVE O PROBLEMA DA IMAGEM) ---
+
                         conta_financeira = st.selectbox(
                             "Forma de Pagamento (De onde saiu o dinheiro)",
                             opcoes_financeiras,
                             key="cf_sai"
                         )
                     with col_s2:
-                        # Seleção direta do Grupo 4/Fornecedores dinâmico
+
                         categoria = st.selectbox(
                             "Fornecedor / Conta de Despesa (Grupo 4)", 
                             opcoes_fornecedores_despesa, 
@@ -1480,7 +1202,7 @@ elif opcao == "Novo Lançamento":
                     salvar_sai = st.form_submit_button("Registrar Saída")
 
                     if salvar_sai:
-                        # VALIDAÇÕES EXPLÍCITAS
+
                         if not conta_financeira:
                             st.warning("⚠️ Selecione a **Forma de Pagamento** (de onde saiu o dinheiro).")
                         elif not categoria:
@@ -1490,11 +1212,11 @@ elif opcao == "Novo Lançamento":
                         elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
                             st.warning("⚠️ Você escolheu 'Digitar Histórico do Zero'. Por favor, escreva o **Complemento do Histórico**.")
                         else:
-                            # SE PASSOU NAS VALIDAÇÕES, GRAVA NO BANCO
+
                             info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + "]"
                             hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
 
-                            # Gravação ultrarrápida via API REST do Supabase
+
                             supabase.table("lancamentos").insert({
                                 "cliente_id": cliente_ativo_id,
                                 "data": str(data),
@@ -1508,7 +1230,7 @@ elif opcao == "Novo Lançamento":
                             st.success("✅ Saída registrada com sucesso!")
                             st.rerun() # Limpa o formulário
 
-        # --- PARTIDA DUPLA COMPLETA ---
+
         else:
             with st.form("form_partida_dupla", clear_on_submit=True):
                 st.markdown("##### Preenchimento por Partida Dupla")
@@ -1527,7 +1249,7 @@ elif opcao == "Novo Lançamento":
                 salvar_pd = st.form_submit_button("Registrar Lançamento")
 
                 if salvar_pd:
-                    # VALIDAÇÕES EXPLÍCITAS
+
                     if not conta_debito:
                         st.warning("⚠️ Selecione a **Conta Débito**.")
                     elif not conta_credito:
@@ -1537,7 +1259,7 @@ elif opcao == "Novo Lançamento":
                     elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
                         st.warning("⚠️ Você escolheu 'Digitar Histórico do Zero'. Por favor, preencha o **Complemento do Histórico**.")
                     else:
-                        # SE PASSOU NAS VALIDAÇÕES, GRAVA NO BANCO
+
                         hist_final = comp_hist if hist_sel == "Digitar Histórico do Zero" else f"{hist_sel} {comp_hist}"
                         conn = get_connection()
                         cursor = conn.cursor()
@@ -1549,16 +1271,12 @@ elif opcao == "Novo Lançamento":
                         conn.close()
                         limpar_cache()
                         st.success("✅ Lançamento em Partida Dupla registrado!")
-                        st.rerun() #Limpa o formulário
+                        st.rerun()
                         
-# Fim do BLOCO
 
-# =========================================================
-# MÓDULO: IMPORTAÇÃO EM LOTE (OFX / PLANILHA)
-# =========================================================
 elif "Importação em Lote" in opcao:
     st.subheader("Importação em Lote de Lançamentos")
-    # Trava do Plano Pro
+
     plano_atual = st.session_state.get("plano_ativo", "gratis")
     if not REGRAS_PLANOS.get(plano_atual, {}).get("importacao_lote", False):
         exibir_bloqueio_upgrade("Importação em Lote (OFX e Planilhas)", plano_minimo="pro")
@@ -1570,7 +1288,7 @@ elif "Importação em Lote" in opcao:
     if not cliente_ativo_id:
         st.warning("⚠️ Selecione um cliente ativo na barra lateral para prosseguir.")
     else:
-        # Carrega as contas do cliente para as caixas de seleção
+
         conn = get_connection()
         try:
             conn.commit()
@@ -1596,9 +1314,6 @@ elif "Importação em Lote" in opcao:
 
         dados_processados = []
 
-        # ---------------------------------------------------------
-        # FLUXO A: IMPORTAÇÃO POR EXTRATO OFX
-        # ---------------------------------------------------------
         if tipo_origem == "Extrato Bancário (.OFX)":
             col_b1, col_b2 = st.columns([1.5, 2])
             with col_b1:
@@ -1629,16 +1344,13 @@ elif "Importação em Lote" in opcao:
                             "Tipo": tipo_mov,
                             "Valor": abs(v),
                             "Histórico / Descrição": memo,
-                            "Conta Contrapartida": ""  # Usuário define na revisão
+                            "Conta Contrapartida": "" 
                         })
 
                     st.success(f"✅ Extrato lido com sucesso: **{len(dados_processados)} transações** identificadas!")
                 except Exception as e:
                     st.error(f"Erro ao processar arquivo OFX: {e}")
 
-        # ---------------------------------------------------------
-        # FLUXO B: IMPORTAÇÃO POR PLANILHA
-        # ---------------------------------------------------------
         else:
             col_p1, col_p2 = st.columns([1.2, 2])
             with col_p1:
@@ -1675,27 +1387,24 @@ elif "Importação em Lote" in opcao:
                 except Exception as e:
                     st.error(f"Erro ao processar planilha: {e}")
 
-        # ---------------------------------------------------------
-        # PRÉ-VISUALIZAÇÃO E GRAVAÇÃO EM LOTE NO SUPABASE
-        # ---------------------------------------------------------
         if dados_processados:
             st.markdown("---")
             st.write("#### 🔍 Revisão e Classificação dos Lançamentos")
             st.caption("Classifique as contrapartidas diretamente na tabela abaixo antes de confirmar a importação.")
 
-            # Sugestão automática por palavra-chave para agilizar o trabalho
+
             for item in dados_processados:
                 if not item["Conta Contrapartida"]:
                     memo_upper = item["Histórico / Descrição"].upper()
                     
                     if item["Tipo"] == "Entrada":
-                        # Sugestões para Receitas
+
                         if any(k in memo_upper for k in ["VENDA", "MERCADORIA", "PRODUTO"]):
                             item["Conta Contrapartida"] = next((c for c in contas_receitas if "Mercadoria" in c or "Comércio" in c), contas_receitas[0] if contas_receitas else "")
                         else:
                             item["Conta Contrapartida"] = next((c for c in contas_receitas if "Serviço" in c or "Servico" in c), contas_receitas[0] if contas_receitas else "")
                     else:
-                        # Sugestões para Despesas
+
                         if any(k in memo_upper for k in ["TARIFA", "TAXA", "IOF", "ANUIDADE", "MANUTENCAO"]):
                             item["Conta Contrapartida"] = next((c for c in contas_despesas if "Financeira" in c or "Tarifa" in c or "Banc" in c), contas_despesas[0] if contas_despesas else "")
                         elif any(k in memo_upper for k in ["PECA", "PEÇAS", "FORNECEDOR", "COMPRA", "MATERIAL"]):
@@ -1705,7 +1414,7 @@ elif "Importação em Lote" in opcao:
 
             df_previa = pd.DataFrame(dados_processados)
 
-            # Tabela editável: o cliente pode alterar a conta diretamente pelo dropdown
+
             df_editado = st.data_editor(
                 df_previa,
                 column_config={
@@ -1758,7 +1467,7 @@ elif "Importação em Lote" in opcao:
                         progresso.progress((i + 1) / total)
 
                     conn.commit()
-                    # Limpa a memória e recarrega a tela com os dados atualizados
+
                     limpar_cache()
                     
                     st.success(f"Pronto! **{sucessos} lançamentos** foram importados e classificados com sucesso!")
@@ -1770,11 +1479,11 @@ elif "Importação em Lote" in opcao:
                 finally:
                     conn.close()
 
-# BLOCO PROVISÕES / CONTAS A PAGAR (COM BAIXA AUTOMÁTICA)
+
 elif "Provisões" in opcao:
     st.subheader("Provisões / Contas a Pagar")
 
-    # Trava do Plano Pro
+
     plano_atual = st.session_state.get("plano_ativo", "gratis")
     if not REGRAS_PLANOS.get(plano_atual, {}).get("provisoes", False):
         exibir_bloqueio_upgrade("Agendamento de Provisões e Contas a Pagar", plano_minimo="pro")
@@ -1786,7 +1495,7 @@ elif "Provisões" in opcao:
         st.warning("⚠️ Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
         conn = get_connection()
-        # 1. Dados do cliente ativo para o banner
+
         df_cliente = pd.read_sql_query(
             "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
             conn, 
@@ -1800,11 +1509,7 @@ elif "Provisões" in opcao:
             nome_cliente = df_cliente.iloc[0]["nome"]
             regime_cliente = df_cliente.iloc[0]["regime"]
 
-            # st.info(f"Cliente Ativo em Atendimento: **{nome_cliente}** | Regime: **{regime_cliente}**")
 
-            # -----------------------------------------------------------------
-            # FORMULÁRIO DE CADASTRO DE PROVISÃO
-            # -----------------------------------------------------------------
             with st.expander("Agendar Nova Guia / Conta a Pagar", expanded=True):
                 with st.form("form_nova_provisao", clear_on_submit=True):
                     col_p1, col_p2, col_p3 = st.columns([2, 1, 1])
@@ -1837,7 +1542,7 @@ elif "Provisões" in opcao:
 
             st.markdown("---")
 
-            # 2. Busca provisões cadastradas
+
             df_provisoes = pd.read_sql_query(
                 """
                 SELECT id, descricao, tipo, valor, data_vencimento, status 
@@ -1856,7 +1561,7 @@ elif "Provisões" in opcao:
                 df_pendentes = df_provisoes[df_provisoes["status"] == "Pendente"]
                 df_pagas = df_provisoes[df_provisoes["status"] == "Pago"]
 
-                # KPIs Rápidos
+
                 total_pendente = df_pendentes["valor"].sum() if not df_pendentes.empty else 0.0
                 st.write(f"##### Guias e Contas Pendentes (Total: **{formatar_brl(total_pendente)}**)")
 
@@ -1872,15 +1577,15 @@ elif "Provisões" in opcao:
                             st.caption(f"Valor a Pagar: **{formatar_brl(row['valor'])}** | Status: **{row['status']}**")
 
                         with col_acao:
-                            # Botão de baixa rápida que liquida e lança no caixa
+
                             if st.button("Pagar / Dar Baixa", key=f"btn_pago_{row['id']}"):
                                 conn_baixa = get_connection()
                                 cursor_baixa = conn_baixa.cursor()
                                 
-                                # Atualiza status na tabela de provisões
+
                                 cursor_baixa.execute("UPDATE provisoes SET status = 'Pago' WHERE id = %s", (row['id'],))
                                 
-                                # Gera lançamento automático de saída no Livro Caixa
+
                                 cursor_baixa.execute(
                                     """
                                     INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
@@ -1895,7 +1600,7 @@ elif "Provisões" in opcao:
                                 st.rerun()
                         st.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
 
-                # Histórico de Contas Pagas
+
                 if not df_pagas.empty:
                     with st.expander("Ver Histórico de Contas Já Pagas", expanded=False):
                         df_pagas_exib = df_pagas.copy()
@@ -1904,9 +1609,7 @@ elif "Provisões" in opcao:
                             df_pagas_exib[["data_vencimento", "descricao", "tipo", "valor", "status"]],
                             use_container_width=True
                         )
-#Fim do Bloco
 
-# BLOCO IMPORTAR EXTRATO / PLANILHA EXCEL
 elif opcao == "Importar Extrato / Excel":
     st.subheader("Importação de Planilha do Cliente (Excel)")
 
@@ -1917,7 +1620,7 @@ elif opcao == "Importar Extrato / Excel":
     else:
         st.info("Envie a planilha do cliente para realizar a leitura e o registro automático no Livro Caixa.")
 
-        # Aceita arquivos .xlsx, .xls e .xlsm (com macros)
+
         arquivo = st.file_uploader("Selecione a planilha do cliente", type=["xlsx", "xls", "xlsm"])
 
         if arquivo is not None:
@@ -1933,19 +1636,19 @@ elif opcao == "Importar Extrato / Excel":
                     importados = 0
 
                     for idx, row in df.iterrows():
-                        # Trata a data
+
                         data_val = pd.to_datetime(row.get("Data"), errors="coerce")
                         if pd.isna(data_val):
                             continue
                         data_str = data_val.strftime("%Y-%m-%d")
 
-                        # Trata descrição e categoria
+
                         desc = str(row.get("Descrição", "") or "").strip()
                         cat = str(row.get("Categoria", "") or "").strip()
                         if cat.lower() in ["nan", "none", ""]:
                             cat = "Despesas Gerais"
 
-                        # Mapeia colunas de nota fiscal e série da planilha
+
                         doc_num = row.get("Nfe / Cupom") or row.get("NFe_Cupom/Série") or row.get("NFe") or ""
                         serie_num = row.get("Série") or ""
                         
@@ -1954,14 +1657,14 @@ elif opcao == "Importar Extrato / Excel":
                         
                         doc_info = f"{doc_str} (Série {serie_str})" if (doc_str and serie_str) else (doc_str or serie_str or "S/N")
 
-                        # Trata valores monetários
+
                         val_saida = float(row.get("Valor Saída", 0) if pd.notna(row.get("Valor Saída")) else 0)
                         val_entrada = float(row.get("Valor Entrada", 0) if pd.notna(row.get("Valor Entrada")) else 0)
 
-                        # Formata o histórico do lançamento
+
                         historico = f"{desc} | Doc: {doc_info} | Cat: {cat}".strip(" |")
 
-                        # 1. ENTRADAS (RECEITAS)
+
                         if val_entrada > 0:
                             cursor.execute(
                                 """
@@ -1972,7 +1675,7 @@ elif opcao == "Importar Extrato / Excel":
                             )
                             importados += 1
 
-                        # 2. SAÍDAS (DESPESAS)
+
                         if val_saida > 0:
                             conta_debito_despesa = f"4.1.1 - {cat}"
                             cursor.execute(
@@ -1994,7 +1697,7 @@ elif opcao == "Importar Extrato / Excel":
             except Exception as e:
                 st.error(f"Erro ao processar o arquivo Excel: {e}")#Fim do Bloco
 
-# BLOCO VER, FILTRAR, EDITAR E EXCLUIR LANÇAMENTOS
+
 elif opcao == "Ver Lançamentos":
     st.subheader("Livro Caixa - Consulta, Edição & Exclusão")
 
@@ -2006,18 +1709,15 @@ elif opcao == "Ver Lançamentos":
     else:
         conn = get_connection()
         
-        # 1. OTIMIZAÇÃO: Usa os dados que já estão na memória RAM (Zero latência)
+
         df_clientes_cad = df_info_cli
 
         
-        # 2. BUSCA LANÇAMENTOS DO CLIENTE
+
         conn.close()
-        # OTIMIZAÇÃO: Busca o histórico diretamente da memória RAM
+
         df_lancamentos = carregar_lancamentos(cliente_ativo_id)
 
-        # -----------------------------------------------------------------
-        # CABEÇALHO: FICHA CADASTRAL DO CLIENTE ATIVO
-        # -----------------------------------------------------------------
         if not df_clientes_cad.empty:
             row_cli = df_clientes_cad.iloc[0]
             with st.container(border=True):
@@ -2036,9 +1736,7 @@ elif opcao == "Ver Lançamentos":
 
         st.divider()
 
-        # -----------------------------------------------------------------
-        # FILTROS E EXIBIÇÃO DA TABELA
-        # -----------------------------------------------------------------
+
         if df_lancamentos.empty:
             st.info("Nenhum lançamento encontrado para este cliente.")
         else:
@@ -2079,7 +1777,7 @@ elif opcao == "Ver Lançamentos":
                         ["Todas"] + contas_unicas
                     )
 
-            # Aplicação dos Filtros
+
             df_filtrado = df_lancamentos.copy()
 
             df_filtrado = df_filtrado[
@@ -2102,7 +1800,7 @@ elif opcao == "Ver Lançamentos":
                     (df_filtrado["conta_credito"] == conta_sel)
                 ]
 
-            # Exibição dos resultados
+
             total_registros = len(df_filtrado)
             soma_valor = df_filtrado["valor"].sum() if not df_filtrado.empty else 0.0
 
@@ -2129,15 +1827,13 @@ elif opcao == "Ver Lançamentos":
                 hide_index=True
             )
 
-            # -----------------------------------------------------------------
-            # AÇÕES: EDITAR OU EXCLUIR LANÇAMENTO SELECIONADO
-            # -----------------------------------------------------------------
+
             st.divider()
             with st.expander("🛠️ Ações: Alterar ou Excluir um Lançamento", expanded=True):
                 if df_filtrado.empty:
                     st.info("Nenhum lançamento disponível para alteração/exclusão com os filtros atuais.")
                 else:
-                    # Mapeia os lançamentos filtrados para a seleção
+
                     dict_lancamentos = {}
                     for _, r in df_filtrado.iterrows():
                         dt_fmt = r["data_dt"].strftime("%d/%m/%Y") if pd.notna(r["data_dt"]) else ""
@@ -2153,12 +1849,12 @@ elif opcao == "Ver Lançamentos":
                     id_alvo = dict_lancamentos[item_selecionado_rotulo]
                     row_alvo = df_lancamentos[df_lancamentos["id"] == id_alvo].iloc[0]
 
-                    #ALTERA LANÇAMENTO - LISTA SUSPENSA DO PLANO DE CONTAS
+
                     tab_alt, tab_exc = st.tabs(["Alterar Lançamento", "Excluir Lançamento"])
 
-                    # ABA ALTERAR
+
                     with tab_alt:
-                        # Captura o ID do cliente ativo no sistema
+
                         cid_raw = st.session_state.get('cliente_id') or st.session_state.get('cliente_id_ativo')
                         if not cid_raw:
                             cid_raw = (
@@ -2169,7 +1865,7 @@ elif opcao == "Ver Lançamentos":
                             )
                         cid_val = int(cid_raw) if cid_raw else None
 
-                        # 1. OTIMIZAÇÃO: Busca as contas direto da memória RAM (Sem conexões lentas)
+
                         df_plano = carregar_plano_contas(cid_val)
 
                         if not df_plano.empty:
@@ -2177,11 +1873,11 @@ elif opcao == "Ver Lançamentos":
                         else:
                             lista_contas = []
 
-                        # 2. Pega as contas atuais do lançamento selecionado
+
                         c_deb_atual = str(row_alvo["conta_debito"])
                         c_cred_atual = str(row_alvo["conta_credito"])
 
-                        # Se a conta atual não estiver no plano, adiciona temporariamente para não dar erro
+
                         if c_deb_atual and c_deb_atual not in lista_contas:
                             lista_contas.append(c_deb_atual)
                         if c_cred_atual and c_cred_atual not in lista_contas:
@@ -2189,11 +1885,11 @@ elif opcao == "Ver Lançamentos":
 
                         lista_contas = sorted(list(set(lista_contas)))
 
-                        # 3. Descobre a posição (índice) atual das contas para deixar selecionado
+
                         idx_deb = lista_contas.index(c_deb_atual) if c_deb_atual in lista_contas else 0
                         idx_cred = lista_contas.index(c_cred_atual) if c_cred_atual in lista_contas else 0
 
-                        # 4. FORMULÁRIO COM LISTAS SUSPENSAS (st.selectbox)
+
                         with st.form("form_editar_lancamento"):
                             col_e1, col_e2 = st.columns(2)
                             
@@ -2232,16 +1928,12 @@ elif opcao == "Ver Lançamentos":
                         st.write(f"**Histórico:** {row_alvo['historico']}")
 
                         if st.button("🚨 Confirmar Exclusão do Lançamento"):
-                            # Exclusão instantânea via API REST (Sem abrir cursor ou commit)
+
                             supabase.table("lancamentos").delete().eq("id", id_alvo).eq("cliente_id", cliente_ativo_id).execute()
                             limpar_cache()
                             st.success(f"Lançamento ID #{id_alvo} excluído com sucesso!")
                             st.rerun()
-#Fim do bloco
 
-# -----------------------------------------------------------------------------
-# MENU: CONCILIAÇÃO BANCÁRIA (COM CONSULTA DIRETA AO BANCO)
-# -----------------------------------------------------------------------------
 elif opcao == "Conciliação Bancária":
     st.markdown("### Conciliação Bancária & Evolução de Saldos")
     st.caption("Verifique as entradas, saídas e o saldo acumulado mês a mês para conferência com o extrato.")
