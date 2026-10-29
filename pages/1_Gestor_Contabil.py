@@ -281,7 +281,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
 
     if qtd_clientes < 1:
-        st.info("👋 Bem-vindo, Administrador! Cadastre a primeira empresa para ativar o sistema.")
+        st.info(f"{ICONES['bem_vindo']} Bem-vindo, Administrador! Cadastre a primeira empresa para ativar o sistema.")
         with st.form("form_cliente_inicial"):
             col_cli1, col_cli2, col_cli3 = st.columns(3)
             with col_cli1:
@@ -310,7 +310,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
             if arquivo_upd_logo:
                 st.image(arquivo_upd_logo, width=140, caption="Prévia do arquivo selecionado")
-            btn_atualizar = st.form_submit_button("💾 Salvar Alterações do Cliente", use_container_width=True)
+            btn_atualizar = st.form_submit_button(f"{ICONES['salvar']} Salvar Alterações do Cliente", use_container_width=True)
 
             if btn_atualizar:
                 logo_b64 = processar_logo_empresa(arquivo_upd_logo)
@@ -350,9 +350,9 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                     st.error(f"Erro ao salvar no banco: {err_up}")
                 finally:
                     conn_up.close()      
-            st.caption("📌 **Dica:** Prefira imagens em formato **PNG com fundo transparente** e tamanho de até **2 MB** para melhor enquadramento nos contratos e relatórios.")
+            st.caption(f"{ICONES['dicas']} **Dica:** Prefira imagens em formato **PNG com fundo transparente** e tamanho de até **2 MB** para melhor enquadramento nos contratos e relatórios.")
             
-            salvar = st.form_submit_button("💾 Cadastrar Primeira Empresa", use_container_width=True)
+            salvar = st.form_submit_button(f"{ICONES['salvar']} Cadastrar Primeira Empresa", use_container_width=True)
 
         if salvar:
             if nome and cnpj_cpf:
@@ -523,9 +523,9 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                 if percentual_real <= 80:
                     st.success("🟢 Faturamento Regular")
                 elif percentual_real <= 100:
-                    st.warning("⚠️ Próximo ao Teto MEI")
+                    st.warning(f"{ICONES['alerta']} Próximo ao Teto MEI")
                 else:
-                    st.error("🚨 Teto MEI Excedido")
+                    st.error(f"{ICONES['erro_grave']} Teto MEI Excedido")
 
             st.divider()
 
@@ -565,7 +565,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
         if st.session_state.user.email in EMAILS_ADMIN:
             st.divider()
-            with st.expander("⚙️ Painel de Administração de Clientes (Exclusivo Contador)", expanded=False):
+            with st.expander(f"{ICONES['configuracoes']} Painel de Administração de Clientes (Exclusivo Contador)", expanded=False):
                 tab_edit, tab_novo, tab_usuario, tab_lista = st.tabs([
                     " Editar Cliente", 
                     " Cadastrar Novo Cliente", 
@@ -580,7 +580,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
     
 
                         if df_todos_cli.empty:
-                            st.info("💡 Nenhum cliente cadastrado para edição.")
+                            st.info(f"{ICONES['atencao']} Nenhum cliente cadastrado para edição.")
                         else:
                             dict_cli_edit = {f"ID #{row['id']} - {row['nome']} ({row['cnpj_cpf']})": row['id'] for _, row in df_todos_cli.iterrows()}
                             cli_sel_rotulo = st.selectbox("🔍 Selecione o cliente para alterar dados:", options=list(dict_cli_edit.keys()))
@@ -614,12 +614,12 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                                 if arquivo_upd_logo is not None:
     
                                     if arquivo_upd_logo.size > 2 * 1024 * 1024:
-                                        st.error("⚠️ O arquivo selecionado excede o limite de 2 MB. Reduza a imagem e tente novamente.")
+                                        st.error(f"{ICONES['alerta']} O arquivo selecionado excede o limite de 2 MB. Reduza a imagem e tente novamente.")
                                     else:
     
                                         logo_b64 = processar_logo_empresa(arquivo_upd_logo)
                                 
-                                btn_atualizar = st.form_submit_button("💾 Salvar Alterações do Cliente")
+                                btn_atualizar = st.form_submit_button(f"{ICONES['salvar']} Salvar Alterações do Cliente")
 
                                 if btn_atualizar:
                                     logo_b64 = processar_logo_empresa(arquivo_upd_logo)
@@ -709,7 +709,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                             u_email = st.text_input("E-mail do Cliente / Usuário", placeholder="exemplo@gmail.com").strip().lower()
                             u_senha = st.text_input("Senha Provisória (mínimo 6 caracteres)", type="password")
 
-                            btn_criar_user = st.form_submit_button("🔑 Salvar e Liberar Acesso do Cliente")
+                            btn_criar_user = st.form_submit_button(f"{ICONES['salvar']} Salvar e Liberar Acesso do Cliente")
 
                             if btn_criar_user:
                                 if u_email and len(u_senha) >= 6:
@@ -960,7 +960,7 @@ elif opcao == "Plano de Contas":
                 st.info("Nenhuma conta cadastrada no Plano de Contas.")
             else:
                 busca = st.text_input(
-                    "🔍 Buscar Conta ou Fornecedor", placeholder="Ex: Combustível, Ambev ou 4.1.1"
+                    f"{ICONES['pesquisar']} Buscar Conta ou Fornecedor", placeholder="Ex: Combustível, Ambev ou 4.1.1"
                 )
                 if busca:
                     df_plano = df_plano[
@@ -1027,10 +1027,10 @@ elif opcao == "Novo Lançamento":
         total_mes = 0
 
     if total_mes < limite_mes and plano_atual == "gratis":
-        st.info(f"📊 **Consumo do Plano Gratuito:** {total_mes} de {limite_mes} lançamentos utilizados neste mês.")
+        st.info(f"{ICONES['plano_contas']} **Consumo do Plano Gratuito:** {total_mes} de {limite_mes} lançamentos utilizados neste mês.")
 
     if total_mes >= limite_mes:
-        st.error(f"⚠️ **Limite mensal atingido ({total_mes} de {limite_mes} lançamentos) para o período de {mes_atual_cod}.**")
+        st.error(f"{ICONES['alerta']} **Limite mensal atingido ({total_mes} de {limite_mes} lançamentos) para o período de {mes_atual_cod}.**")
         exibir_bloqueio_upgrade("Lançamentos Ilimitados", plano_minimo="pro")
         st.stop()
 
@@ -1103,7 +1103,7 @@ elif opcao == "Novo Lançamento":
 
             with tab_entrada:
                 with st.form("form_entrada", clear_on_submit=True):
-                    st.markdown("##### ⚡ Registrar Entrada de Caixas / Receitas")
+                    st.markdown(f"{ICONES['transmissao']}##### Registrar Entrada de Caixas / Receitas")
                     data = st.date_input("Data do Lançamento", format="DD/MM/YYYY", key="dt_ent")
 
                     c_doc1, c_doc2, c_doc3 = st.columns(3)
@@ -1138,13 +1138,13 @@ elif opcao == "Novo Lançamento":
                     if salvar_ent:
 
                         if not conta_financeira:
-                            st.warning("⚠️ Selecione a **Conta de Destino** (onde o dinheiro entrou).")
+                            st.warning(f"{ICONES['alerta']} Selecione a **Conta de Destino** (onde o dinheiro entrou).")
                         elif not categoria:
-                            st.warning("⚠️ Selecione a **Categoria da Receita**.")
+                            st.warning(f"{ICONES['alerta']} Selecione a **Categoria da Receita**.")
                         elif valor <= 0:
-                            st.warning("⚠️ O **Valor da Receita** deve ser maior que R$ 0,00.")
+                            st.warning(f"{ICONES['alerta']} O **Valor da Receita** deve ser maior que R$ 0,00.")
                         elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
-                            st.warning("⚠️ Você escolheu 'Digitar Histórico do Zero'. Por favor, escreva o **Complemento do Histórico**.")
+                            st.warning(f"{ICONES['alerta']} Você escolheu 'Digitar Histórico do Zero'. Por favor, escreva o **Complemento do Histórico**.")
                         else:
 
                             info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + (f" - {nome_cliente_rec.strip()}" if nome_cliente_rec.strip() else "") + "]"
@@ -1161,7 +1161,7 @@ elif opcao == "Novo Lançamento":
                             }).execute()
 
                             limpar_cache()
-                            st.success("✅ Entrada registrada com sucesso!")
+                            st.success(f"{ICONES['sucesso']} Entrada registrada com sucesso!")
                             st.rerun()
 
             with tab_saida:
@@ -1204,13 +1204,13 @@ elif opcao == "Novo Lançamento":
                     if salvar_sai:
 
                         if not conta_financeira:
-                            st.warning("⚠️ Selecione a **Forma de Pagamento** (de onde saiu o dinheiro).")
+                            st.warning(f"{ICONES['alerta']} Selecione a **Forma de Pagamento** (de onde saiu o dinheiro).")
                         elif not categoria:
-                            st.warning("⚠️ Selecione o **Fornecedor / Conta de Despesa**.")
+                            st.warning(f"{ICONES['alerta']} Selecione o **Fornecedor / Conta de Despesa**.")
                         elif valor <= 0:
-                            st.warning("⚠️ O **Valor da Despesa** deve ser maior que R$ 0,00.")
+                            st.warning(f"{ICONES['alerta']} O **Valor da Despesa** deve ser maior que R$ 0,00.")
                         elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
-                            st.warning("⚠️ Você escolheu 'Digitar Histórico do Zero'. Por favor, escreva o **Complemento do Histórico**.")
+                            st.warning(f"{ICONES['alerta']} Você escolheu 'Digitar Histórico do Zero'. Por favor, escreva o **Complemento do Histórico**.")
                         else:
 
                             info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + "]"
@@ -1227,7 +1227,7 @@ elif opcao == "Novo Lançamento":
                             }).execute()
 
                             limpar_cache()
-                            st.success("✅ Saída registrada com sucesso!")
+                            st.success(f"{ICONES['sucesso']} Saída registrada com sucesso!")
                             st.rerun() # Limpa o formulário
 
 
@@ -1251,13 +1251,13 @@ elif opcao == "Novo Lançamento":
                 if salvar_pd:
 
                     if not conta_debito:
-                        st.warning("⚠️ Selecione a **Conta Débito**.")
+                        st.warning(f"{ICONES['alerta']} Selecione a **Conta Débito**.")
                     elif not conta_credito:
-                        st.warning("⚠️ Selecione a **Conta Crédito**.")
+                        st.warning(f"{ICONES['alerta']} Selecione a **Conta Crédito**.")
                     elif valor <= 0:
-                        st.warning("⚠️ O **Valor** do lançamento deve ser maior que R$ 0,00.")
+                        st.warning(f"{ICONES['alerta']} O **Valor** do lançamento deve ser maior que R$ 0,00.")
                     elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
-                        st.warning("⚠️ Você escolheu 'Digitar Histórico do Zero'. Por favor, preencha o **Complemento do Histórico**.")
+                        st.warning(f"{ICONES['alerta']} Você escolheu 'Digitar Histórico do Zero'. Por favor, preencha o **Complemento do Histórico**.")
                     else:
 
                         hist_final = comp_hist if hist_sel == "Digitar Histórico do Zero" else f"{hist_sel} {comp_hist}"
@@ -1270,7 +1270,7 @@ elif opcao == "Novo Lançamento":
                         conn.commit()
                         conn.close()
                         limpar_cache()
-                        st.success("✅ Lançamento em Partida Dupla registrado!")
+                        st.success(f"{ICONES['sucesso']} Lançamento em Partida Dupla registrado!")
                         st.rerun()
                         
 
@@ -1286,7 +1286,7 @@ elif "Importação em Lote" in opcao:
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
     if not cliente_ativo_id:
-        st.warning("⚠️ Selecione um cliente ativo na barra lateral para prosseguir.")
+        st.warning(f"{ICONES['alerta']} Selecione um cliente ativo na barra lateral para prosseguir.")
     else:
 
         conn = get_connection()
@@ -1347,7 +1347,7 @@ elif "Importação em Lote" in opcao:
                             "Conta Contrapartida": "" 
                         })
 
-                    st.success(f"✅ Extrato lido com sucesso: **{len(dados_processados)} transações** identificadas!")
+                    st.success(f"{ICONES['sucesso']} Extrato lido com sucesso: **{len(dados_processados)} transações** identificadas!")
                 except Exception as e:
                     st.error(f"Erro ao processar arquivo OFX: {e}")
 
@@ -1383,13 +1383,13 @@ elif "Importação em Lote" in opcao:
                             "Histórico / Descrição": str(row.get("descricao", row.get("historico", ""))),
                             "Conta Contrapartida": str(row.get("categoria", ""))
                         })
-                    st.success(f"✅ Planilha lida com sucesso: **{len(dados_processados)} transações** encontradas!")
+                    st.success(f"{ICONES['sucesso']} Planilha lida com sucesso: **{len(dados_processados)} transações** encontradas!")
                 except Exception as e:
                     st.error(f"Erro ao processar planilha: {e}")
 
         if dados_processados:
             st.markdown("---")
-            st.write("#### 🔍 Revisão e Classificação dos Lançamentos")
+            st.write(f"{ICONES['pesquisar']}#### Revisão e Classificação dos Lançamentos")
             st.caption("Classifique as contrapartidas diretamente na tabela abaixo antes de confirmar a importação.")
 
 
@@ -1492,7 +1492,7 @@ elif "Provisões" in opcao:
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
     if not cliente_ativo_id:
-        st.warning("⚠️ Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
+        st.warning(f"{ICONES['alerta']} Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
         conn = get_connection()
 
@@ -1616,7 +1616,7 @@ elif opcao == "Importar Extrato / Excel":
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
     if not cliente_ativo_id:
-        st.warning("⚠️ Selecione um cliente ativo na barra lateral antes de importar.")
+        st.warning(f"{ICONES['alerta']} Selecione um cliente ativo na barra lateral antes de importar.")
     else:
         st.info("Envie a planilha do cliente para realizar a leitura e o registro automático no Livro Caixa.")
 
@@ -1705,7 +1705,7 @@ elif opcao == "Ver Lançamentos":
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
     if not cliente_ativo_id:
-        st.warning("⚠️ Selecione um cliente ativo na barra lateral para visualizar os lançamentos.")
+        st.warning(f"{ICONES['alerta']} Selecione um cliente ativo na barra lateral para visualizar os lançamentos.")
     else:
         conn = get_connection()
         
@@ -1829,7 +1829,7 @@ elif opcao == "Ver Lançamentos":
 
 
             st.divider()
-            with st.expander("🛠️ Ações: Alterar ou Excluir um Lançamento", expanded=True):
+            with st.expander(f"{ICONES['ferramentas']}Ações: Alterar ou Excluir um Lançamento"):
                 if df_filtrado.empty:
                     st.info("Nenhum lançamento disponível para alteração/exclusão com os filtros atuais.")
                 else:
@@ -1923,11 +1923,11 @@ elif opcao == "Ver Lançamentos":
 
                     # ABA EXCLUIR
                     with tab_exc:
-                        st.warning(f"⚠️ Tem certeza que deseja excluir o lançamento **ID #{id_alvo}**?")
+                        st.warning(f"{ICONES['alerta']} Tem certeza que deseja excluir o lançamento **ID #{id_alvo}**?")
                         st.write(f"**Data:** {row_alvo['data_dt'].strftime('%d/%m/%Y') if pd.notna(row_alvo['data_dt']) else ''} | **Valor:** {formatar_brl(row_alvo['valor'])}")
                         st.write(f"**Histórico:** {row_alvo['historico']}")
 
-                        if st.button("🚨 Confirmar Exclusão do Lançamento"):
+                        if st.button(f"{ICONES['erro_grave']} Confirmar Exclusão do Lançamento"):
 
                             supabase.table("lancamentos").delete().eq("id", id_alvo).eq("cliente_id", cliente_ativo_id).execute()
                             limpar_cache()
@@ -1938,7 +1938,7 @@ elif opcao == "Conciliação Bancária":
     st.markdown("### Conciliação Bancária & Evolução de Saldos")
     st.caption("Verifique as entradas, saídas e o saldo acumulado mês a mês para conferência com o extrato.")
 
-    # 1. Identifica o cliente ativo no sistema
+
     cid_raw = st.session_state.get('cliente_id') or st.session_state.get('cliente_id_ativo')
     if not cid_raw:
         cid_raw = (
@@ -1949,7 +1949,7 @@ elif opcao == "Conciliação Bancária":
         )
     cid_val = int(cid_raw) if cid_raw else None
 
-    # 2. Busca os dados diretamente do Supabase de forma segura
+
     df_lancamentos = pd.DataFrame()
     if cid_val:
         try:
@@ -1962,17 +1962,17 @@ elif opcao == "Conciliação Bancária":
         except Exception as e:
             st.error(f"Erro ao carregar lançamentos para a conciliação: {e}")
 
-    # 3. Processamento da Conciliação
+
     if df_lancamentos.empty:
         st.info("Nenhum lançamento encontrado para este cliente para realizar a conciliação.")
     else:
-        # Tratamento das datas
+
         df_conc = df_lancamentos.copy()
         df_conc['data_dt'] = pd.to_datetime(df_conc['data'], errors='coerce')
         df_conc = df_conc.dropna(subset=['data_dt'])
         df_conc['mes_ano'] = df_conc['data_dt'].dt.strftime('%Y-%m')
 
-        # Identifica contas bancárias/caixa
+
         contas_deb = df_conc['conta_debito'].dropna().unique().tolist()
         contas_cred = df_conc['conta_credito'].dropna().unique().tolist()
         todas_contas = sorted(list(set(contas_deb + contas_cred)))
@@ -1988,7 +1988,7 @@ elif opcao == "Conciliação Bancária":
             saldo_ini = st.number_input("Saldo Inicial da Conta (R$):", value=0.00, step=100.00, format="%.2f")
 
         if conta_sel:
-            # Agrupamento mensal do saldo
+
             meses_unicos = sorted(df_conc['mes_ano'].unique())
             dados_conc = []
             saldo_acum = saldo_ini
@@ -2002,7 +2002,7 @@ elif opcao == "Conciliação Bancária":
 
                 dt_ref = pd.to_datetime(m + "-01")
                 
-                # Tradução forçada para o Português (seguro para servidores em nuvem)
+
                 meses_pt = {
                     1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
                     7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
@@ -2022,7 +2022,7 @@ elif opcao == "Conciliação Bancária":
 
             df_conciliado = pd.DataFrame(dados_conc)
 
-            # Exibição dos Indicadores
+
             st.markdown("---")
             m1, m2, m3, m4 = st.columns(4)
             tot_ent = df_conciliado['Entradas (R$)'].sum()
@@ -2034,24 +2034,21 @@ elif opcao == "Conciliação Bancária":
             m3.metric("Total Saídas", f"R$ {tot_sai:,.2f}")
             m4.metric("Saldo Atual", f"R$ {saldo_atual:,.2f}")
 
-            # Tabela de Fechamento Mensal
+
             st.markdown("#### Fechamento Mensal")
             df_exib = df_conciliado.copy()
             for c in ['Saldo Anterior', 'Entradas (R$)', 'Saídas (R$)', 'Resultado do Mês', 'Saldo Final (Calculado)']:
                 df_exib[c] = df_exib[c].apply(lambda x: f"R$ {x:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
 
             st.dataframe(df_exib, use_container_width=True, hide_index=True)
-# FIM DO BLOCO
 
-
-# BLOCO CENTRAL DE RELATÓRIOS (GERENCIAL + OFICIAL MEI)
 elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
     st.subheader("Central de Relatórios Financeiros")
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
     if not cliente_ativo_id:
-        st.warning("⚠️ Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
+        st.warning(f"{ICONES['alerta']} Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
         conn = get_connection()
         try:
@@ -2077,24 +2074,20 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
             regime_cliente = df_cliente.iloc[0]["regime"]
 
             if df_lancamentos.empty:
-                st.info("💡 Nenhum lançamento encontrado para montar relatórios.")
+                st.info(f"{ICONES['atencao']} Nenhum lançamento encontrado para montar relatórios.")
             else:
                 # Criamos os separadores (Tabs)
                 tab_gerencial, tab_oficial, tab_anual = st.tabs([
-                    "📊 Relatório Gerencial (Categorias)", 
-                    "📄 Relatório Oficial MEI (Imprimível)",
-                    "📆 Declaração Anual (DASN-SIMEI)"
+                    f"{ICONES['dre']} Relatório Gerencial (Categorias)", 
+                    f"{ICONES['relatorios']} Relatório Oficial MEI (Imprimível)",
+                    f"{ICONES['agenda']} Declaração Anual (DASN-SIMEI)"
                 ])
 
-                # =========================================================
-                # SEPARADOR 1: O RELATÓRIO GERENCIAL (MENSAL + CATEGORIAS)
-                # =========================================================
+
                 with tab_gerencial:
                     
-                    # ---------------------------------------------------------
-                    # PARTE A: EVOLUÇÃO MENSAL (MACRO)
-                    # ---------------------------------------------------------
-                    st.write("##### 📅 Evolução Mensal (Receitas x Despesas)")
+
+                    st.write(f"{ICONES['agenda']}##### Evolução Mensal (Receitas x Despesas)")
                     
                     df_gerencial = df_lancamentos.copy()
                     df_gerencial['data_dt'] = pd.to_datetime(df_gerencial['data'], errors='coerce')
@@ -2129,7 +2122,7 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                     if dados_mensais:
                         df_evolucao = pd.DataFrame(dados_mensais)
                         
-                        # 1. Tabela Mensal
+
                         df_evolucao_exib = df_evolucao.copy()
                         df_evolucao_exib["Receitas"] = df_evolucao_exib["Receitas"].apply(formatar_brl)
                         df_evolucao_exib["Despesas"] = df_evolucao_exib["Despesas"].apply(formatar_brl)
@@ -2137,7 +2130,7 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                         
                         st.dataframe(df_evolucao_exib, use_container_width=True, hide_index=True)
                         
-                        # 2. Gráfico de Barras
+
                         try:
                             import plotly.graph_objects as go
                             fig_bar = go.Figure()
@@ -2155,9 +2148,6 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
 
                     st.markdown("---")
 
-                    # ---------------------------------------------------------
-                    # PARTE B: ACUMULADO POR CATEGORIA (MICRO)
-                    # ---------------------------------------------------------
                     filtro_caixa_banco = "1.1.1|Caixa|Banco"
 
                     df_entradas = (df_lancamentos[~df_lancamentos["conta_credito"].str.contains(filtro_caixa_banco, case=False, na=False)]
@@ -2189,10 +2179,10 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                         df_exibicao = df_agrupado.copy()
                         df_exibicao["Valor Formatado"] = df_exibicao["Total (R$)"].apply(formatar_brl)
 
-                        st.write("##### 📋 Acumulado por Categoria (Saldo Líquido no Período)")
+                        st.write(f"{ICONES['relatorios']}##### Acumulado por Categoria (Saldo Líquido no Período)")
                         st.dataframe(df_exibicao[["Grupo", "Categoria / Conta", "Valor Formatado"]], use_container_width=True, height=380)
 
-                        st.write("##### 📈 Distribuição Geral de Despesas/Receitas")
+                        st.write(f"{ICONES['planilhas']}##### Distribuição Geral de Despesas/Receitas")
                         try:
                             import plotly.express as px
                             fig = px.pie(df_agrupado, names="Categoria / Conta", values="Total (R$)", color="Grupo", hole=0.4)
@@ -2202,21 +2192,18 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                             st.bar_chart(df_agrupado.set_index("Categoria / Conta")["Total (R$)"])
 
                         csv_rel = df_agrupado.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
-                        st.download_button("📥 Baixar Relatório Gerencial (.csv)", data=csv_rel, file_name=f"relatorio_gerencial_{nome_cliente.replace(' ', '_').lower()}.csv", mime="text/csv")
+                        st.download_button(f"{ICONES['exportar']} Baixar Relatório Gerencial (.csv)", data=csv_rel, file_name=f"relatorio_gerencial_{nome_cliente.replace(' ', '_').lower()}.csv", mime="text/csv")
 
-                # =========================================================
-                # SEPARADOR 2: RELATÓRIO MENSAL OFICIAL MEI (ANEXO XII)
-                # =========================================================
                 with tab_oficial:
                     st.markdown("#### Relatório Mensal das Receitas Brutas (MEI)")
                     st.caption("Documento oficial obrigatório. Selecione o mês para apuração e imprima/salve em PDF.")
                     
-                    # 1. CRIA A VARIÁVEL df_oficial QUE FALTAVA
+
                     df_oficial = df_lancamentos.copy()
                     df_oficial['data_dt'] = pd.to_datetime(df_oficial['data'], errors='coerce')
                     df_oficial = df_oficial.dropna(subset=['data_dt'])
                     
-                    # Dicionário de meses
+
                     meses_pt = {1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun', 7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'}
                     df_oficial['mes_ano_cod'] = df_oficial['data_dt'].dt.strftime('%Y-%m')
                     df_oficial['mes_ano_label'] = df_oficial['data_dt'].apply(lambda x: f"{meses_pt[x.month]}/{x.year}")
@@ -2226,20 +2213,18 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                     if meses_disponiveis.empty:
                         st.info("Nenhuma data válida encontrada nos lançamentos.")
                     else:
-                        # CAIXA DE SELEÇÃO DO MÊS
+
                         dict_meses = dict(zip(meses_disponiveis['mes_ano_label'], meses_disponiveis['mes_ano_cod']))
                         mes_selecionado = st.selectbox("Selecione o Período de Apuração:", list(dict_meses.keys()))
                         cod_mes = dict_meses[mes_selecionado]
                         
-                        # =======================================================
-                        # O NOSSO FILTRO BLINDADO CONTRA EMPRÉSTIMOS E REEMBOLSOS
-                        # =======================================================
+
                         df_mes = df_oficial[
                             (df_oficial['mes_ano_cod'] == cod_mes) & 
                             (df_oficial['conta_credito'].str.contains('^3\.|^Receita', case=False, na=False, regex=True))
                         ]
                         
-                        # Variáveis do Anexo XII
+
                         v_I, v_II = 0.0, 0.0     # Comércio
                         v_IV, v_V = 0.0, 0.0     # Indústria
                         v_VII, v_VIII = 0.0, 0.0 # Serviços
@@ -2249,14 +2234,14 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                             conta = str(row['conta_credito']).lower()
                             hist = str(row['historico']).lower()
                             
-                            # TRAVA DE SEGURANÇA: Ignora reembolso e empréstimo
+
                             if "empréstimo" in conta or "emprestimo" in hist or "reembolso" in conta or "reembolso" in hist:
                                 continue
                                 
-                            # Verifica se teve documento emitido ou foi com dispensa
+
                             sem_doc = "sem documento" in hist
                             
-                            # Classifica a atividade: Se não for nenhum dos 3, é ignorado!
+
                             if "serviço" in conta or "servico" in conta:
                                 if sem_doc: v_VII += val
                                 else: v_VIII += val
@@ -2269,13 +2254,11 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                             else:
                                 pass
                                 
-                        # Totais
                         v_III = v_I + v_II
                         v_VI = v_IV + v_V
                         v_IX = v_VII + v_VIII
                         v_X = v_III + v_VI + v_IX
                         
-                        # HTML e CSS do Relatório Oficial (Pronto para impressão)
                         html_relatorio = f"""
                         <div id="relatorio-mei" style="font-family: Arial, sans-serif; color: #000; background: #fff; max-width: 800px; margin: 0 auto; border: 1px solid #000; padding: 30px; line-height: 1.4;">
                             <h3 style="text-align: center; margin-bottom: 30px; font-size: 16px;">RELATÓRIO MENSAL DAS RECEITAS BRUTAS</h3>
@@ -2359,17 +2342,13 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                         
                         st.components.v1.html(html_relatorio, height=950, scrolling=True)
                         
-                        st.info("💡 **Dica de Impressão:** Para imprimir ou salvar em PDF, clique no botão direito do rato sobre o relatório acima e escolha a opção **Imprimir / Print** (ou use as teclas `Ctrl + P`).")
+                        st.info(f"{ICONES['atencao']}**Dica de Impressão:** Para imprimir ou salvar em PDF, clique no botão direito do rato sobre o relatório acima e escolha a opção **Imprimir / Print** (ou use as teclas `Ctrl + P`).")
                 
-                # =========================================================
-                # SEPARADOR 3: PREPARAÇÃO PARA A DECLARAÇÃO ANUAL (DASN-SIMEI)
-                # =========================================================
                 
                 with tab_anual:
-                    st.markdown("#### 📆 Preparação para a Declaração Anual (DASN-SIMEI)")
+                    st.markdown(f"{ICONES['agenda']}#### Preparação para a Declaração Anual (DASN-SIMEI)")
                     st.caption("Resumo anual do faturamento. Copie os valores abaixo e cole no portal da Receita Federal.")
 
-                    # Trava do Plano Pro
                     plano_atual = st.session_state.get("plano_ativo", "gratis")
                     if not REGRAS_PLANOS.get(plano_atual, {}).get("dasn_simei", False):
                         exibir_bloqueio_upgrade("Declaração Anual Consolidada (DASN-SIMEI)", plano_minimo="pro")
@@ -2388,13 +2367,11 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                     else:
                         ano_selecionado = st.selectbox("Selecione o Ano-Calendário para Apuração:", anos_disponiveis)
 
-                        # Filtro cravado e blindado para o ano inteiro
                         df_ano = df_anual[
                             (df_anual['ano_cod'] == ano_selecionado) & 
                             (df_anual['conta_credito'].str.contains('^3\.|^Receita', case=False, na=False, regex=True))
                         ]
 
-                        # A Receita Federal exige o Faturamento agrupado nestas duas categorias:
                         v_comercio_industria = 0.0
                         v_servicos = 0.0
 
@@ -2403,11 +2380,9 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                             conta = str(row['conta_credito']).lower()
                             hist = str(row['historico']).lower()
 
-                            # TRAVA DE SEGURANÇA: Ignora reembolso e empréstimo
                             if "empréstimo" in conta or "emprestimo" in hist or "reembolso" in conta or "reembolso" in hist:
                                 continue
 
-                            # Classifica a atividade para a DASN
                             if "serviço" in conta or "servico" in conta:
                                 v_servicos += val
                             elif "indústria" in conta or "industria" in conta or "industrializado" in conta or "comércio" in conta or "comercio" in conta or "venda" in conta or "mercadoria" in conta:
@@ -2423,20 +2398,20 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                         # Cartões KPI com os valores exatos que a Receita pede
                         col_a1, col_a2, col_a3 = st.columns(3)
                         with col_a1:
-                            st.info(f"🏢 **Comércio / Indústria**\n\n### {formatar_brl(v_comercio_industria)}")
+                            st.info(f"{ICONES['empresa']} **Comércio / Indústria**\n\n### {formatar_brl(v_comercio_industria)}")
                             st.caption("Receita de revenda e produtos")
                         with col_a2:
-                            st.success(f"🛠️ **Prestação de Serviços**\n\n### {formatar_brl(v_servicos)}")
+                            st.success(f"{ICONES['ferramentas']} **Prestação de Serviços**\n\n### {formatar_brl(v_servicos)}")
                             st.caption("Receita exclusiva de serviços")
                         with col_a3:
-                            st.warning(f"💰 **Receita Bruta Total**\n\n### {formatar_brl(v_total_ano)}")
+                            st.warning(f"{ICONES['receita_federal']} **Receita Bruta Total**\n\n### {formatar_brl(v_total_ano)}")
                             st.caption("Soma de todas as atividades")
 
                         st.markdown("---")
                         
                         col_btn1, col_btn2 = st.columns([2, 1])
                         with col_btn1:
-                            st.markdown("#### 🚀 Transmitir Declaração")
+                            st.markdown(f"{ICONES['transmissao']}#### Transmitir Declaração")
                             st.write("Com os valores consolidados acima, clique no botão ao lado para acessar diretamente o sistema oficial da Receita Federal (DASN-SIMEI) e preencher a sua declaração.")
                         with col_btn2:
                             st.markdown("<br>", unsafe_allow_html=True)
@@ -2446,23 +2421,18 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                                 type="primary", 
                                 use_container_width=True
                             )          
-# -----------------------------------------------------------------------------
-# PAINEL DE MANUTENÇÃO: IMPORTAÇÃO, CORREÇÃO E LIMPEZA COM FEEDBACK VISUAL
-# -----------------------------------------------------------------------------
+
 st.markdown("---")
-with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação / Exportação / Limpeza)"):
+with st.expander(f"{ICONES['ferramentas']} Central de Carga e Manutenção de Dados (Importação / Exportação / Limpeza)"):
     st.markdown("Utilize esta área para gerenciar os lançamentos, corrigir dados ou resetar a base do cliente.")
     
     col_exp, col_imp = st.columns(2)
     
-    # -------------------------------------------------------------------------
-    # COLUNA 1: EXPORTAÇÃO E EXCLUSÃO EM BLOCO
-    # -------------------------------------------------------------------------
+
     with col_exp:
         st.markdown("#### 1. Exportação & Limpeza")
         st.caption("Baixe backups ou faça a limpeza geral dos dados do cliente ativo.")
         
-        # 1. Identifica o cliente ativo
         cid_raw = st.session_state.get('cliente_id') or st.session_state.get('cliente_id_ativo')
         if not cid_raw:
             cid_raw = (
@@ -2474,24 +2444,9 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
         
         cid_val = int(cid_raw) if cid_raw else None
 
-        # 2. Busca os dados de forma independente das abas
-        #df_export_lanc = pd.DataFrame()
-        #if cid_val:
-        #    try:
-        #        conn = get_connection()
-        #        df_export_lanc = pd.read_sql(
-        #            "SELECT * FROM lancamentos WHERE cliente_id = %s ORDER BY data DESC;", 
-        #            conn, 
-        #            params=(cid_val,)
-        #        )
-        #    except Exception:
-        #        df_export_lanc = pd.DataFrame()
-            
-        
-        # OTIMIZAÇÃO: Não abre conexão no rodapé de todos os menus
+
         df_export_lanc = carregar_lancamentos(cid_val) if cid_val else pd.DataFrame()
 
-        # Download do CSV
         if not df_export_lanc.empty:
             csv_lanc = df_export_lanc.to_csv(index=False, sep=";", encoding="utf-8-sig")
             st.download_button(
@@ -2506,11 +2461,10 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
 
         st.markdown("---")
         
-        # BOTÃO DE EXCLUSÃO EM BLOCO
-        st.markdown("**🚨 Exclusão em Bloco (Zerar Lançamentos)**")
+        st.markdown(f"**{ICONES['excluir']} Exclusão em Bloco (Zerar Lançamentos)**")
         st.caption("Atenção: Esta ação removerá TODOS os lançamentos do cliente atualmente selecionado.")
         
-        if st.button("🗑️ Apagar TODOS os Lançamentos deste Cliente"):
+        if st.button(f"{ICONES['excluir']} Apagar TODOS os Lançamentos deste Cliente"):
             if not cid_val:
                 st.error("Nenhum cliente selecionado no topo da página.")
                 st.stop()
@@ -2526,27 +2480,23 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
             except Exception as e:
                 st.error(f"Erro ao apagar lançamentos: {e}")
 
-    # -------------------------------------------------------------------------
-    # COLUNA 2: IMPORTAÇÃO E REIMPORTAÇÃO COM FEEDBACK VISUAL (st.status)
-    # -------------------------------------------------------------------------
+
     with col_imp:
         st.markdown("#### 2. Carga e Substituição de Dados")
         
         file_lanc = st.file_uploader("Selecione o arquivo de Lançamentos (.csv)", type=["csv"], key="up_lanc")
         
         if file_lanc is not None:
-            if st.button("🚨 Substituir Lançamentos Atuais", type="primary", use_container_width=True):
+            if st.button(f"{ICONES['excluir']} Substituir Lançamentos Atuais", type="primary", use_container_width=True):
                 if not cid_val:
                     st.error("Nenhum cliente selecionado no topo da página.")
                     st.stop()
 
-                # Painel de feedback visual em tempo real
-                with st.status("🔄 Importando e sincronizando dados...", expanded=True) as status:
+                with st.status(f"{ICONES['pastas']}Importando e sincronizando dados...") as status:
                     try:
                         import io
 
-                        # Passo 1: Leitura do arquivo
-                        st.write("📂 1/3 Lendo e validando a estrutura do arquivo CSV...")
+                        st.write(f"{ICONES['pastas']}1/3 Lendo e validando a estrutura do arquivo CSV...")
                         file_bytes = file_lanc.getvalue()
                         df_novos_lanc = None
 
@@ -2560,11 +2510,10 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
                                 continue
 
                         if df_novos_lanc is None:
-                            status.update(label="❌ Falha na leitura do arquivo", state="error", expanded=True)
+                            status.update(label=f"{ICONES['excluir']} Falha na leitura do arquivo", state="error", expanded=True)
                             st.error("Não foi possível ler o arquivo CSV. Verifique se o delimitador é ponto e vírgula ';'.")
                             st.stop()
 
-                        # Função de tratamento de caracteres
                         def limpar_texto(txt):
                             if not isinstance(txt, str):
                                 return str(txt)
@@ -2575,14 +2524,12 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
                                 pass
                             return txt
 
-                        # Passo 2: Limpeza do banco
-                        st.write(f"🗑️ 2/3 Apagando dados antigos do cliente ID #{cid_val}...")
+                        st.write(f"{ICONES['excluir']} 2/3 Apagando dados antigos do cliente ID #{cid_val}...")
                         conn = get_connection()
                         with conn.cursor() as cur:
                             cur.execute("DELETE FROM lancamentos WHERE cliente_id = %s;", (cid_val,))
 
-                            # Passo 3: Inserção com feedback
-                            st.write(f"💾 3/3 Gravando {len(df_novos_lanc)} novos lançamentos no Supabase...")
+                            st.write(f"{ICONES['salvar']} 3/3 Gravando {len(df_novos_lanc)} novos lançamentos no Supabase...")
                             for _, row in df_novos_lanc.iterrows():
                                 hist_raw = str(row.get('historico', row.get('descricao', '')))
                                 hist_val = limpar_texto(hist_raw)
@@ -2620,10 +2567,10 @@ with st.expander("🛠️ Central de Carga e Manutenção de Dados (Importação
                                 )
                         conn.commit()
 
-                        status.update(label="✅ Importação concluída com sucesso!", state="complete", expanded=False)
+                        status.update(label=f"{ICONES['sucesso']} Importação concluída com sucesso!", state="complete", expanded=False)
                         st.success(f"{len(df_novos_lanc)} lançamentos sincronizados!")
                         st.rerun()
 
                     except Exception as e:
-                        status.update(label="❌ Erro durante a importação", state="error", expanded=True)
+                        status.update(label=f"{ICONES['excluir']} Erro durante a importação", state="error", expanded=True)
                         st.error(f"Detalhes do erro: {e}")

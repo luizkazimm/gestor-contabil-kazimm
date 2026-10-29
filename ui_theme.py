@@ -1,46 +1,62 @@
 import streamlit as st
 
 # Dicionário Central de Ícones (Google Material Symbols)
+# Dicionário Central de Ícones (Google Material Symbols)
 ICONES = {
     # Módulos principais (Barra Superior)
-    "contabil": ":material/account_balance:",
-    "contratos": ":material/contract:",
-    "previdencia": ":material/badge:",
-    "fiscal": ":material/receipt_long:",
+    "contabil": ":material/account_balance:",       # 🏛️ Módulo Contábil
+    "contratos": ":material/contract:",             # 📜 Módulo de Contratos
+    "previdencia": ":material/badge:",              # 🪪 Módulo Previdência
+    "fiscal": ":material/receipt_long:",            # 🧾 Módulo Fiscal
 
-    # Seções internas do Gestor Contábil
-    "dashboard": ":material/dashboard:",
-    "fornecedor": ":material/domain_add:",
-    "adicionar": ":material/add_circle:",
-    "importar": ":material/upload_file:",
-    "provisoes": ":material/pending_actions:",
-    "extrato": ":material/file_present:",
-    "lancamentos": ":material/receipt_long:",
-    "conciliacao": ":material/balance:",
-    "plano_contas": ":material/account_tree:",
-    "dre": ":material/analytics:",
+    # Menu Lateral - Gestor Contábil
+    "dashboard": ":material/dashboard:",            # 🖥️ Dashboard principal
+    "fornecedor": ":material/domain_add:",          # 🏢➕ Cadastrar Conta/Fornecedor
+    "provisoes": ":material/pending_actions:",      # ⏳ Provisões / Pendências
+    "extrato": ":material/file_present:",           # 📄 Importar Extrato
+    "lancamentos": ":material/receipt_long:",       # 🧾 Ver Lançamentos
+    "conciliacao": ":material/balance:",            # ⚖️ Conciliação Bancária
+    "plano_contas": ":material/account_tree:",      # 🗂️ Plano de Contas
+    "dre": ":material/analytics:",                  # 📊 DRE / Relatório por Categoria
 
-    # Ações e Operações Financeiras
-    "adicionar": ":material/add_circle:",
-    "salvar": ":material/save:",
-    "editar": ":material/edit:",
-    "excluir": ":material/delete:",
-    "filtrar": ":material/filter_alt:",
-    "importar": ":material/upload_file:",
-    "exportar": ":material/download:",
-    "pesquisar": ":material/search:",
+    # Ações e Operações (CRUD)
+    "adicionar": ":material/add_circle:",           # ➕ Adicionar / Novo (Botões de ação)
+    "salvar": ":material/save:",                    # 💾 Salvar dados
+    "editar": ":material/edit:",                    # ✏️ Editar registro
+    "excluir": ":material/delete:",                 # 🗑️ Excluir / Apagar
+    "importar": ":material/upload_file:",           # ⬆️ Importar lote (Upload)
+    "exportar": ":material/download:",              # 📥 Exportar / Download
+    "pesquisar": ":material/search:",               # 🔍 Pesquisar na tabela
+    "filtrar": ":material/filter_alt:",             # 🎛️ Filtrar resultados
 
-    # Métricas e Status
-    "receita": ":material/trending_up:",
-    "despesa": ":material/trending_down:",
-    "saldo": ":material/savings:",
-    "alerta": ":material/warning:",
-    "sucesso": ":material/check_circle:",
-    "erro": ":material/error:",
+    # Métricas e Financeiro
+    "receita": ":material/trending_up:",            # 📈 Receita (Seta para Cima)
+    "despesa": ":material/trending_down:",          # 📉 Despesa (Seta para Baixo)
+    "saldo": ":material/savings:",                  # 💰 Saldo / Porquinho
+    "receita_federal": ":material/account_balance:",# 🏛️ Receita Federal / Bancos
+    "planilhas": ":material/table_chart:",          # 📊 Planilhas / Tabelas de dados
 
-    # Banner informativo
-    "cliente": ":material/person:",
-    "cartao": ":material/credit_card:",
+    # Avisos, Status e Feedbacks
+    "sucesso": ":material/check_circle:",           # ✅ Operação concluída
+    "erro": ":material/error:",                     # ❌ Erro comum / Falha
+    "erro_grave": ":material/gpp_bad:",             # 🚨 Erro Grave / Exclusão
+    "alerta": ":material/warning:",                 # ⚠️ Alerta (Aviso importante)
+    "atencao": ":material/lightbulb:",              # 💡 Atenção (Informativo / Ideia)
+    "dicas": ":material/push_pin:",                 # 📌 Dicas / Fixado
+    "bem_vindo": ":material/waving_hand:",          # 👋 Mensagem de Bem-vindo
+
+    # Utilitários e Sistema
+    "cliente": ":material/person:",                 # 👤 Cliente logado / Pessoa
+    "cartao": ":material/credit_card:",             # 💳 Plano ativo / Cartão
+    "configuracoes": ":material/settings:",         # ⚙️ Configurações do sistema
+    "ferramentas": ":material/build:",              # 🛠️ Ferramentas extras
+    "global": ":material/language:",                # 🌐 Global / Web
+    "empresa": ":material/domain:",                 # 🏢 Empresa genérica
+    "pastas": ":material/folder:",                  # 📂 Pastas / Diretórios
+    "agenda": ":material/calendar_month:",          # 📆 Agenda / Prazos
+    "reciclagem": ":material/sync:",                # 🔄 Reciclagem / Atualizar sincronização
+    "transmissao": ":material/rocket_launch:",      # 🚀 Transmissão de eventos (eSocial/NF)
+    "relatorios": ":material/description:",         # 📄 Relatórios textuais
 }
 def aplicar_tema_global():
     """

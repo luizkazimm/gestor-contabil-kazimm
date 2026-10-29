@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# Garante o carregamento dos módulos da raiz no Linux
+RAIZ_PROJETO = Path(__file__).resolve().parent.parent
+if str(RAIZ_PROJETO) not in sys.path:
+    sys.path.insert(0, str(RAIZ_PROJETO))
+    
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date
