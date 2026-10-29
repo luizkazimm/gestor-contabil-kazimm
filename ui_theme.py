@@ -119,6 +119,46 @@ def aplicar_tema_global():
         padding-right: 2.5rem !important;
         padding-top: 1.5rem !important;
     }
+
+    /* Estilização dos Links de Página em Cartões Modernos no Topo */
+    [data-testid="stPageLink"] a,
+    div[data-testid="stPageLink-NavLink"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 10px !important;
+        padding: 10px 14px !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+        transition: all 0.2s ease-in-out !important;
+        text-align: center !important;
+        text-decoration: none !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+
+    [data-testid="stPageLink"] a:hover,
+    div[data-testid="stPageLink-NavLink"]:hover {
+        border-color: #00A3B4 !important;
+        background-color: #F0FDFA !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 163, 180, 0.15) !important;
+    }
+
+    /* Cartão Ativo (Página atual destacada em gradiente) */
+    [data-testid="stPageLink"] a[aria-current="page"],
+    div[data-testid="stPageLink-NavLink"][aria-current="page"] {
+        background: linear-gradient(135deg, #00A3B4 0%, #007791 100%) !important;
+        border-color: #007791 !important;
+        box-shadow: 0 4px 14px rgba(0, 163, 180, 0.35) !important;
+    }
+
+    [data-testid="stPageLink"] a[aria-current="page"] p,
+    [data-testid="stPageLink"] a[aria-current="page"] span,
+    div[data-testid="stPageLink-NavLink"][aria-current="page"] p {
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+    }
+
     </style>
     """, unsafe_allow_html=True)
     
@@ -143,5 +183,23 @@ def exibir_cabecalho(titulo: str, subtitulo: str = "Plataforma de Gestão Integr
 
     st.markdown("<hr style='margin: 10px 0 20px 0; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
 
+def exibir_menu_modulos_topo():
+    """
+    Renderiza os 4 módulos principais do Kazimm em cartões horizontais no topo da página.
+    """
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.page_link("pages/1_Gestor_Contabil.py", label="Gestor Contábil", icon="📊", use_container_width=True)
+    with col2:
+        st.page_link("pages/2_Gerador_Contratos.py", label="Gerador de Contratos", icon="📝", use_container_width=True)
+    with col3:
+        st.page_link("pages/3_Empregados_Previdencia.py", label="Empregados / Previdência", icon="👥", use_container_width=True)
+    with col4:
+        st.page_link("pages/4_Gestor_Fiscal.py", label="Gestor Fiscal", icon="📑", use_container_width=True)
+
+    st.markdown("<div style='margin-bottom: 18px;'></div>", unsafe_allow_html=True)
+
+    
 # Alias de compatibilidade
 aplicar_estilo_moderno = aplicar_tema_global

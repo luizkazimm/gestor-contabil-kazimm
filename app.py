@@ -160,12 +160,21 @@ else:
     if st.sidebar.button("Sair (Logout)"):
         logout()
     #Lista de páginas para quem está logado
-    pg = st.navigation([
-        gestor_page,
-        contratos_page, 
-        empregados_page,
-        fiscal_page
-    ])
-
+    #pg = st.navigation([
+    #    gestor_page,
+    #    contratos_page, 
+    #    empregados_page,
+    #    fiscal_page
+    #])
+    pg = st.navigation(
+            [
+                gestor_page,
+                contratos_page,
+                empregados_page,
+                fiscal_page
+            ],
+            position="hidden"
+        )
+    
 pg.run()
 

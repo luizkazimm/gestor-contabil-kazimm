@@ -16,7 +16,7 @@ from database import (
 )
 from supabase import create_client
 
-from ui_theme import aplicar_tema_global, exibir_cabecalho
+from ui_theme import aplicar_tema_global, exibir_cabecalho, exibir_menu_modulos_topo
 
 # 1. Configuração da página (DEVE SER O PRIMEIRO COMANDO STREAMLIT)
 #st.set_page_config(page_title="Gestor Contábil Kazimm", layout="wide")
@@ -24,6 +24,7 @@ from ui_theme import aplicar_tema_global, exibir_cabecalho
 # Ativa o visual e cabeçalho padronizado
 aplicar_tema_global()
 exibir_cabecalho("Gestor Contábil", "Visão Financeira & Livro Caixa")
+exibir_menu_modulos_topo()  # <-- Renderiza os 4 cartões no local desejado
 
 # Função Auxiliar de Conversão de Imagem
 def processar_logo_empresa(arquivo_imagem):
