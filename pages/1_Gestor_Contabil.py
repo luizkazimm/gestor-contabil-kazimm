@@ -565,7 +565,11 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
         if st.session_state.user.email in EMAILS_ADMIN:
             st.divider()
-            with st.expander(f"{ICONES['configuracoes']} Painel de Administração de Clientes (Exclusivo Contador)", expanded=False):
+            with st.expander(
+                f"{ICONES.get('configuracoes', ':material/settings:')} Painel de Administração de Clientes (Exclusivo Contador)", 
+                expanded=False
+            ):
+            
                 tab_edit, tab_novo, tab_usuario, tab_lista = st.tabs([
                     " Editar Cliente", 
                     " Cadastrar Novo Cliente", 
@@ -1829,7 +1833,11 @@ elif opcao == "Ver Lançamentos":
 
 
             st.divider()
-            with st.expander(f"{ICONES['ferramentas']}Ações: Alterar ou Excluir um Lançamento"):
+            with st.expander(
+                f"{ICONES.get('ferramentas', ':material/build:')} Central de Carga e Manutenção de Dados (Importação / Exportação / Limpeza)", 
+                expanded=False
+            ):
+
                 if df_filtrado.empty:
                     st.info("Nenhum lançamento disponível para alteração/exclusão com os filtros atuais.")
                 else:
