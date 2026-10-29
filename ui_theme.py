@@ -166,22 +166,29 @@ def aplicar_tema_global():
 
 def exibir_cabecalho(titulo: str, subtitulo: str = "Plataforma de Gestão Integrada"):
     """
-    Renderiza o cabeçalho padronizado com logo e tipografia Montserrat.
+    Renderiza o cabeçalho padronizado com a logo alinhada lado a lado com os títulos.
     """
-    st.image("assets/Logo.png", width=180)
+    col_logo, col_texto = st.columns([1.2, 7], vertical_alignment="center")
 
-    st.markdown(f"""
-        <div style="margin-top: 6px; margin-bottom: 4px; font-family: 'Montserrat', sans-serif;">
-            <span style="font-size: 0.85rem; font-weight: 700; color: #00A3B4; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 2px;">
-                {subtitulo}
-            </span>
-            <h1 style="margin: 0; padding: 0; font-size: 1.85rem; color: #007791; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2;">
-                {titulo}
-            </h1>
-        </div>
-    """, unsafe_allow_html=True)
+    with col_logo:
+        # Ajuste a largura (width) conforme necessário para a nitidez ideal
+        st.image("assets/Logo.png", width=170)
 
-    st.markdown("<hr style='margin: 10px 0 20px 0; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
+    with col_texto:
+        st.markdown(f"""
+            <div style="font-family: 'Montserrat', sans-serif; margin-left: 8px;">
+                <span style="font-size: 0.85rem; font-weight: 700; color: #00A3B4; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 2px;">
+                    {subtitulo}
+                </span>
+                <h1 style="margin: 0; padding: 0; font-size: 1.85rem; color: #007791; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2;">
+                    {titulo}
+                </h1>
+            </div>
+        """, unsafe_allow_html=True)
+
+    # Divisória sutil separando o cabeçalho dos cartões de navegação
+    st.markdown("<hr style='margin: 12px 0 18px 0; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
+    
 
 def exibir_menu_modulos_topo():
     """

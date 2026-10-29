@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, date
 from database import get_connection
-from ui_theme import aplicar_tema_global, exibir_cabecalho
+from ui_theme import aplicar_tema_global, exibir_cabecalho, exibir_menu_modulos_topo
 
 # Tenta importar a biblioteca de valor por extenso
 try:
@@ -449,6 +449,7 @@ if "contrato_editar" in st.session_state and st.session_state["contrato_editar"]
 # -----------------------------------------------------------------------------
 aplicar_tema_global()
 exibir_cabecalho("Gestão de Contratos MEI", "Elaboração & Documentos Jurídicos")
+exibir_menu_modulos_topo()
 
 st.info(f"👤 Contratado: **{cliente_info['nome']}** | CNPJ/CPF: **{cliente_info['cnpj_cpf']}**")
 

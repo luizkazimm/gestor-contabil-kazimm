@@ -19,12 +19,13 @@ from services.fiscal_service import (
     limpar_documento
 )
 
-from ui_theme import aplicar_tema_global, exibir_cabecalho # Estilo padronizado (ui_theme.py)
+from ui_theme import aplicar_tema_global, exibir_cabecalho, exibir_menu_modulos_topo
 # -------------------------------------------------------------
 # CONFIGURAÇÃO DE SESSÃO E CONTEXTO MULTI-TENANT
 # -------------------------------------------------------------
 aplicar_tema_global()
 exibir_cabecalho("Gestor Fiscal - Emissor de NFS-e Nacional")
+exibir_menu_modulos_topo()
 
 # RECUPERAÇÃO SEGURA DO ID DO UTILIZADOR (COMPATÍVEL COM OBJETO SUPABASE OU DICIONÁRIO)
 user_obj = st.session_state.get("user")
