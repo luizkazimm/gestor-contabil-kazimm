@@ -24,11 +24,41 @@ from database import (
 
 from supabase import create_client
 
-from ui_theme import ICONES, aplicar_tema_global, exibir_cabecalho, exibir_menu_modulos_topo
+from ui_theme import (
+    ICONES, 
+    aplicar_tema_global, 
+    exibir_navbar_superior, 
+    exibir_banner_cliente_ativo, 
+    exibir_botoes_modulos_navegacao, 
+    exibir_rodape_institucional,
+    exibir_cabecalho
+)
 
+# Aplica o CSS global (cores, fontes e remoção de marcas do Streamlit Cloud)
 aplicar_tema_global()
-exibir_cabecalho("Gestor Contábil", "Visão Financeira & Livro Caixa")
-exibir_menu_modulos_topo()
+
+exibir_cabecalho(
+    titulo="Gestor Contábil", 
+    subtitulo="VISÃO FINANCEIRA & LIVRO CAIXA", 
+    versao="v1.0.2-beta"
+)
+
+# 3. IDENTIFICAÇÃO DO CLIENTE ATIVO (Conforme 1ª faixa interna do manuscrito)
+with st.expander(
+    f"{ICONES.get('cliente', ':material/person:')} Painel de Contexto e Módulos do Sistema", 
+    expanded=True
+):
+    nome_ativo = st.session_state.get("cliente_ativo_nome", "Kazimm Gestão e Tecnologia")
+    regime_ativo = st.session_state.get("cliente_ativo_regime", "MEI (Microempreendedor Individual)")
+    plano_ativo = st.session_state.get("cliente_ativo_plano", "Plano MEI Pro")
+
+    exibir_banner_cliente_ativo(nome_cliente=nome_ativo, regime=regime_ativo, plano=plano_ativo)
+
+    # 4. BOTÕES DOS 4 MÓDULOS (Substitui o antigo 'exibir_menu_modulos_topo')
+    exibir_botoes_modulos_navegacao(modulo_atual="contabil")
+
+
+st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
 
 def processar_logo_empresa(arquivo_imagem):
     """Converte o arquivo de imagem enviado para string Base64 utilizável em tags HTML."""
@@ -193,7 +223,7 @@ if cliente_ativo_id:
         nome_plano_exibicao = REGRAS_PLANOS.get(plano_cli, {}).get("nome", "Plano MEI Gratuito")
         
 
-        st.info(f"{ICONES['cliente']} **Cliente Ativo em Atendimento:** {nome_empresa} | Regime: **{regime_empresa}** | {ICONES['cartao']} **{nome_plano_exibicao}**")
+        #st.info(f"{ICONES['cliente']} **Cliente Ativo em Atendimento:** {nome_empresa} | Regime: **{regime_empresa}** | {ICONES['cartao']} **{nome_plano_exibicao}**")
 
 
         filtro_caixa_fisico = "1.1.1.01|caixa geral|caixa físico|dinheiro"
@@ -223,13 +253,13 @@ if cliente_ativo_id:
         a_pagar_g = df_prov_global["valor"].sum() if not df_prov_global.empty else 0.0
 
         cor_saldo = "#00875a" if saldo_g >= 0 else "#de350b"
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4, gap="small")
 
         with col_m1:
             st.markdown(
-                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
+                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
 <div style="font-size: 15px; color: #0176a1;"> Receita Realizada</div>
-<div style="font-size: 20px; font-weight: bold; color: #00875a; margin: 4px 0;">{formatar_brl(rec_g)}</div>
+<div style="font-size: 20px; font-weight: bold; color: #00875a; margin: 2px 0;">{formatar_brl(rec_g)}</div>
 <div style="font-size: 10px; color: #000000; line-height: 1.3;">Bancos: {formatar_brl(rec_bancos_g)}<br>Caixa: {formatar_brl(rec_caixa_g)}</div>
 </div>""",
                 unsafe_allow_html=True
@@ -237,9 +267,9 @@ if cliente_ativo_id:
 
         with col_m2:
             st.markdown(
-                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
+                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
 <div style="font-size: 15px; color: #0176a1;"> Despesas Pagas</div>
-<div style="font-size: 20px; font-weight: bold; color: #de350b; margin: 4px 0;">{formatar_brl(desp_g)}</div>
+<div style="font-size: 20px; font-weight: bold; color: #de350b; margin: 2px 0;">{formatar_brl(desp_g)}</div>
 <div style="font-size: 10px; color: transparent; line-height: 1.3;">&nbsp;<br>&nbsp;</div>
 </div>""",
                 unsafe_allow_html=True
@@ -247,9 +277,9 @@ if cliente_ativo_id:
 
         with col_m3:
             st.markdown(
-                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
+                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
 <div style="font-size: 15px; color: #0176a1;"> Saldo em Caixa/Banco</div>
-<div style="font-size: 20px; font-weight: bold; color: {cor_saldo}; margin: 4px 0;">{formatar_brl(saldo_g)}</div>
+<div style="font-size: 20px; font-weight: bold; color: {cor_saldo}; margin: 2px 0;">{formatar_brl(saldo_g)}</div>
 <div style="font-size: 10px; color: #000000; line-height: 1.3;">Bancos: {formatar_brl(saldo_disp_bancos_g)}<br>Caixa: {formatar_brl(saldo_disp_caixa_g)}</div>
 </div>""",
                 unsafe_allow_html=True
@@ -257,9 +287,9 @@ if cliente_ativo_id:
 
         with col_m4:
             st.markdown(
-                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
+                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
 <div style="font-size: 15px; color: #0176a1;"> A Pagar (Guias/Parcelamento)</div>
-<div style="font-size: 20px; font-weight: bold; color: #ff9900; margin: 4px 0;">{formatar_brl(a_pagar_g)}</div>
+<div style="font-size: 20px; font-weight: bold; color: #ff9900; margin: 2px 0;">{formatar_brl(a_pagar_g)}</div>
 <div style="font-size: 10px; color: transparent; line-height: 1.3;">&nbsp;<br>&nbsp;</div>
 </div>""",
                 unsafe_allow_html=True
@@ -2582,3 +2612,7 @@ with st.expander(f"{ICONES['ferramentas']} Central de Carga e Manutenção de Da
                     except Exception as e:
                         status.update(label=f"{ICONES['excluir']} Erro durante a importação", state="error", expanded=True)
                         st.error(f"Detalhes do erro: {e}")
+
+# Fim do arquivo 1_Gestor_Contabil.py
+exibir_rodape_institucional(versao="v1.0.2-beta", status_servico="Supabase Conectado")
+

@@ -1,6 +1,10 @@
+from pathlib import Path
 import streamlit as st
 
-# Dicionário Central de Ícones (Google Material Symbols)
+# Localiza a raiz do projeto e o arquivo exato da Logo
+DIR_RAIZ = Path(__file__).resolve().parent
+CAMINHO_LOGO = DIR_RAIZ / "assets" / "Logo.png"
+
 # Dicionário Central de Ícones (Google Material Symbols)
 ICONES = {
     # Módulos principais (Barra Superior)
@@ -64,6 +68,99 @@ def aplicar_tema_global():
     """
     st.markdown("""
     <style>
+    /* ========================================================
+       REDUÇÃO DE MARGENS E APROVEITAMENTO DE TELA (PADRÃO ERP)
+       ======================================================== */
+    /* Elimina o vazio superior nativo de 5rem/6rem do Streamlit */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+        max-width: 98% !important;
+    }
+
+    /* Oculta o cabeçalho original vazio mantendo a barra de navegação acessível */
+    header[data-testid="stHeader"] {
+        background-color: transparent !important;
+        height: 0px !important;
+    }
+
+    /* ========================================================
+       ESTILIZAÇÃO DAS ABAS DE FUNÇÕES (st.tabs) E ÁREA ROLÁVEL
+       ======================================================== */
+    /* Barra horizontal de navegação das abas */
+    div[data-testid="stTabs"] [role="tablist"] {
+        gap: 8px !important;
+        border-bottom: 2px solid #E2E8F0 !important;
+        padding-bottom: 2px !important;
+        margin-bottom: 12px !important;
+    }
+
+    /* Cada aba individual */
+    div[data-testid="stTabs"] [role="tab"] {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.82rem !important;
+        font-weight: 600 !important;
+        color: #64748B !important;
+        background-color: transparent !important;
+        border: none !important;
+        border-radius: 6px 6px 0 0 !important;
+        padding: 6px 14px !important;
+        transition: all 0.2s ease !important;
+    }
+
+    /* Aba ativa / selecionada */
+    div[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+        color: #007791 !important;
+        border-bottom: 3px solid #00A3B4 !important;
+        font-weight: 700 !important;
+    }
+
+    /* Contentor com rolamento interno elegante */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-radius: 8px !important;
+        border: 1px solid #E2E8F0 !important;
+        background-color: #FFFFFF !important;
+    }
+
+    /* ========================================================
+       COMPACTAÇÃO DOS BOTÕES DE NAVEGAÇÃO (st.page_link)
+       ======================================================== */
+    div[data-testid="stPageLink"] a,
+    [data-testid="stPageLink-NavLink"] {
+        padding: 4px 10px !important;
+        min-height: 34px !important;
+        height: 34px !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 6px !important;
+        background-color: #FFFFFF !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
+        transition: all 0.15s ease-in-out !important;
+    }
+
+    /* Reduz o texto interno e zera espaçamentos residuais */
+    div[data-testid="stPageLink"] a p,
+    [data-testid="stPageLink-NavLink"] span {
+        font-size: 0.78rem !important;
+        line-height: 1 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Efeito hover elegante */
+    div[data-testid="stPageLink"] a:hover,
+    [data-testid="stPageLink-NavLink"]:hover {
+        border-color: #00A3B4 !important;
+        background-color: #F0FDFA !important;
+        color: #007791 !important;
+    }
+
+
     /* 1. Importação das fontes Montserrat e Inter */
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap');
 
@@ -92,6 +189,25 @@ def aplicar_tema_global():
     }
 
     /* ========================================================
+       COMPACTAÇÃO DAS COLUNAS E CARDS DE MÉTRICAS
+       ======================================================== */
+    /* Reduz o vão horizontal entre as 4 colunas de métricas */
+    div[data-testid="stHorizontalBlock"] {
+        gap: 10px !important;
+    }
+
+    /* Reduz o respiro vertical dentro das colunas */
+    div[data-testid="column"] {
+        padding: 0 !important;
+    }
+
+    /* Se os seus cards usam div com borda (estilo container de métrica) */
+    div[data-testid="column"] > div {
+        margin-bottom: 4px !important;
+    }
+
+    
+      /* ========================================================
        CONTROLE DO RÁDIO: OCULTA APENAS A BOLINHA
        ======================================================== */
 
@@ -271,36 +387,83 @@ def aplicar_tema_global():
         color: #FFFFFF !important;      /* Branco puro sobre o gradiente ativo */
     }
 
+    /* 1. Oculta o botão "Manage app" e selos no canto inferior direito */
+    div[class*="viewerBadge"],
+    [data-testid="manage-app-button"],
+    #manage-app-button,
+    .viewerBadge_container {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* 2. Oculta a barra superior nativa (botões "Fork", GitHub e menu de 3 pontinhos) */
+    [data-testid="stToolbar"],
+    [data-testid="stDecoration"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* 3. Neutraliza o cabeçalho e rodapé vazios do Streamlit */
+    #MainMenu, footer {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
     </style>
     """, unsafe_allow_html=True)
     
 
 
-def exibir_cabecalho(titulo: str, subtitulo: str = "Plataforma de Gestão Integrada"):
+def exibir_cabecalho(
+    titulo: str, 
+    subtitulo: str = "Plataforma de Gestão Integrada", 
+    versao: str = "v1.0.2-beta",
+    logo_b64: str = None
+):
     """
-    Renderiza o cabeçalho padronizado com a logo alinhada lado a lado com os títulos.
+    Renderiza o cabeçalho compacto (Slim ERP) com logo dinâmica, 
+    identificação do módulo e versão alinhada à direita.
     """
-    col_logo, col_texto = st.columns([1.2, 7], vertical_alignment="center")
+    col_logo, col_texto, col_versao = st.columns([1.3, 7.2, 1.5], vertical_alignment="center")
 
     with col_logo:
-        # Ajuste a largura (width) conforme necessário para a nitidez ideal
-        st.image("assets/Logo.png", width=170)
+        # 1. Se vier logo em Base64 do cliente/empresa ativa, renderiza ela
+        if logo_b64:
+            st.markdown(
+                f'<img src="{logo_b64}" style="max-height: 42px; width: auto; object-fit: contain;">', 
+                unsafe_allow_html=True
+            )
+        # 2. Se não, usa a logo oficial do arquivo local
+        elif CAMINHO_LOGO.exists():
+            st.image(str(CAMINHO_LOGO), width=135)
+        # 3. Fallback de texto caso a imagem não seja encontrada
+        else:
+            st.markdown("<h3 style='color:#007791; margin:0; font-weight:800;'>KAZIMM</h3>", unsafe_allow_html=True)
 
     with col_texto:
+        # Tipografia enxuta e proporcional (estilo Omie / Conta Azul)
         st.markdown(f"""
-            <div style="font-family: 'Montserrat', sans-serif; margin-left: 8px;">
-                <span style="font-size: 0.85rem; font-weight: 700; color: #00A3B4; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 2px;">
-                    {subtitulo}
-                </span>
-                <h1 style="margin: 0; padding: 0; font-size: 1.85rem; color: #007791; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2;">
-                    {titulo}
-                </h1>
+        <div style="font-family: 'Montserrat', sans-serif; margin-left: 6px; line-height: 1.15;">
+            <div style="font-size: 0.72rem; font-weight: 700; color: #00A3B4; text-transform: uppercase; letter-spacing: 0.8px;">
+                {subtitulo}
             </div>
+            <div style="font-size: 1.35rem; color: #007791; font-weight: 800; letter-spacing: -0.3px; margin-top: 1px;">
+                {titulo}
+            </div>
+        </div>
         """, unsafe_allow_html=True)
 
-    # Divisória sutil separando o cabeçalho dos cartões de navegação
-    st.markdown("<hr style='margin: 12px 0 18px 0; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
-    
+    with col_versao:
+        st.markdown(f"""
+        <div style="display: flex; justify-content: flex-end; align-items: center;">
+            <span style="background: #F1F5F9; color: #475569; font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; border: 1px solid #E2E8F0;">
+                {versao}
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Linha divisória ultra-fina e colada ao cabeçalho (sem espaços mortos)
+    st.markdown("<hr style='margin: 6px 0 10px 0; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
 
 def exibir_menu_modulos_topo():
     """
@@ -319,6 +482,140 @@ def exibir_menu_modulos_topo():
         st.page_link("pages/4_Gestor_Fiscal.py", label="Gestor Fiscal", icon=ICONES["fiscal"], use_container_width=True)
 
     st.markdown("<div style='margin-bottom: 18px;'></div>", unsafe_allow_html=True)
-    
+# ==============================================================================
+# COMPONENTES ESTRUTURAIS WHITE-LABEL (NAVBAR, CONTEXTO E RODAPÉ)
+# ==============================================================================
+
+def exibir_navbar_superior(modulo_ativo: str = "Gestor Contábil", versao: str = "v1.0.2-beta"):
+    """
+    Renderiza a barra superior unificada conforme o topo do manuscrito:
+    [LOGO KAZIMM] -------- [MÓDULO ATIVO] -------- [VERSÃO / AMBIENTE]
+    """
+    html_navbar = f"""<div style="display: flex; justify-content: space-between; align-items: center; background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 10px 20px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-family: 'Montserrat', sans-serif; font-size: 1.25rem; font-weight: 800; color: #007791; letter-spacing: -0.5px;">KAZIMM</span>
+        <span style="background: #F0FDFA; color: #00A3B4; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid #CCFBF1;">SaaS</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #00A3B4 0%, #007791 100%); color: #FFFFFF; padding: 6px 18px; border-radius: 20px; font-size: 0.88rem; font-weight: 600; box-shadow: 0 2px 8px rgba(0, 163, 180, 0.25);">
+        <span>{modulo_ativo}</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="background: #F1F5F9; color: #475569; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 6px;">{versao}</span>
+    </div>
+</div>"""
+    st.markdown(html_navbar, unsafe_allow_html=True)
+
+
+def exibir_banner_cliente_ativo(
+    nome_cliente: str, 
+    regime: str = "MEI (Microempreendedor Individual)", 
+    plano: str = "Plano MEI Pro", 
+    cnpj: str = "", 
+    **kwargs
+):
+    """
+    Banner de contexto ultra-slim:
+    [Ícone + Cliente Ativo + Regime + CNPJ] ---------------- [Tag Plano]
+    """
+    cnpj_html = f'<span style="color: #94A3B8; font-size: 0.78rem;"> • CNPJ: {cnpj}</span>' if cnpj else ""
+
+    html_banner = (
+        f'<div style="display: flex; justify-content: space-between; align-items: center; '
+        f'background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; '
+        f'padding: 6px 14px; margin-bottom: 8px;">'
+        f'<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">'
+        f'<span style="color: #007791; display: inline-flex; align-items: center;">'
+        f'<svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="currentColor">'
+        f'<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>'
+        f'</svg>'
+        f'</span>'
+        f'<span style="color: #64748B; font-size: 0.80rem; font-weight: 600;">Cliente Ativo:</span>'
+        f'<strong style="color: #0F172A; font-size: 0.86rem;">{nome_cliente}</strong>'
+        f'<span style="color: #CBD5E1;">|</span>'
+        f'<span style="color: #64748B; font-size: 0.80rem;">Regime: <strong>{regime}</strong></span>'
+        f'{cnpj_html}'
+        f'</div>'
+        f'<div>'
+        f'<span style="background-color: #E0F2FE; color: #007791; font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 10px; border: 1px solid #BAE6FD;">'
+        f'{plano}'
+        f'</span>'
+        f'</div>'
+        f'</div>'
+    )
+    st.markdown(html_banner, unsafe_allow_html=True)
+
+def exibir_botoes_modulos_navegacao(modulo_atual: str = "contabil"):
+    """
+    Exibe os 4 botões de navegação rápida entre módulos (conforme a 2ª linha do manuscrito).
+    Utiliza st.page_link para troca instantânea de rotas sem recarregar a sessão.
+    """
+    modulos = [
+        {
+            "id": "contabil",
+            "nome": "Gestor Contábil",
+            "page": "pages/1_Gestor_Contabil.py",
+            "icon": ICONES.get("contabil", ":material/account_balance:")
+        },
+        {
+            "id": "contratos",
+            "nome": "Gerador de Contratos",
+            "page": "pages/2_Gerador_Contratos.py",
+            "icon": ICONES.get("contratos", ":material/contract:")
+        },
+        {
+            "id": "previdencia",
+            "nome": "Empregados / Folha",
+            "page": "pages/3_Empregados_Previdencia.py",
+            "icon": ICONES.get("previdencia", ":material/badge:")
+        },
+        {
+            "id": "fiscal",
+            "nome": "Gestor Fiscal",
+            "page": "pages/4_Gestor_Fiscal.py",
+            "icon": ICONES.get("fiscal", ":material/receipt_long:")
+        },
+    ]
+
+    col1, col2, col3, col4 = st.columns(4)
+    for col, m in zip([col1, col2, col3, col4], modulos):
+        with col:
+            rotulo = f"**{m['nome']}**" if m["id"] == modulo_atual else m["nome"]
+            st.page_link(m["page"], label=rotulo, icon=m["icon"], use_container_width=True)
+
+
+def exibir_rodape_institucional(versao: str = "v1.0.2-beta", status_servico: str = "Supabase Conectado"):
+    """
+    Renderiza o rodapé institucional com o ponto verde pulsante.
+    """
+    html_rodape = f"""<style>
+@keyframes pulse-green {{
+    0% {{ transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }}
+    70% {{ transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }}
+    100% {{ transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }}
+}}
+.status-dot {{
+    width: 8px;
+    height: 8px;
+    background-color: #22C55E;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse-green 2s infinite;
+}}
+</style>
+<div style="margin-top: 40px; padding-top: 14px; padding-bottom: 8px; border-top: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #64748B;">
+    <div>© 2026 <strong>Kazimm Gestão & Tecnologia</strong> • Todos os direitos reservados.</div>
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="status-dot"></span>
+            <span style="font-weight: 600; color: #166534;">{status_servico}</span>
+        </div>
+        <span>•</span>
+        <span style="background: #F1F5F9; padding: 2px 8px; border-radius: 4px; font-weight: 600;">{versao}</span>
+        <span>•</span>
+        <a href="#" style="color: #007791; text-decoration: none; font-weight: 600;">Suporte VIP</a>
+    </div>
+</div>"""
+    st.markdown(html_rodape, unsafe_allow_html=True)
+
 # Alias de compatibilidade
 aplicar_estilo_moderno = aplicar_tema_global
