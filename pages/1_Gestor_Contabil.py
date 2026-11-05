@@ -2278,17 +2278,19 @@ elif opcao == "Conciliação Bancária":
                                 height=380
                             )
 
-elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
-    st.subheader("Central de Relatórios Financeiros")
+# ==============================================================================
+# BLOCO RELATÓRIOS E AUDITORIA - CONTAINER SLIM EM 4 ABAS
+# ==============================================================================
+elif "Relatório" in str(opcao):
+    st.markdown(f"#### {ICONES.get('dre', ':material/analytics:')} Central de Relatórios & Apuração Contábil")
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
     if not cliente_ativo_id:
-        st.warning(f"{ICONES['alerta']} Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
+        st.warning(f"{ICONES.get('alerta', ':material/warning:')} Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
         conn = get_connection()
         try:
-            conn.commit()
             df_cliente = pd.read_sql_query(
                 "SELECT id, nome, cnpj_cpf, regime FROM clientes WHERE id = %s AND user_id = %s", 
                 conn, 
@@ -2299,31 +2301,36 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                 conn,
                 params=(cliente_ativo_id,)
             )
+        except Exception as e:
+            st.error(f"Erro ao carregar dados dos relatórios: {e}")
+            df_cliente, df_lancamentos = pd.DataFrame(), pd.DataFrame()
         finally:
             conn.close()
 
         if df_cliente.empty:
-            st.error("Erro de segurança: Cliente não encontrado ou sem permissão.")
+            st.error("Erro de segurança: Cliente não encontrado ou sem permissão de acesso.")
+        elif df_lancamentos.empty:
+            st.info(f"{ICONES.get('atencao', ':material/info:')} Nenhum lançamento registrado para este cliente para gerar relatórios.")
         else:
             nome_cliente = df_cliente.iloc[0]["nome"]
             cnpj_cliente = df_cliente.iloc[0]["cnpj_cpf"]
             regime_cliente = df_cliente.iloc[0]["regime"]
 
-            if df_lancamentos.empty:
-                st.info(f"{ICONES['atencao']} Nenhum lançamento encontrado para montar relatórios.")
-            else:
-                # Criamos os separadores (Tabs)
-                tab_gerencial, tab_oficial, tab_anual = st.tabs([
-                    f"{ICONES['dre']} Relatório Gerencial (Categorias)", 
-                    f"{ICONES['relatorios']} Relatório Oficial MEI (Imprimível)",
-                    f"{ICONES['agenda']} Declaração Anual (DASN-SIMEI)"
+            # Área de trabalho delimitada (Container rolável padrão ERP)
+            with st.container(height=580, border=True):
+                
+                tab_gerencial, tab_oficial, tab_anual, tab_manutencao = st.tabs([
+                    f"{ICONES.get('dre', ':material/table_chart:')} Relatório Gerencial (DRE)", 
+                    f"{ICONES.get('relatorios', ':material/description:')} Relatório Oficial MEI (Imprimível)",
+                    f"{ICONES.get('agenda', ':material/event_note:')} Declaração Anual (DASN-SIMEI)",
+                    f"{ICONES.get('ferramentas', ':material/build:')} Backup & Manutenção"
                 ])
 
-
+                # --------------------------------------------------------------
+                # ABA 1: RELATÓRIO GERENCIAL (EVOLUÇÃO & CATEGORIAS)
+                # --------------------------------------------------------------
                 with tab_gerencial:
-                    
-
-                    st.write(f"{ICONES['agenda']}##### Evolução Mensal (Receitas x Despesas)")
+                    st.markdown("##### Evolução Mensal (Receitas vs. Despesas)")
                     
                     df_gerencial = df_lancamentos.copy()
                     df_gerencial['data_dt'] = pd.to_datetime(df_gerencial['data'], errors='coerce')
@@ -2337,12 +2344,8 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                     
                     for m in meses_unicos:
                         df_m = df_gerencial[df_gerencial['mes_ano_cod'] == m]
-                        
-                        # Receitas = Crédito no Grupo 3
                         rec_m = df_m[df_m['conta_credito'].str.contains('3\.|Receita', case=False, na=False)]['valor'].sum()
-                        # Despesas = Débito no Grupo 4
                         desp_m = df_m[df_m['conta_debito'].str.contains('4\.|Despesa|Estoque', case=False, na=False)]['valor'].sum()
-                        
                         saldo_m = rec_m - desp_m
                         
                         dt_ref = pd.to_datetime(m + "-01")
@@ -2358,7 +2361,6 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                     if dados_mensais:
                         df_evolucao = pd.DataFrame(dados_mensais)
                         
-
                         df_evolucao_exib = df_evolucao.copy()
                         df_evolucao_exib["Receitas"] = df_evolucao_exib["Receitas"].apply(formatar_brl)
                         df_evolucao_exib["Despesas"] = df_evolucao_exib["Despesas"].apply(formatar_brl)
@@ -2366,16 +2368,15 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                         
                         st.dataframe(df_evolucao_exib, use_container_width=True, hide_index=True)
                         
-
                         try:
                             import plotly.graph_objects as go
                             fig_bar = go.Figure()
-                            fig_bar.add_trace(go.Bar(x=df_evolucao["Mês/Ano"], y=df_evolucao["Receitas"], name="Receitas", marker_color="#00875a"))
-                            fig_bar.add_trace(go.Bar(x=df_evolucao["Mês/Ano"], y=df_evolucao["Despesas"], name="Despesas", marker_color="#de350b"))
+                            fig_bar.add_trace(go.Bar(x=df_evolucao["Mês/Ano"], y=df_evolucao["Receitas"], name="Receitas", marker_color="#10B981"))
+                            fig_bar.add_trace(go.Bar(x=df_evolucao["Mês/Ano"], y=df_evolucao["Despesas"], name="Despesas", marker_color="#EF4444"))
                             fig_bar.update_layout(
                                 barmode='group', 
-                                height=350, 
-                                margin=dict(t=20, b=20, l=20, r=20), 
+                                height=300, 
+                                margin=dict(t=10, b=10, l=10, r=10), 
                                 legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5)
                             )
                             st.plotly_chart(fig_bar, use_container_width=True)
@@ -2383,9 +2384,9 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                             st.bar_chart(df_evolucao.set_index("Mês/Ano")[["Receitas", "Despesas"]])
 
                     st.markdown("---")
+                    st.markdown("##### Acumulado por Categoria (Saldo Líquido no Período)")
 
                     filtro_caixa_banco = "1.1.1|Caixa|Banco"
-
                     df_entradas = (df_lancamentos[~df_lancamentos["conta_credito"].str.contains(filtro_caixa_banco, case=False, na=False)]
                         .groupby("conta_credito")["valor"].sum().reset_index().rename(columns={"conta_credito": "conta", "valor": "entradas"}))
                     df_saidas = (df_lancamentos[~df_lancamentos["conta_debito"].str.contains(filtro_caixa_banco, case=False, na=False)]
@@ -2399,10 +2400,12 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
 
                         if conta_nome.startswith("3") or "Receita" in conta_nome:
                             val_liquido = v_ent - v_sai
-                            if val_liquido != 0: dados_relatorio.append({"Grupo": "🟢 Receitas", "Categoria / Conta": conta_nome, "Total (R$)": val_liquido})
+                            if val_liquido != 0: 
+                                dados_relatorio.append({"Grupo": "🟢 Receitas", "Categoria / Conta": conta_nome, "Total (R$)": val_liquido})
                         elif conta_nome.startswith("4") or "Despesa" in conta_nome or "Estoque" in conta_nome:
                             val_liquido = v_sai - v_ent
-                            if val_liquido != 0: dados_relatorio.append({"Grupo": "🔴 Despesas", "Categoria / Conta": conta_nome, "Total (R$)": val_liquido})
+                            if val_liquido != 0: 
+                                dados_relatorio.append({"Grupo": "🔴 Despesas", "Categoria / Conta": conta_nome, "Total (R$)": val_liquido})
                         else:
                             val_liquido = v_ent - v_sai
                             if val_liquido != 0:
@@ -2414,52 +2417,45 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                     if not df_agrupado.empty:
                         df_exibicao = df_agrupado.copy()
                         df_exibicao["Valor Formatado"] = df_exibicao["Total (R$)"].apply(formatar_brl)
-
-                        st.write(f"{ICONES['relatorios']}##### Acumulado por Categoria (Saldo Líquido no Período)")
-                        st.dataframe(df_exibicao[["Grupo", "Categoria / Conta", "Valor Formatado"]], use_container_width=True, height=380)
-
-                        st.write(f"{ICONES['planilhas']}##### Distribuição Geral de Despesas/Receitas")
-                        try:
-                            import plotly.express as px
-                            fig = px.pie(df_agrupado, names="Categoria / Conta", values="Total (R$)", color="Grupo", hole=0.4)
-                            fig.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=520, legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5))
-                            st.plotly_chart(fig, use_container_width=True)
-                        except Exception:
-                            st.bar_chart(df_agrupado.set_index("Categoria / Conta")["Total (R$)"])
+                        st.dataframe(df_exibicao[["Grupo", "Categoria / Conta", "Valor Formatado"]], use_container_width=True, height=280, hide_index=True)
 
                         csv_rel = df_agrupado.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
-                        st.download_button(f"{ICONES['exportar']} Baixar Relatório Gerencial (.csv)", data=csv_rel, file_name=f"relatorio_gerencial_{nome_cliente.replace(' ', '_').lower()}.csv", mime="text/csv")
+                        st.download_button(
+                            label="Exportar Relatório Gerencial (.csv)", 
+                            data=csv_rel, 
+                            file_name=f"relatorio_gerencial_{nome_cliente.replace(' ', '_').lower()}.csv", 
+                            mime="text/csv",
+                            icon=ICONES.get("extrato", ":material/download:"),
+                            key="btn_down_rel_gerencial"
+                        )
 
+                # --------------------------------------------------------------
+                # ABA 2: RELATÓRIO OFICIAL MEI (DOCUMENTO IMPRIMÍVEL A4)
+                # --------------------------------------------------------------
                 with tab_oficial:
-                    st.markdown("#### Relatório Mensal das Receitas Brutas (MEI)")
-                    st.caption("Documento oficial obrigatório. Selecione o mês para apuração e imprima/salve em PDF.")
-                    
+                    st.markdown("##### Relatório Mensal das Receitas Brutas (Modelo Oficial)")
+                    st.caption("Documento mensal obrigatório do MEI. Selecione o mês e utilize o botão de impressão dentro do relatório.")
 
                     df_oficial = df_lancamentos.copy()
                     df_oficial['data_dt'] = pd.to_datetime(df_oficial['data'], errors='coerce')
                     df_oficial = df_oficial.dropna(subset=['data_dt'])
                     
-
-                    meses_pt = {1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun', 7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'}
                     df_oficial['mes_ano_cod'] = df_oficial['data_dt'].dt.strftime('%Y-%m')
                     df_oficial['mes_ano_label'] = df_oficial['data_dt'].apply(lambda x: f"{meses_pt[x.month]}/{x.year}")
                     
                     meses_disponiveis = df_oficial[['mes_ano_cod', 'mes_ano_label']].drop_duplicates().sort_values('mes_ano_cod', ascending=False)
                     
                     if meses_disponiveis.empty:
-                        st.info("Nenhuma data válida encontrada nos lançamentos.")
+                        st.info("Nenhuma data válida encontrada nos lançamentos para apuração oficial.")
                     else:
-
                         dict_meses = dict(zip(meses_disponiveis['mes_ano_label'], meses_disponiveis['mes_ano_cod']))
-                        mes_selecionado = st.selectbox("Selecione o Período de Apuração:", list(dict_meses.keys()))
+                        mes_selecionado = st.selectbox("Selecione o Período de Apuração:", list(dict_meses.keys()), key="sb_mes_oficial_mei")
                         cod_mes = dict_meses[mes_selecionado]
-                        
 
                         df_mes = df_oficial[
                             (df_oficial['mes_ano_cod'] == cod_mes) & 
                             (df_oficial['conta_credito'].str.contains('^3\.|^Receita', case=False, na=False, regex=True))
                         ]
-                        
 
                         v_I, v_II = 0.0, 0.0     # Comércio
                         v_IV, v_V = 0.0, 0.0     # Indústria
@@ -2469,14 +2465,11 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                             val = float(row['valor'])
                             conta = str(row['conta_credito']).lower()
                             hist = str(row['historico']).lower()
-                            
 
                             if "empréstimo" in conta or "emprestimo" in hist or "reembolso" in conta or "reembolso" in hist:
                                 continue
-                                
 
                             sem_doc = "sem documento" in hist
-                            
 
                             if "serviço" in conta or "servico" in conta:
                                 if sem_doc: v_VII += val
@@ -2487,329 +2480,405 @@ elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
                             elif "comércio" in conta or "comercio" in conta or "venda" in conta or "mercadoria" in conta:
                                 if sem_doc: v_I += val
                                 else: v_II += val
-                            else:
-                                pass
-                                
+
                         v_III = v_I + v_II
                         v_VI = v_IV + v_V
                         v_IX = v_VII + v_VIII
                         v_X = v_III + v_VI + v_IX
-                        
+
                         html_relatorio = f"""
-                        <div id="relatorio-mei" style="font-family: Arial, sans-serif; color: #000; background: #fff; max-width: 800px; margin: 0 auto; border: 1px solid #000; padding: 30px; line-height: 1.4;">
-                            <h3 style="text-align: center; margin-bottom: 30px; font-size: 16px;">RELATÓRIO MENSAL DAS RECEITAS BRUTAS</h3>
-                            
-                            <p style="margin: 5px 0;"><strong>CNPJ:</strong> {cnpj_cliente}</p>
-                            <p style="margin: 5px 0;"><strong>Empreendedor individual:</strong> {nome_cliente}</p>
-                            <p style="margin: 5px 0;"><strong>Período de apuração:</strong> {mes_selecionado}</p>
-                            
-                            <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px;">
-                                <tr>
-                                    <td colspan="2" style="background-color: #e0e0e0; border: 1px solid #000; padding: 6px; font-weight: bold; text-align: center;">RECEITA BRUTA MENSAL - REVENDA DE MERCADORIAS (COMÉRCIO)</td>
-                                </tr>
-                                <tr>
-                                    <td style="border: 1px solid #000; padding: 6px; width: 75%;">I - Revenda de mercadorias com dispensa de emissão de documento fiscal</td>
-                                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{formatar_brl(v_I)}</td>
-                                </tr>
-                                <tr>
-                                    <td style="border: 1px solid #000; padding: 6px;">II - Revenda de mercadorias com documento fiscal emitido</td>
-                                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{formatar_brl(v_II)}</td>
-                                </tr>
-                                <tr>
-                                    <td style="border: 1px solid #000; padding: 6px; font-weight: bold;">III - Total das receitas com revenda de mercadorias (I + II)</td>
-                                    <td style="border: 1px solid #000; padding: 6px; text-align: right; font-weight: bold;">{formatar_brl(v_III)}</td>
-                                </tr>
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta charset="utf-8">
+                            <title>Relatorio_Mensal_{mes_selecionado.replace('/', '_')}_{nome_cliente.replace(' ', '_')}</title>
+                            <style>
+                                @page {{
+                                    size: A4 portrait;
+                                    margin: 10mm 12mm 10mm 12mm;
+                                }}
+                                @media print {{
+                                    body {{
+                                        background-color: #ffffff !important;
+                                        margin: 0 !important;
+                                        padding: 0 !important;
+                                    }}
+                                    .no-print {{
+                                        display: none !important;
+                                    }}
+                                    #relatorio-mei {{
+                                        border: 1px solid #000 !important;
+                                        box-shadow: none !important;
+                                        margin: 0 auto !important;
+                                        padding: 20px !important;
+                                        width: 100% !important;
+                                        max-width: 100% !important;
+                                    }}
+                                }}
+                                body {{
+                                    font-family: Arial, sans-serif;
+                                    background-color: transparent;
+                                    margin: 0;
+                                    padding: 6px;
+                                }}
+                                .btn-print-bar {{
+                                    display: flex;
+                                    justify-content: flex-end;
+                                    margin-bottom: 14px;
+                                }}
+                                .btn-print {{
+                                    background-color: #0F172A;
+                                    color: #FFFFFF;
+                                    border: none;
+                                    padding: 9px 18px;
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    border-radius: 6px;
+                                    cursor: pointer;
+                                    display: inline-flex;
+                                    align-items: center;
+                                    gap: 8px;
+                                    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+                                    transition: background-color 0.2s ease;
+                                }}
+                                .btn-print:hover {{
+                                    background-color: #1E293B;
+                                }}
+                                #relatorio-mei {{
+                                    font-family: Arial, sans-serif;
+                                    color: #000;
+                                    background: #fff;
+                                    max-width: 760px;
+                                    margin: 0 auto;
+                                    border: 1px solid #333;
+                                    padding: 24px 28px;
+                                    line-height: 1.35;
+                                    font-size: 11.5px;
+                                    box-sizing: border-box;
+                                }}
+                            </style>
+                        </head>
+                        <body>
+                            <div class="no-print btn-print-bar">
+                                <button class="btn-print" onclick="window.print()">
+                                    🖨️ Imprimir Folha Oficial (A4 Retrato / Salvar PDF)
+                                </button>
+                            </div>
+
+                            <div id="relatorio-mei">
+                                <h3 style="text-align: center; margin-top: 0; margin-bottom: 18px; font-size: 15px; letter-spacing: 0.5px;">RELATÓRIO MENSAL DAS RECEITAS BRUTAS</h3>
                                 
-                                <tr>
-                                    <td colspan="2" style="background-color: #e0e0e0; border: 1px solid #000; padding: 6px; font-weight: bold; text-align: center; margin-top: 10px;">RECEITA BRUTA MENSAL - VENDA DE PRODUTOS INDUSTRIALIZADOS (INDÚSTRIA)</td>
-                                </tr>
-                                <tr>
-                                    <td style="border: 1px solid #000; padding: 6px;">IV - Venda de produtos industrializados com dispensa de emissão de documento fiscal</td>
-                                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{formatar_brl(v_IV)}</td>
-                                </tr>
-                                <tr>
-                                    <td style="border: 1px solid #000; padding: 6px;">V - Venda de produtos industrializados com documento fiscal emitido</td>
-                                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{formatar_brl(v_V)}</td>
-                                </tr>
-                                <tr>
-                                    <td style="border: 1px solid #000; padding: 6px; font-weight: bold;">VI - Total das receitas com venda de produtos industrializados (IV + V)</td>
-                                    <td style="border: 1px solid #000; padding: 6px; text-align: right; font-weight: bold;">{formatar_brl(v_VI)}</td>
-                                </tr>
+                                <p style="margin: 4px 0;"><strong>CNPJ:</strong> {cnpj_cliente}</p>
+                                <p style="margin: 4px 0;"><strong>Empreendedor Individual:</strong> {nome_cliente}</p>
+                                <p style="margin: 4px 0;"><strong>Período de Apuração:</strong> {mes_selecionado}</p>
+                                
+                                <table style="width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 11px;">
+                                    <tr>
+                                        <td colspan="2" style="background-color: #f1f5f9; border: 1px solid #333; padding: 6px; font-weight: bold; text-align: center;">RECEITA BRUTA MENSAL - REVENDA DE MERCADORIAS (COMÉRCIO)</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="border: 1px solid #333; padding: 5px; width: 75%;">I - Revenda de mercadorias com dispensa de emissão de documento fiscal</td>
+                                        <td style="border: 1px solid #333; padding: 5px; text-align: right;">{formatar_brl(v_I)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="border: 1px solid #333; padding: 5px;">II - Revenda de mercadorias com documento fiscal emitido</td>
+                                        <td style="border: 1px solid #333; padding: 5px; text-align: right;">{formatar_brl(v_II)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="border: 1px solid #333; padding: 5px; font-weight: bold;">III - Total das receitas com revenda de mercadorias (I + II)</td>
+                                        <td style="border: 1px solid #333; padding: 5px; text-align: right; font-weight: bold;">{formatar_brl(v_III)}</td>
+                                    </tr>
+                                    
+                                    <tr>
+                                        <td colspan="2" style="background-color: #f1f5f9; border: 1px solid #333; padding: 6px; font-weight: bold; text-align: center;">RECEITA BRUTA MENSAL - VENDA DE PRODUTOS INDUSTRIALIZADOS (INDÚSTRIA)</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="border: 1px solid #333; padding: 5px;">IV - Venda de produtos industrializados com dispensa de documento fiscal</td>
+                                        <td style="border: 1px solid #333; padding: 5px; text-align: right;">{formatar_brl(v_IV)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="border: 1px solid #333; padding: 5px;">V - Venda de produtos industrializados com documento fiscal emitido</td>
+                                        <td style="border: 1px solid #333; padding: 5px; text-align: right;">{formatar_brl(v_V)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="border: 1px solid #333; padding: 5px; font-weight: bold;">VI - Total das receitas com produtos industrializados (IV + V)</td>
+                                        <td style="border: 1px solid #333; padding: 5px; text-align: right; font-weight: bold;">{formatar_brl(v_VI)}</td>
+                                    </tr>
 
-                                <tr>
-                                    <td colspan="2" style="background-color: #e0e0e0; border: 1px solid #000; padding: 6px; font-weight: bold; text-align: center;">RECEITA BRUTA MENSAL - PRESTAÇÃO DE SERVIÇOS</td>
-                                </tr>
-                                <tr>
-                                    <td style="border: 1px solid #000; padding: 6px;">VII - Receita com prestação de serviços com dispensa de emissão de documento fiscal</td>
-                                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{formatar_brl(v_VII)}</td>
-                                </tr>
-                                <tr>
-                                    <td style="border: 1px solid #000; padding: 6px;">VIII - Receita com prestação de serviços com documento fiscal emitido</td>
-                                    <td style="border: 1px solid #000; padding: 6px; text-align: right;">{formatar_brl(v_VIII)}</td>
-                                </tr>
-                                <tr>
-                                    <td style="border: 1px solid #000; padding: 6px; font-weight: bold;">IX - Total das receitas com prestação de serviços (VII + VIII)</td>
-                                    <td style="border: 1px solid #000; padding: 6px; text-align: right; font-weight: bold;">{formatar_brl(v_IX)}</td>
-                                </tr>
+                                    <tr>
+                                        <td colspan="2" style="background-color: #f1f5f9; border: 1px solid #333; padding: 6px; font-weight: bold; text-align: center;">RECEITA BRUTA MENSAL - PRESTAÇÃO DE SERVIÇOS</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="border: 1px solid #333; padding: 5px;">VII - Prestação de serviços com dispensa de emissão de documento fiscal</td>
+                                        <td style="border: 1px solid #333; padding: 5px; text-align: right;">{formatar_brl(v_VII)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="border: 1px solid #333; padding: 5px;">VIII - Prestação de serviços com documento fiscal emitido</td>
+                                        <td style="border: 1px solid #333; padding: 5px; text-align: right;">{formatar_brl(v_VIII)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="border: 1px solid #333; padding: 5px; font-weight: bold;">IX - Total das receitas com prestação de serviços (VII + VIII)</td>
+                                        <td style="border: 1px solid #333; padding: 5px; text-align: right; font-weight: bold;">{formatar_brl(v_IX)}</td>
+                                    </tr>
 
-                                <tr>
-                                    <td style="border: 1px solid #000; padding: 8px; font-weight: bold; font-size: 14px; text-align: right; background-color: #f5f5f5;">X - Total geral das receitas brutas no mês (III + VI + IX)</td>
-                                    <td style="border: 1px solid #000; padding: 8px; text-align: right; font-weight: bold; font-size: 14px; background-color: #f5f5f5;">{formatar_brl(v_X)}</td>
-                                </tr>
-                            </table>
-                            
-                            <div style="margin-top: 50px;">
-                                <p><strong>LOCAL E DATA:</strong> ______________________________, ____/____/________</p>
-                                <div style="margin-top: 40px; text-align: center; width: 350px;">
-                                    <hr style="border: 0; border-top: 1px solid #000; margin-bottom: 5px;">
-                                    <p style="margin: 0; font-size: 12px;">ASSINATURA DO EMPRESÁRIO</p>
+                                    <tr>
+                                        <td style="border: 1px solid #333; padding: 7px; font-weight: bold; text-align: right; background-color: #e2e8f0;">X - Total geral das receitas brutas no mês (III + VI + IX)</td>
+                                        <td style="border: 1px solid #333; padding: 7px; text-align: right; font-weight: bold; background-color: #e2e8f0;">{formatar_brl(v_X)}</td>
+                                    </tr>
+                                </table>
+                                
+                                <div style="margin-top: 32px;">
+                                    <p style="margin: 4px 0;"><strong>LOCAL E DATA:</strong> ______________________________, ____/____/________</p>
+                                    <div style="margin-top: 26px; text-align: center; width: 320px;">
+                                        <hr style="border: 0; border-top: 1px solid #000; margin-bottom: 4px;">
+                                        <p style="margin: 0; font-size: 11px;">ASSINATURA DO EMPRESÁRIO</p>
+                                    </div>
+                                </div>
+
+                                <div style="margin-top: 24px; border: 1px solid #333; padding: 8px 12px; font-size: 10px; background: #fafafa;">
+                                    <p style="margin: 0 0 4px 0; font-weight: bold;">ENCONTRAM-SE ANEXADOS A ESTE RELATÓRIO:</p>
+                                    <ul style="margin: 0; padding-left: 18px;">
+                                        <li>Os documentos fiscais comprobatórios das entradas de mercadorias e serviços tomados referentes ao período;</li>
+                                        <li>As notas fiscais relativas às operações ou prestações realizadas eventualmente emitidas.</li>
+                                    </ul>
                                 </div>
                             </div>
-                            
-                            <div style="margin-top: 40px; border: 1px solid #000; padding: 10px; font-size: 11px;">
-                                <p style="margin-top: 0; font-weight: bold;">ENCONTRAM-SE ANEXADOS A ESTE RELATÓRIO:</p>
-                                <ul style="margin-bottom: 0; padding-left: 20px;">
-                                    <li>Os documentos fiscais comprobatórios das entradas de mercadorias e serviços tomados referentes ao período;</li>
-                                    <li>As notas fiscais relativas às operações ou prestações realizadas eventualmente emitidas.</li>
-                                </ul>
-                            </div>
-                        </div>
+                        </body>
+                        </html>
                         """
-                        
-                        st.components.v1.html(html_relatorio, height=950, scrolling=True)
-                        
-                        st.info(f"{ICONES['atencao']}**Dica de Impressão:** Para imprimir ou salvar em PDF, clique no botão direito do rato sobre o relatório acima e escolha a opção **Imprimir / Print** (ou use as teclas `Ctrl + P`).")
-                
-                
-                with tab_anual:
-                    st.markdown(f"{ICONES['agenda']}#### Preparação para a Declaração Anual (DASN-SIMEI)")
-                    st.caption("Resumo anual do faturamento. Copie os valores abaixo e cole no portal da Receita Federal.")
+                        st.components.v1.html(html_relatorio, height=680, scrolling=True)
 
-                    plano_atual = st.session_state.get("plano_ativo", "gratis")
-                    if not REGRAS_PLANOS.get(plano_atual, {}).get("dasn_simei", False):
+                # --------------------------------------------------------------
+                # ABA 3: DECLARAÇÃO ANUAL MEI (DASN-SIMEI) - PROTEGIDA POR PLANO
+                # --------------------------------------------------------------
+                with tab_anual:
+                    st.markdown("##### Preparação para a Declaração Anual (DASN-SIMEI)")
+                    st.caption("Resumo anual do faturamento consolidado por atividade econômica.")
+
+                    # Blindagem efetiva do Paywall
+                    if not regras.get('dasn_simei', False):
                         exibir_bloqueio_upgrade("Declaração Anual Consolidada (DASN-SIMEI)", plano_minimo="pro")
                     else:
-                        st.caption("Resumo anual do faturamento. Copie os valores abaixo e cole no portal da Receita Federal.")
+                        df_anual = df_lancamentos.copy()
+                        df_anual['data_dt'] = pd.to_datetime(df_anual['data'], errors='coerce')
+                        df_anual = df_anual.dropna(subset=['data_dt'])
+                        df_anual['ano_cod'] = df_anual['data_dt'].dt.strftime('%Y')
 
-                    df_anual = df_lancamentos.copy()
-                    df_anual['data_dt'] = pd.to_datetime(df_anual['data'], errors='coerce')
-                    df_anual = df_anual.dropna(subset=['data_dt'])
-                    df_anual['ano_cod'] = df_anual['data_dt'].dt.strftime('%Y')
+                        anos_disponiveis = sorted(df_anual['ano_cod'].unique(), reverse=True)
 
-                    anos_disponiveis = sorted(df_anual['ano_cod'].unique(), reverse=True)
+                        if not anos_disponiveis:
+                            st.info("Nenhum lançamento válido encontrado para apuração anual.")
+                        else:
+                            ano_selecionado = st.selectbox("Selecione o Ano-Calendário para Apuração:", anos_disponiveis, key="sb_ano_dasn")
 
-                    if not anos_disponiveis:
-                        st.info("Nenhum lançamento válido encontrado para apuração anual.")
-                    else:
-                        ano_selecionado = st.selectbox("Selecione o Ano-Calendário para Apuração:", anos_disponiveis)
+                            df_ano = df_anual[
+                                (df_anual['ano_cod'] == ano_selecionado) & 
+                                (df_anual['conta_credito'].str.contains('^3\.|^Receita', case=False, na=False, regex=True))
+                            ]
 
-                        df_ano = df_anual[
-                            (df_anual['ano_cod'] == ano_selecionado) & 
-                            (df_anual['conta_credito'].str.contains('^3\.|^Receita', case=False, na=False, regex=True))
-                        ]
+                            v_comercio_industria = 0.0
+                            v_servicos = 0.0
 
-                        v_comercio_industria = 0.0
-                        v_servicos = 0.0
+                            for _, row in df_ano.iterrows():
+                                val = float(row['valor'])
+                                conta = str(row['conta_credito']).lower()
+                                hist = str(row['historico']).lower()
 
-                        for _, row in df_ano.iterrows():
-                            val = float(row['valor'])
-                            conta = str(row['conta_credito']).lower()
-                            hist = str(row['historico']).lower()
+                                if "empréstimo" in conta or "emprestimo" in hist or "reembolso" in conta or "reembolso" in hist:
+                                    continue
 
-                            if "empréstimo" in conta or "emprestimo" in hist or "reembolso" in conta or "reembolso" in hist:
-                                continue
+                                if "serviço" in conta or "servico" in conta:
+                                    v_servicos += val
+                                elif any(k in conta for k in ["indústria", "industria", "industrializado", "comércio", "comercio", "venda", "mercadoria"]):
+                                    v_comercio_industria += val
 
-                            if "serviço" in conta or "servico" in conta:
-                                v_servicos += val
-                            elif "indústria" in conta or "industria" in conta or "industrializado" in conta or "comércio" in conta or "comercio" in conta or "venda" in conta or "mercadoria" in conta:
-                                v_comercio_industria += val
-                            else:
-                                pass
+                            v_total_ano = v_comercio_industria + v_servicos
 
-                        v_total_ano = v_comercio_industria + v_servicos
+                            st.markdown(f"###### Valores Consolidados — Exercício `{ano_selecionado}`")
 
-                        st.markdown("---")
-                        st.write(f"### Valores Apurados em {ano_selecionado}")
-
-                        # Cartões KPI com os valores exatos que a Receita pede
-                        col_a1, col_a2, col_a3 = st.columns(3)
-                        with col_a1:
-                            st.info(f"{ICONES['empresa']} **Comércio / Indústria**\n\n### {formatar_brl(v_comercio_industria)}")
-                            st.caption("Receita de revenda e produtos")
-                        with col_a2:
-                            st.success(f"{ICONES['ferramentas']} **Prestação de Serviços**\n\n### {formatar_brl(v_servicos)}")
-                            st.caption("Receita exclusiva de serviços")
-                        with col_a3:
-                            st.warning(f"{ICONES['receita_federal']} **Receita Bruta Total**\n\n### {formatar_brl(v_total_ano)}")
-                            st.caption("Soma de todas as atividades")
-
-                        st.markdown("---")
-                        
-                        col_btn1, col_btn2 = st.columns([2, 1])
-                        with col_btn1:
-                            st.markdown(f"{ICONES['transmissao']}#### Transmitir Declaração")
-                            st.write("Com os valores consolidados acima, clique no botão ao lado para acessar diretamente o sistema oficial da Receita Federal (DASN-SIMEI) e preencher a sua declaração.")
-                        with col_btn2:
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            st.link_button(
-                                "🌐 Acessar Portal DASN-SIMEI (Receita Federal)", 
-                                "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/dasnsimei.app/Identificacao", 
-                                type="primary", 
-                                use_container_width=True
-                            )          
-
-st.markdown("---")
-with st.expander(f"{ICONES['ferramentas']} Central de Carga e Manutenção de Dados (Importação / Exportação / Limpeza)"):
-    st.markdown("Utilize esta área para gerenciar os lançamentos, corrigir dados ou resetar a base do cliente.")
-    
-    col_exp, col_imp = st.columns(2)
-    
-
-    with col_exp:
-        st.markdown("#### 1. Exportação & Limpeza")
-        st.caption("Baixe backups ou faça a limpeza geral dos dados do cliente ativo.")
-        
-        cid_raw = st.session_state.get('cliente_id') or st.session_state.get('cliente_id_ativo')
-        if not cid_raw:
-            cid_raw = (
-                locals().get('cliente_id_ativo') or 
-                locals().get('cliente_id') or 
-                globals().get('cliente_id_ativo') or 
-                globals().get('cliente_id')
-            )
-        
-        cid_val = int(cid_raw) if cid_raw else None
-
-
-        df_export_lanc = carregar_lancamentos(cid_val) if cid_val else pd.DataFrame()
-
-        if not df_export_lanc.empty:
-            csv_lanc = df_export_lanc.to_csv(index=False, sep=";", encoding="utf-8-sig")
-            st.download_button(
-                label="Baixar Lançamentos Atuais (.csv)",
-                data=csv_lanc,
-                file_name=f"lancamentos_backup_{date.today().strftime('%Y%m%d')}.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
-        else:
-            st.info("Nenhum lançamento encontrado para este cliente.")
-
-        st.markdown("---")
-        
-        st.markdown(f"**{ICONES['excluir']} Exclusão em Bloco (Zerar Lançamentos)**")
-        st.caption("Atenção: Esta ação removerá TODOS os lançamentos do cliente atualmente selecionado.")
-        
-        if st.button(f"{ICONES['excluir']} Apagar TODOS os Lançamentos deste Cliente"):
-            if not cid_val:
-                st.error("Nenhum cliente selecionado no topo da página.")
-                st.stop()
-
-            try:
-                conn = get_connection()
-                with conn.cursor() as cur:
-                    cur.execute("DELETE FROM lancamentos WHERE cliente_id = %s;", (cid_val,))
-                conn.commit()
-                
-                st.success(f"Todos os lançamentos do cliente ID #{cid_val} foram removidos com sucesso!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao apagar lançamentos: {e}")
-
-
-    with col_imp:
-        st.markdown("#### 2. Carga e Substituição de Dados")
-        
-        file_lanc = st.file_uploader("Selecione o arquivo de Lançamentos (.csv)", type=["csv"], key="up_lanc")
-        
-        if file_lanc is not None:
-            if st.button(f"{ICONES['excluir']} Substituir Lançamentos Atuais", type="primary", use_container_width=True):
-                if not cid_val:
-                    st.error("Nenhum cliente selecionado no topo da página.")
-                    st.stop()
-
-                with st.status(f"{ICONES['pastas']}Importando e sincronizando dados...") as status:
-                    try:
-                        import io
-
-                        st.write(f"{ICONES['pastas']}1/3 Lendo e validando a estrutura do arquivo CSV...")
-                        file_bytes = file_lanc.getvalue()
-                        df_novos_lanc = None
-
-                        for enc in ['utf-8-sig', 'utf-8', 'cp1252', 'latin1', 'iso-8859-1']:
-                            try:
-                                df_temp = pd.read_csv(io.BytesIO(file_bytes), sep=";", encoding=enc)
-                                if len(df_temp.columns) >= 3:
-                                    df_novos_lanc = df_temp
-                                    break
-                            except Exception:
-                                continue
-
-                        if df_novos_lanc is None:
-                            status.update(label=f"{ICONES['excluir']} Falha na leitura do arquivo", state="error", expanded=True)
-                            st.error("Não foi possível ler o arquivo CSV. Verifique se o delimitador é ponto e vírgula ';'.")
-                            st.stop()
-
-                        def limpar_texto(txt):
-                            if not isinstance(txt, str):
-                                return str(txt)
-                            try:
-                                if 'Ã' in txt or 'Â' in txt:
-                                    return txt.encode('latin1').decode('utf-8')
-                            except Exception:
-                                pass
-                            return txt
-
-                        st.write(f"{ICONES['excluir']} 2/3 Apagando dados antigos do cliente ID #{cid_val}...")
-                        conn = get_connection()
-                        with conn.cursor() as cur:
-                            cur.execute("DELETE FROM lancamentos WHERE cliente_id = %s;", (cid_val,))
-
-                            st.write(f"{ICONES['salvar']} 3/3 Gravando {len(df_novos_lanc)} novos lançamentos no Supabase...")
-                            for _, row in df_novos_lanc.iterrows():
-                                hist_raw = str(row.get('historico', row.get('descricao', '')))
-                                hist_val = limpar_texto(hist_raw)
-
-                                raw_date = str(row['data']).strip()
-                                if raw_date == '0269-07-14':
-                                    raw_date = '14/07/2026'
-
-                                dt_parsed = pd.to_datetime(raw_date, dayfirst=True, errors='coerce')
-                                data_final = dt_parsed.strftime('%Y-%m-%d') if pd.notnull(dt_parsed) else raw_date
-
-                                val_raw = str(row['valor']).replace('R$', '').strip()
-                                if ',' in val_raw and '.' in val_raw:
-                                    val_raw = val_raw.replace('.', '').replace(',', '.')
-                                elif ',' in val_raw:
-                                    val_raw = val_raw.replace(',', '.')
-                                valor_final = float(val_raw)
-
-                                c_cred = limpar_texto(str(row.get('conta_credito', '')))
-                                c_deb = limpar_texto(str(row.get('conta_debito', '')))
-
-                                cur.execute(
-                                    """
-                                    INSERT INTO lancamentos (cliente_id, data, historico, valor, conta_debito, conta_credito)
-                                    VALUES (%s, %s, %s, %s, %s, %s)
-                                    """,
-                                    (
-                                        cid_val,
-                                        data_final,
-                                        hist_val,
-                                        valor_final,
-                                        c_deb,
-                                        c_cred
-                                    )
+                            col_a1, col_a2, col_a3 = st.columns(3)
+                            
+                            # 1. COMÉRCIO / INDÚSTRIA (AZUL NATIVO)
+                            with col_a1:
+                                st.info(
+                                    f"{ICONES['empresa']} **Comércio / Indústria**\n\n"
+                                    f"## **{formatar_brl(v_comercio_industria)}**"
                                 )
-                        conn.commit()
+                                st.caption("Receita de revenda e produtos")
+                            # 2. PRESTAÇÃO DE SERVIÇOS (VERDE NATIVO)
+                            with col_a2:
+                                st.success(
+                                    f"{ICONES['ferramentas']} **Prestação de Serviços**\n\n"
+                                    f"## **{formatar_brl(v_servicos)}**"
+                                )
+                                st.caption("Receita exclusiva de serviços")
 
-                        status.update(label=f"{ICONES['sucesso']} Importação concluída com sucesso!", state="complete", expanded=False)
-                        st.success(f"{len(df_novos_lanc)} lançamentos sincronizados!")
-                        st.rerun()
+                            # 3. RECEITA BRUTA TOTAL (AMARELO / DOURADO NATIVO)
+                            with col_a3:
+                                st.warning(
+                                    f"{ICONES['receita_federal']} **Receita Bruta Total**\n\n"
+                                    f"## **{formatar_brl(v_total_ano)}**"
+                                )
+                                st.caption("Soma de todas as atividades")
 
-                    except Exception as e:
-                        status.update(label=f"{ICONES['excluir']} Erro durante a importação", state="error", expanded=True)
-                        st.error(f"Detalhes do erro: {e}")
+                            st.divider()
+
+                            col_btn1, col_btn2 = st.columns([2.5, 1.5], vertical_alignment="center")
+                            with col_btn1:
+                                st.markdown("**Transmitir Declaração:** Com os valores consolidados acima, acesse o portal oficial da Receita Federal:")
+                            with col_btn2:
+                                st.link_button(
+                                    "🌐 Portal DASN-SIMEI (Receita)", 
+                                    "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/dasnsimei.app/Identificacao", 
+                                    type="primary", 
+                                    use_container_width=True
+                                )
+
+                # --------------------------------------------------------------
+                # ABA 4: BACKUP & MANUTENÇÃO (CARGA, EXPORTAÇÃO E RESET)
+                # --------------------------------------------------------------
+                with tab_manutencao:
+                    st.markdown("##### Central de Manutenção e Gestão da Base de Lançamentos")
+                    st.caption("Exporte backups completos, substitua dados em lote ou realize a limpeza dos registros deste cliente.")
+
+                    col_exp, col_imp = st.columns(2)
+
+                    # Coluna 1: Exportação & Limpeza
+                    with col_exp:
+                        st.markdown("###### 1. Backup Completo e Limpeza")
+                        
+                        df_export_lanc = carregar_lancamentos(cliente_ativo_id)
+
+                        if not df_export_lanc.empty:
+                            csv_lanc = df_export_lanc.to_csv(index=False, sep=";", encoding="utf-8-sig")
+                            from datetime import date
+                            st.download_button(
+                                label="📥 Baixar Backup Atual (.csv)",
+                                data=csv_lanc,
+                                file_name=f"backup_lancamentos_cli_{cliente_ativo_id}_{date.today().strftime('%Y%m%d')}.csv",
+                                mime="text/csv",
+                                use_container_width=True,
+                                key="btn_download_backup_cli"
+                            )
+                        else:
+                            st.info("Nenhum lançamento registrado para exportar.")
+
+                        st.markdown("---")
+                        st.markdown(f"**{ICONES.get('excluir', ':material/delete_forever:')} Exclusão em Bloco (Reset da Base)**")
+                        st.caption("⚠️ Atenção: Esta ação removerá permanentemente TODOS os lançamentos deste cliente.")
+                        
+                        if st.button(
+                            "Apagar TODOS os Lançamentos deste Cliente", 
+                            type="secondary",
+                            key="btn_apagar_todos_lancamentos"
+                        ):
+                            conn_del = get_connection()
+                            try:
+                                with conn_del.cursor() as cur:
+                                    cur.execute("DELETE FROM lancamentos WHERE cliente_id = %s;", (cliente_ativo_id,))
+                                conn_del.commit()
+                                limpar_cache()
+                                st.success("Base de lançamentos do cliente limpa com sucesso!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao apagar lançamentos: {e}")
+                            finally:
+                                conn_del.close()
+
+                    # Coluna 2: Carga e Substituição em Lote
+                    with col_imp:
+                        st.markdown("###### 2. Carga e Substituição de Dados")
+                        st.caption("Substitui integralmente os lançamentos deste cliente pelos dados do arquivo enviado.")
+                        
+                        file_lanc = st.file_uploader(
+                            "Selecione o arquivo de Lançamentos (.csv):", 
+                            type=["csv"], 
+                            key="up_lanc_substituicao"
+                        )
+                        
+                        if file_lanc is not None:
+                            if st.button(
+                                "Confirmar Substituição Total dos Lançamentos", 
+                                type="primary", 
+                                use_container_width=True,
+                                key="btn_confirmar_subst_lanc"
+                            ):
+                                with st.status("Processando e sincronizando lançamentos...") as status:
+                                    try:
+                                        import io
+
+                                        file_bytes = file_lanc.getvalue()
+                                        df_novos_lanc = None
+
+                                        for enc in ['utf-8-sig', 'utf-8', 'cp1252', 'latin1', 'iso-8859-1']:
+                                            try:
+                                                df_temp = pd.read_csv(io.BytesIO(file_bytes), sep=";", encoding=enc)
+                                                if len(df_temp.columns) >= 3:
+                                                    df_novos_lanc = df_temp
+                                                    break
+                                            except Exception:
+                                                continue
+
+                                        if df_novos_lanc is None:
+                                            status.update(label="Falha na leitura do arquivo CSV.", state="error")
+                                            st.error("Não foi possível ler o arquivo. Certifique-se de que o delimitador seja ponto e vírgula (;).")
+                                            st.stop()
+
+                                        def limpar_texto(txt):
+                                            if not isinstance(txt, str):
+                                                return str(txt)
+                                            try:
+                                                if 'Ã' in txt or 'Â' in txt:
+                                                    return txt.encode('latin1').decode('utf-8')
+                                            except Exception:
+                                                pass
+                                            return txt
+
+                                        conn_sub = get_connection()
+                                        try:
+                                            with conn_sub.cursor() as cur:
+                                                # Limpa lançamentos anteriores
+                                                cur.execute("DELETE FROM lancamentos WHERE cliente_id = %s;", (cliente_ativo_id,))
+
+                                                for _, row in df_novos_lanc.iterrows():
+                                                    hist_raw = str(row.get('historico', row.get('descricao', '')))
+                                                    hist_val = limpar_texto(hist_raw)
+
+                                                    raw_date = str(row['data']).strip()
+                                                    dt_parsed = pd.to_datetime(raw_date, dayfirst=True, errors='coerce')
+                                                    data_final = dt_parsed.strftime('%Y-%m-%d') if pd.notnull(dt_parsed) else raw_date
+
+                                                    val_raw = str(row['valor']).replace('R$', '').strip()
+                                                    if ',' in val_raw and '.' in val_raw:
+                                                        val_raw = val_raw.replace('.', '').replace(',', '.')
+                                                    elif ',' in val_raw:
+                                                        val_raw = val_raw.replace(',', '.')
+                                                    valor_final = float(val_raw)
+
+                                                    c_cred = limpar_texto(str(row.get('conta_credito', '')))
+                                                    c_deb = limpar_texto(str(row.get('conta_debito', '')))
+
+                                                    cur.execute(
+                                                        """
+                                                        INSERT INTO lancamentos (cliente_id, data, historico, valor, conta_debito, conta_credito)
+                                                        VALUES (%s, %s, %s, %s, %s, %s)
+                                                        """,
+                                                        (cliente_ativo_id, data_final, hist_val, valor_final, c_deb, c_cred)
+                                                    )
+                                            conn_sub.commit()
+                                            limpar_cache()
+                                            status.update(label="Carga concluída com sucesso!", state="complete")
+                                            st.success(f"{len(df_novos_lanc)} lançamentos substituídos com sucesso!")
+                                            st.rerun()
+                                        except Exception as e:
+                                            conn_sub.rollback()
+                                            status.update(label="Erro durante a gravação.", state="error")
+                                            st.error(f"Erro ao gravar novos dados: {e}")
+                                        finally:
+                                            conn_sub.close()
+
+                                    except Exception as e:
+                                        st.error(f"Erro geral no processamento: {e}")
 
 # Fim do arquivo 1_Gestor_Contabil.py
 exibir_rodape_institucional(versao="v1.0.2-beta", status_servico="Supabase Conectado")

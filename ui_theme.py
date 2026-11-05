@@ -403,12 +403,36 @@ def aplicar_tema_global():
         visibility: hidden !important;
     }
 
-    /* 3. Neutraliza o cabeçalho e rodapé vazios do Streamlit */
+    /* Mantém o rodapé visível sem gerar margem excessiva no fim do scroll */
+    .block-container {
+        padding-bottom: 1rem !important;
+    }
+
     #MainMenu, footer {
         display: none !important;
         visibility: hidden !important;
     }
 
+    /* =========================================================================
+       CORREÇÃO DO TEXTO DO ST.LINK_BUTTON (COR BRANCA COM ALTO CONTRASTE)
+       ========================================================================= */
+    [data-testid="stLinkButton"] a,
+    [data-testid="stLinkButton"] a *,
+    [data-testid="stLinkButton"] a p,
+    [data-testid="stLinkButton"] a span {
+        color: #FFFFFF !important;
+        fill: #FFFFFF !important;
+        font-weight: 600 !important;
+        text-decoration: none !important;
+    }
+
+    /* Estado de foco/hover ao passar o rato */
+    [data-testid="stLinkButton"] a:hover,
+    [data-testid="stLinkButton"] a:hover * {
+        color: #F8FAFC !important;
+        text-decoration: none !important;
+    }
+    
     </style>
     """, unsafe_allow_html=True)
     
