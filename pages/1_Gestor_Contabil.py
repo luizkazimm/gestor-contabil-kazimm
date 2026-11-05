@@ -171,28 +171,24 @@ regras = REGRAS_PLANOS.get(plano_usuario, REGRAS_PLANOS['gratis'])
 
 ICONES_MENU = {
     "Dashboard": f"{ICONES['dashboard']} Dashboard",
-    "Cadastrar Conta / Fornecedor": f"{ICONES['fornecedor']} Cadastrar Conta / Fornecedor",
-    "Novo Lançamento": f"{ICONES['adicionar']} Novo Lançamento",
-    "Importação em Lote": f"{ICONES['importar']} Importação em Lote",
-    "Provisões (Contas a Pagar)": f"{ICONES['provisoes']} Provisões (Contas a Pagar)",
-    "Importar Extrato / Excel": f"{ICONES['extrato']} Importar Extrato / Excel",
-    "Ver Lançamentos": f"{ICONES['lancamentos']} Ver Lançamentos",
+    "Cadastrar Contas": f"{ICONES['fornecedor']} Cadastrar Contas",
+    "Lançamentos": f"{ICONES['adicionar']} Lançamentos",
+    "Importação": f"{ICONES['importar']} Importação",
+    "Contas a Pagar": f"{ICONES['provisoes']} Contas a Pagar",
     "Conciliação Bancária": f"{ICONES['conciliacao']} Conciliação Bancária",
     "Plano de Contas": f"{ICONES['plano_contas']} Plano de Contas",
     "Relatório por Categoria": f"{ICONES['dre']} Relatório por Categoria",
 }
 
 item_importacao = "Importação em Lote" if regras['importacao_lote'] else f"🔒 Importação em Lote (PRO)"
-item_provisoes = "Provisões (Contas a Pagar)" if regras['provisoes'] else f"🔒 Provisões (Contas a Pagar) (PRO)"
+item_provisoes = "Contas a Pagar" if regras['provisoes'] else f"🔒 Contas a Pagar (PRO)"
 
 menu_opcoes = [
     "Dashboard",
-    "Cadastrar Conta / Fornecedor",
-    "Novo Lançamento",
-    item_importacao,
+    "Cadastrar Contas",
+    "Lançamentos",
+    "Importação",
     item_provisoes,
-    "Importar Extrato / Excel",
-    "Ver Lançamentos",
     "Conciliação Bancária",
     "Plano de Contas",
     "Relatório por Categoria"
@@ -811,7 +807,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                     else:
                         st.dataframe(df_todos_clientes, use_container_width=True, hide_index=True)
 
-elif opcao == "Cadastrar Conta / Fornecedor":
+elif opcao == "Cadastrar Contas":
     st.markdown(f"#### {ICONES.get('fornecedor', ':material/domain:')} Gestão de Contas e Fornecedores")
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
@@ -1102,473 +1098,807 @@ elif opcao == "Plano de Contas":
                     file_name="plano_de_contas_mei.csv",
                     mime="text/csv",
                 )
-elif opcao == "Novo Lançamento":
-    st.subheader("Registro de Lançamento Contábil")
 
-    plano_atual = st.session_state.get("plano_ativo", "gratis")
-    limite_mes = REGRAS_PLANOS.get(plano_atual, {}).get("limite_lancamentos_mes", 25)
-
-    from datetime import datetime
-    mes_atual_cod = datetime.now().strftime("%Y-%m")
-    
-    if not df_lanc_global.empty and "data" in df_lanc_global.columns:
-        total_mes = int(df_lanc_global[df_lanc_global["data"].astype(str).str.startswith(mes_atual_cod)].shape[0])
-    else:
-        total_mes = 0
-
-    if total_mes < limite_mes and plano_atual == "gratis":
-        st.info(f"{ICONES['plano_contas']} **Consumo do Plano Gratuito:** {total_mes} de {limite_mes} lançamentos utilizados neste mês.")
-
-    if total_mes >= limite_mes:
-        st.error(f"{ICONES['alerta']} **Limite mensal atingido ({total_mes} de {limite_mes} lançamentos) para o período de {mes_atual_cod}.**")
-        exibir_bloqueio_upgrade("Lançamentos Ilimitados", plano_minimo="pro")
-        st.stop()
-
-
-    regime_cliente = regime_empresa if 'regime_empresa' in locals() else "MEI (Microempreendedor Individual)"
-    cliente_selecionado = nome_empresa if 'nome_empresa' in locals() else "Cliente"
-    df_contas = carregar_plano_contas(cliente_ativo_id)
-    
-    
-
-    df_fin = df_contas[
-        df_contas["tipo"].str.contains("Ativo", case=False, na=False) | 
-        df_contas["codigo"].str.startswith("1.1") |
-        df_contas["descricao"].str.contains("Caixa|Banco", case=False, na=False)
-    ]
-    if not df_fin.empty:
-        opcoes_financeiras = [f"{row['codigo']} - {row['descricao']}" for _, row in df_fin.iterrows()]
-    else:
-        opcoes_financeiras = ["1.1.1.01 - Caixa Geral", "1.1.1.02 - Banco Conta Movimento"]
-
-
-    df_desp = df_contas[
-        df_contas["tipo"].str.contains("Despesa|Passivo", case=False, na=False) | 
-        df_contas["codigo"].str.startswith("4") |
-        df_contas["codigo"].str.startswith("2")
-    ]
-    if not df_desp.empty:
-        opcoes_fornecedores_despesa = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_desp.iterrows()]
-    else:
-        opcoes_fornecedores_despesa = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_contas.iterrows()]
-
-
-    df_rec = df_contas[
-        df_contas["tipo"].str.contains("Receita", case=False, na=False) | 
-        df_contas["codigo"].str.startswith("3")
-    ]
-    if not df_rec.empty:
-        opcoes_rec = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_rec.iterrows()]
-    else:
-        opcoes_rec = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_contas.iterrows()]
-
-
-    if not cliente_ativo_id or df_info_cli.empty:
-        st.warning("Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral.")
-    else:
-        cliente_selecionado = df_info_cli.iloc[0]["nome"]
-        regime_cliente = df_info_cli.iloc[0]["regime"]
-        
-
-        dict_clientes_id = {cliente_selecionado: cliente_ativo_id}
-
-        historicos_padrao = [
-            "Digitar Histórico do Zero",
-            "Pg. Supermercado Premium de B.Roxo - NFc:",
-            "Pg. Supermercado Real de Eden - NFc:",
-            "Pg. Drogaria Ebenezer de Madureira - NFc",
-            "Pg. Remar Hortifruti Ltda - NFc:",
-            "Pg. Mercadinho Natural de B.Roxo - Recibo:",
-            "Pg. Supermercados Feira Nova Ltda - NFc:",
-            "Pg. Bazar Amigão de Madureita - NFc:",
-        ]
-
-
-        if "Lançamento Simples" in regime_cliente:
-            tab_entrada, tab_saida = st.tabs([
-                "(+) ENTRADAS / RECEITAS", 
-                "(-) SAÍDAS / DESPESAS E ESTOQUE"
-            ])
-
-
-            with tab_entrada:
-                with st.form("form_entrada", clear_on_submit=True):
-                    st.markdown(f"{ICONES['transmissao']}##### Registrar Entrada de Caixas / Receitas")
-                    data = st.date_input("Data do Lançamento", format="DD/MM/YYYY", key="dt_ent")
-
-                    c_doc1, c_doc2, c_doc3 = st.columns(3)
-                    with c_doc1:
-                        tipo_doc = st.selectbox(
-                            "Tipo de Documento",
-                            ["Cupom Fiscal (NFC-e)", "Nota Fiscal (NF-e)", "Recibo / Comprovante", "Extrato / PIX", "Sem Documento"],
-                            key="td_ent"
-                        )
-                    with c_doc2:
-                        num_doc = st.text_input("Nº do Documento (Opcional)", placeholder="Ex: 1054", key="nd_ent")
-                    with c_doc3:
-                        nome_cliente_rec = st.text_input("Cliente / Pagador (Opcional)", placeholder="Ex: Cliente João Silva", key="em_ent")
-
-                    col_s1, col_s2 = st.columns(2)
-                    with col_s1:
-
-                        conta_financeira = st.selectbox(
-                            "Conta de Destino (Onde o dinheiro entrou)",
-                            opcoes_financeiras,
-                            key="cf_ent"
-                        )
-                    with col_s2:
-                        categoria = st.selectbox("Categoria da Receita", opcoes_rec, key="cat_ent")
-
-                    valor = st.number_input("Valor da Receita (R$)", min_value=0.00, step=0.01, format="%.2f", key="val_ent")
-                    hist_sel = st.selectbox("Histórico Padrão", historicos_padrao, key="hp_ent")
-                    comp_hist = st.text_input("Complemento do Histórico", placeholder="Ex: Vendas do dia em cartão e dinheiro", key="ch_ent")
-
-                    salvar_ent = st.form_submit_button("Registrar Entrada")
-
-                    if salvar_ent:
-
-                        if not conta_financeira:
-                            st.warning(f"{ICONES['alerta']} Selecione a **Conta de Destino** (onde o dinheiro entrou).")
-                        elif not categoria:
-                            st.warning(f"{ICONES['alerta']} Selecione a **Categoria da Receita**.")
-                        elif valor <= 0:
-                            st.warning(f"{ICONES['alerta']} O **Valor da Receita** deve ser maior que R$ 0,00.")
-                        elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
-                            st.warning(f"{ICONES['alerta']} Você escolheu 'Digitar Histórico do Zero'. Por favor, escreva o **Complemento do Histórico**.")
-                        else:
-
-                            info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + (f" - {nome_cliente_rec.strip()}" if nome_cliente_rec.strip() else "") + "]"
-                            hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
-
-
-                            supabase.table("lancamentos").insert({
-                                "cliente_id": cliente_ativo_id,
-                                "data": str(data),
-                                "conta_debito": conta_financeira,
-                                "conta_credito": categoria,
-                                "valor": float(valor),
-                                "historico": hist_final.strip()
-                            }).execute()
-
-                            limpar_cache()
-                            st.success(f"{ICONES['sucesso']} Entrada registrada com sucesso!")
-                            st.rerun()
-
-            with tab_saida:
-                with st.form("form_saida", clear_on_submit=True):
-                    st.markdown("##### Registrar Pagamento de Despesa / Fornecedor")
-                    data = st.date_input("Data do Lançamento", format="DD/MM/YYYY", key="dt_sai")
-
-                    c_doc1, c_doc2 = st.columns(2)
-                    with c_doc1:
-                        tipo_doc = st.selectbox(
-                            "Tipo de Documento",
-                            ["Cupom Fiscal (NFC-e)", "Nota Fiscal (NF-e)", "Recibo / Comprovante", "Extrato / PIX", "Sem Documento"],
-                            key="td_sai"
-                        )
-                    with c_doc2:
-                        num_doc = st.text_input("Nº do Documento (Opcional)", placeholder="Ex: 1054", key="nd_sai")
-
-                    col_s1, col_s2 = st.columns(2)
-                    with col_s1:
-
-                        conta_financeira = st.selectbox(
-                            "Forma de Pagamento (De onde saiu o dinheiro)",
-                            opcoes_financeiras,
-                            key="cf_sai"
-                        )
-                    with col_s2:
-
-                        categoria = st.selectbox(
-                            "Fornecedor / Conta de Despesa (Grupo 4)", 
-                            opcoes_fornecedores_despesa, 
-                            key="cat_sai"
-                        )
-
-                    valor = st.number_input("Valor da Despesa (R$)", min_value=0.00, step=0.01, format="%.2f", key="val_sai")
-                    hist_sel = st.selectbox("Histórico Padrão", historicos_padrao, key="hp_sai")
-                    comp_hist = st.text_input("Complemento do Histórico", placeholder="Ex: Aquisição de combustíveis e insumos", key="ch_sai")
-
-                    salvar_sai = st.form_submit_button("Registrar Saída")
-
-                    if salvar_sai:
-
-                        if not conta_financeira:
-                            st.warning(f"{ICONES['alerta']} Selecione a **Forma de Pagamento** (de onde saiu o dinheiro).")
-                        elif not categoria:
-                            st.warning(f"{ICONES['alerta']} Selecione o **Fornecedor / Conta de Despesa**.")
-                        elif valor <= 0:
-                            st.warning(f"{ICONES['alerta']} O **Valor da Despesa** deve ser maior que R$ 0,00.")
-                        elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
-                            st.warning(f"{ICONES['alerta']} Você escolheu 'Digitar Histórico do Zero'. Por favor, escreva o **Complemento do Histórico**.")
-                        else:
-
-                            info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + "]"
-                            hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
-
-
-                            supabase.table("lancamentos").insert({
-                                "cliente_id": cliente_ativo_id,
-                                "data": str(data),
-                                "conta_debito": categoria,
-                                "conta_credito": conta_financeira,
-                                "valor": float(valor),
-                                "historico": hist_final.strip()
-                            }).execute()
-
-                            limpar_cache()
-                            st.success(f"{ICONES['sucesso']} Saída registrada com sucesso!")
-                            st.rerun() # Limpa o formulário
-
-
-        else:
-            with st.form("form_partida_dupla", clear_on_submit=True):
-                st.markdown("##### Preenchimento por Partida Dupla")
-                data = st.date_input("Data do Lançamento", format="DD/MM/YYYY")
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    conta_debito = st.selectbox("Conta Débito", [""] + [f"{r['codigo']} - {r['descricao']}" for _, r in df_contas.iterrows()])
-                with col2:
-                    conta_credito = st.selectbox("Conta Crédito", [""] + [f"{r['codigo']} - {r['descricao']}" for _, r in df_contas.iterrows()])
-
-                valor = st.number_input("Valor (R$)", min_value=0.00, step=0.01, format="%.2f")
-                hist_sel = st.selectbox("Histórico Padrão", historicos_padrao)
-                comp_hist = st.text_input("Complemento do Histórico")
-
-                salvar_pd = st.form_submit_button("Registrar Lançamento")
-
-                if salvar_pd:
-
-                    if not conta_debito:
-                        st.warning(f"{ICONES['alerta']} Selecione a **Conta Débito**.")
-                    elif not conta_credito:
-                        st.warning(f"{ICONES['alerta']} Selecione a **Conta Crédito**.")
-                    elif valor <= 0:
-                        st.warning(f"{ICONES['alerta']} O **Valor** do lançamento deve ser maior que R$ 0,00.")
-                    elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
-                        st.warning(f"{ICONES['alerta']} Você escolheu 'Digitar Histórico do Zero'. Por favor, preencha o **Complemento do Histórico**.")
-                    else:
-
-                        hist_final = comp_hist if hist_sel == "Digitar Histórico do Zero" else f"{hist_sel} {comp_hist}"
-                        conn = get_connection()
-                        cursor = conn.cursor()
-                        cursor.execute(
-                            "INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) VALUES (%s, %s, %s, %s, %s, %s)",
-                            (cliente_ativo_id, str(data), conta_debito, conta_credito, valor, hist_final.strip())
-                        )
-                        conn.commit()
-                        conn.close()
-                        limpar_cache()
-                        st.success(f"{ICONES['sucesso']} Lançamento em Partida Dupla registrado!")
-                        st.rerun()
-                        
-
-elif "Importação em Lote" in opcao:
-    st.subheader("Importação em Lote de Lançamentos")
-
-    plano_atual = st.session_state.get("plano_ativo", "gratis")
-    if not REGRAS_PLANOS.get(plano_atual, {}).get("importacao_lote", False):
-        exibir_bloqueio_upgrade("Importação em Lote (OFX e Planilhas)", plano_minimo="pro")
-        st.stop()
-    st.caption("Importe dezenas de transações de uma só vez a partir do extrato bancário (.OFX) ou de uma planilha (.xlsx / .csv).")
+#BLOCO BOTÃO ÚNICO - LANÇAMENTOS
+elif opcao == "Lançamentos":
+    st.markdown(f"#### {ICONES.get('lancamentos', ':material/edit_note:')} Livro Caixa e Movimentações Contábeis")
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
     if not cliente_ativo_id:
-        st.warning(f"{ICONES['alerta']} Selecione um cliente ativo na barra lateral para prosseguir.")
+        st.warning("Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
+        # Área delimitada que mantém o cabeçalho fixo no topo da aplicação
+        with st.container(height=580, border=True):
+            
+            tab_novo, tab_consulta = st.tabs([
+                f"{ICONES.get('adicionar', ':material/add_circle:')} Novo Lançamento",
+                f"{ICONES.get('lancamentos', ':material/search:')} Consulta e Histórico"
+            ])
 
-        conn = get_connection()
-        try:
-            conn.commit()
-            df_contas = pd.read_sql_query(
-                "SELECT codigo, descricao AS nome, tipo FROM plano_contas WHERE cliente_id = %s OR cliente_id IS NULL ORDER BY codigo ASC",
-                conn, params=(cliente_ativo_id,)
-            )
-        finally:
-            conn.close()
+            # --------------------------------------------------------------
+            # ABA 1: NOVO LANÇAMENTO
+            # --------------------------------------------------------------
+            with tab_novo:
+                st.markdown("##### Inclusão de Entrada ou Saída")
 
-        lista_todas_contas = [f"{r['codigo']} - {r['nome']}" for _, r in df_contas.iterrows()]
-        contas_bancos = [c for c in lista_todas_contas if c.startswith("1.1.1") or "Banco" in c or "Caixa" in c]
-        contas_receitas = [c for c in lista_todas_contas if c.startswith("3.") or "Receita" in c]
-        contas_despesas = [c for c in lista_todas_contas if c.startswith("4.") or "Despesa" in c or "Estoque" in c]
+                plano_atual = st.session_state.get("plano_ativo", "gratis")
+                limite_mes = REGRAS_PLANOS.get(plano_atual, {}).get("limite_lancamentos_mes", 25)
 
-        tipo_origem = st.radio(
-            "Selecione o formato do arquivo:",
-            ["Extrato Bancário (.OFX)", "Planilha Padrão (.xlsx / .csv)"],
-            horizontal=True
-        )
+                from datetime import datetime
+                mes_atual_cod = datetime.now().strftime("%Y-%m")
+                
+                if not df_lanc_global.empty and "data" in df_lanc_global.columns:
+                    total_mes = int(df_lanc_global[df_lanc_global["data"].astype(str).str.startswith(mes_atual_cod)].shape[0])
+                else:
+                    total_mes = 0
 
-        st.markdown("---")
+                if total_mes < limite_mes and plano_atual == "gratis":
+                    st.info(f"{ICONES['plano_contas']} **Consumo do Plano Gratuito:** {total_mes} de {limite_mes} lançamentos utilizados neste mês.")
 
-        dados_processados = []
+                if total_mes >= limite_mes:
+                    st.error(f"{ICONES['alerta']} **Limite mensal atingido ({total_mes} de {limite_mes} lançamentos) para o período de {mes_atual_cod}.**")
+                    exibir_bloqueio_upgrade("Lançamentos Ilimitados", plano_minimo="pro")
+                    st.stop()
 
-        if tipo_origem == "Extrato Bancário (.OFX)":
-            col_b1, col_b2 = st.columns([1.5, 2])
-            with col_b1:
-                conta_destino_ofx = st.selectbox(
-                    "Qual conta bancária representa este extrato?",
-                    contas_bancos,
-                    help="Ex: 1.1.1.02.01 - Banco CORA"
-                )
-            with col_b2:
-                arquivo_ofx = st.file_uploader("Selecione o arquivo .OFX baixado do banco", type=["ofx"])
+                regime_cliente = regime_empresa if 'regime_empresa' in locals() else "MEI (Microempreendedor Individual)"
+                cliente_selecionado = nome_empresa if 'nome_empresa' in locals() else "Cliente"
+                df_contas = carregar_plano_contas(cliente_ativo_id)
 
-            if arquivo_ofx:
-                try:
-                    from ofxparse import OfxParser
-                    import io
+                df_fin = df_contas[
+                    df_contas["tipo"].str.contains("Ativo", case=False, na=False) | 
+                    df_contas["codigo"].str.startswith("1.1") |
+                    df_contas["descricao"].str.contains("Caixa|Banco", case=False, na=False)
+                ]
+                if not df_fin.empty:
+                    opcoes_financeiras = [f"{row['codigo']} - {row['descricao']}" for _, row in df_fin.iterrows()]
+                else:
+                    opcoes_financeiras = ["1.1.1.01 - Caixa Geral", "1.1.1.02 - Banco Conta Movimento"]
 
-                    conteudo_bytes = io.BytesIO(arquivo_ofx.read())
-                    ofx = OfxParser.parse(conteudo_bytes)
+                df_desp = df_contas[
+                    df_contas["tipo"].str.contains("Despesa|Passivo", case=False, na=False) | 
+                    df_contas["codigo"].str.startswith("4") |
+                    df_contas["codigo"].str.startswith("2")
+                ]
+                if not df_desp.empty:
+                    opcoes_fornecedores_despesa = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_desp.iterrows()]
+                else:
+                    opcoes_fornecedores_despesa = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_contas.iterrows()]
 
-                    for transacao in ofx.account.statement.transactions:
-                        v = float(transacao.amount)
-                        dt = transacao.date.strftime('%Y-%m-%d')
-                        memo = str(transacao.memo).strip()
-                        tipo_mov = "Entrada" if v > 0 else "Saída"
+                df_rec = df_contas[
+                    df_contas["tipo"].str.contains("Receita", case=False, na=False) | 
+                    df_contas["codigo"].str.startswith("3")
+                ]
+                if not df_rec.empty:
+                    opcoes_rec = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_rec.iterrows()]
+                else:
+                    opcoes_rec = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_contas.iterrows()]
 
-                        dados_processados.append({
-                            "Data": dt,
-                            "Tipo": tipo_mov,
-                            "Valor": abs(v),
-                            "Histórico / Descrição": memo,
-                            "Conta Contrapartida": "" 
-                        })
+                historicos_padrao = [
+                    "Digitar Histórico do Zero",
+                    "Pg. Supermercado Premium de B.Roxo - NFc:",
+                    "Pg. Supermercado Real de Eden - NFc:",
+                    "Pg. Drogaria Ebenezer de Madureira - NFc",
+                    "Pg. Remar Hortifruti Ltda - NFc:",
+                    "Pg. Mercadinho Natural de B.Roxo - Recibo:",
+                    "Pg. Supermercados Feira Nova Ltda - NFc:",
+                    "Pg. Bazar Amigão de Madureita - NFc:",
+                ]
 
-                    st.success(f"{ICONES['sucesso']} Extrato lido com sucesso: **{len(dados_processados)} transações** identificadas!")
-                except Exception as e:
-                    st.error(f"Erro ao processar arquivo OFX: {e}")
+                # Roteamento por Regime Tributário
+                if "Lançamento Simples" in regime_cliente:
+                    tab_entrada, tab_saida = st.tabs([
+                        "(+) ENTRADAS / RECEITAS", 
+                        "(-) SAÍDAS / DESPESAS E ESTOQUE"
+                    ])
 
-        else:
-            col_p1, col_p2 = st.columns([1.2, 2])
-            with col_p1:
-                st.write("**Planilha Modelo:**")
-                st.caption("Baixe o template padrão para preencher com seus dados:")
-                df_exemplo = pd.DataFrame([
-                    {"Data": "2026-01-15", "Tipo": "Entrada", "Valor": 1500.00, "Descricao": "Serviço Prestado Empresa X", "Conta_Banco": contas_bancos[0] if contas_bancos else "1.1.1.01 - Caixa", "Categoria": contas_receitas[0] if contas_receitas else "3.2.1 - Serviços"},
-                    {"Data": "2026-01-18", "Tipo": "Saída", "Valor": 180.50, "Descricao": "Material de Escritório", "Conta_Banco": contas_bancos[0] if contas_bancos else "1.1.1.01 - Caixa", "Categoria": contas_despesas[0] if contas_despesas else "4.1.1 - Despesas"}
-                ])
-                csv_modelo = df_exemplo.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
-                st.download_button("📥 Baixar Modelo (.CSV)", data=csv_modelo, file_name="modelo_importacao_kazimm.csv", mime="text/csv")
+                    with tab_entrada:
+                        with st.form("form_entrada", clear_on_submit=True):
+                            st.markdown(f"{ICONES['transmissao']} ##### Registrar Entrada de Caixas / Receitas")
+                            data = st.date_input("Data do Lançamento", format="DD/MM/YYYY", key="dt_ent")
 
-            with col_p2:
-                arquivo_planilha = st.file_uploader("Selecione sua planilha preenchida", type=["xlsx", "csv"])
+                            c_doc1, c_doc2, c_doc3 = st.columns(3)
+                            with c_doc1:
+                                tipo_doc = st.selectbox(
+                                    "Tipo de Documento",
+                                    ["Cupom Fiscal (NFC-e)", "Nota Fiscal (NF-e)", "Recibo / Comprovante", "Extrato / PIX", "Sem Documento"],
+                                    key="td_ent"
+                                )
+                            with c_doc2:
+                                num_doc = st.text_input("Nº do Documento (Opcional)", placeholder="Ex: 1054", key="nd_ent")
+                            with c_doc3:
+                                nome_cliente_rec = st.text_input("Cliente / Pagador (Opcional)", placeholder="Ex: Cliente João Silva", key="em_ent")
 
-            if arquivo_planilha:
-                try:
-                    if arquivo_planilha.name.endswith(".csv"):
-                        df_upload = pd.read_csv(arquivo_planilha, sep=None, engine="python", decimal=",")
-                    else:
-                        df_upload = pd.read_excel(arquivo_planilha)
+                            col_s1, col_s2 = st.columns(2)
+                            with col_s1:
+                                conta_financeira = st.selectbox(
+                                    "Conta de Destino (Onde o dinheiro entrou)",
+                                    opcoes_financeiras,
+                                    key="cf_ent"
+                                )
+                            with col_s2:
+                                categoria = st.selectbox("Categoria da Receita", opcoes_rec, key="cat_ent")
 
-                    # Padronização de colunas
-                    df_upload.columns = [c.strip().lower() for c in df_upload.columns]
-                    for _, row in df_upload.iterrows():
-                        dados_processados.append({
-                            "Data": str(row.get("data", "")),
-                            "Tipo": "Entrada" if "ent" in str(row.get("tipo", "")).lower() else "Saída",
-                            "Valor": float(row.get("valor", 0.0)),
-                            "Histórico / Descrição": str(row.get("descricao", row.get("historico", ""))),
-                            "Conta Contrapartida": str(row.get("categoria", ""))
-                        })
-                    st.success(f"{ICONES['sucesso']} Planilha lida com sucesso: **{len(dados_processados)} transações** encontradas!")
-                except Exception as e:
-                    st.error(f"Erro ao processar planilha: {e}")
+                            valor = st.number_input("Valor da Receita (R$)", min_value=0.00, step=0.01, format="%.2f", key="val_ent")
+                            hist_sel = st.selectbox("Histórico Padrão", historicos_padrao, key="hp_ent")
+                            comp_hist = st.text_input("Complemento do Histórico", placeholder="Ex: Vendas do dia em cartão e dinheiro", key="ch_ent")
 
-        if dados_processados:
-            st.markdown("---")
-            st.write(f"{ICONES['pesquisar']}#### Revisão e Classificação dos Lançamentos")
-            st.caption("Classifique as contrapartidas diretamente na tabela abaixo antes de confirmar a importação.")
+                            salvar_ent = st.form_submit_button("Registrar Entrada")
 
+                            if salvar_ent:
+                                if not conta_financeira:
+                                    st.warning(f"{ICONES['alerta']} Selecione a **Conta de Destino** (onde o dinheiro entrou).")
+                                elif not categoria:
+                                    st.warning(f"{ICONES['alerta']} Selecione a **Categoria da Receita**.")
+                                elif valor <= 0:
+                                    st.warning(f"{ICONES['alerta']} O **Valor da Receita** deve ser maior que R$ 0,00.")
+                                elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
+                                    st.warning(f"{ICONES['alerta']} Você escolheu 'Digitar Histórico do Zero'. Por favor, escreva o **Complemento do Histórico**.")
+                                else:
+                                    info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + (f" - {nome_cliente_rec.strip()}" if nome_cliente_rec.strip() else "") + "]"
+                                    hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
 
-            for item in dados_processados:
-                if not item["Conta Contrapartida"]:
-                    memo_upper = item["Histórico / Descrição"].upper()
+                                    supabase.table("lancamentos").insert({
+                                        "cliente_id": cliente_ativo_id,
+                                        "data": str(data),
+                                        "conta_debito": conta_financeira,
+                                        "conta_credito": categoria,
+                                        "valor": float(valor),
+                                        "historico": hist_final.strip()
+                                    }).execute()
+
+                                    limpar_cache()
+                                    st.success(f"{ICONES['sucesso']} Entrada registrada com sucesso!")
+                                    st.rerun()
+
+                    with tab_saida:
+                        with st.form("form_saida", clear_on_submit=True):
+                            st.markdown("##### Registrar Pagamento de Despesa / Fornecedor")
+                            data = st.date_input("Data do Lançamento", format="DD/MM/YYYY", key="dt_sai")
+
+                            c_doc1, c_doc2 = st.columns(2)
+                            with c_doc1:
+                                tipo_doc = st.selectbox(
+                                    "Tipo de Documento",
+                                    ["Cupom Fiscal (NFC-e)", "Nota Fiscal (NF-e)", "Recibo / Comprovante", "Extrato / PIX", "Sem Documento"],
+                                    key="td_sai"
+                                )
+                            with c_doc2:
+                                num_doc = st.text_input("Nº do Documento (Opcional)", placeholder="Ex: 1054", key="nd_sai")
+
+                            col_s1, col_s2 = st.columns(2)
+                            with col_s1:
+                                conta_financeira = st.selectbox(
+                                    "Forma de Pagamento (De onde saiu o dinheiro)",
+                                    opcoes_financeiras,
+                                    key="cf_sai"
+                                )
+                            with col_s2:
+                                categoria = st.selectbox(
+                                    "Fornecedor / Conta de Despesa (Grupo 4)", 
+                                    opcoes_fornecedores_despesa, 
+                                    key="cat_sai"
+                                )
+
+                            valor = st.number_input("Valor da Despesa (R$)", min_value=0.00, step=0.01, format="%.2f", key="val_sai")
+                            hist_sel = st.selectbox("Histórico Padrão", historicos_padrao, key="hp_sai")
+                            comp_hist = st.text_input("Complemento do Histórico", placeholder="Ex: Aquisição de combustíveis e insumos", key="ch_sai")
+
+                            salvar_sai = st.form_submit_button("Registrar Saída")
+
+                            if salvar_sai:
+                                if not conta_financeira:
+                                    st.warning(f"{ICONES['alerta']} Selecione a **Forma de Pagamento** (de onde saiu o dinheiro).")
+                                elif not categoria:
+                                    st.warning(f"{ICONES['alerta']} Selecione o **Fornecedor / Conta de Despesa**.")
+                                elif valor <= 0:
+                                    st.warning(f"{ICONES['alerta']} O **Valor da Despesa** deve ser maior que R$ 0,00.")
+                                elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
+                                    st.warning(f"{ICONES['alerta']} Você escolheu 'Digitar Histórico do Zero'. Por favor, escreva o **Complemento do Histórico**.")
+                                else:
+                                    info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + "]"
+                                    hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
+
+                                    supabase.table("lancamentos").insert({
+                                        "cliente_id": cliente_ativo_id,
+                                        "data": str(data),
+                                        "conta_debito": categoria,
+                                        "conta_credito": conta_financeira,
+                                        "valor": float(valor),
+                                        "historico": hist_final.strip()
+                                    }).execute()
+
+                                    limpar_cache()
+                                    st.success(f"{ICONES['sucesso']} Saída registrada com sucesso!")
+                                    st.rerun()
+
+                else:
+                    with st.form("form_partida_dupla", clear_on_submit=True):
+                        st.markdown("##### Preenchimento por Partida Dupla")
+                        data = st.date_input("Data do Lançamento", format="DD/MM/YYYY")
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            conta_debito = st.selectbox("Conta Débito", [""] + [f"{r['codigo']} - {r['descricao']}" for _, r in df_contas.iterrows()])
+                        with col2:
+                            conta_credito = st.selectbox("Conta Crédito", [""] + [f"{r['codigo']} - {r['descricao']}" for _, r in df_contas.iterrows()])
+
+                        valor = st.number_input("Valor (R$)", min_value=0.00, step=0.01, format="%.2f")
+                        hist_sel = st.selectbox("Histórico Padrão", historicos_padrao)
+                        comp_hist = st.text_input("Complemento do Histórico")
+
+                        salvar_pd = st.form_submit_button("Registrar Lançamento")
+
+                        if salvar_pd:
+                            if not conta_debito:
+                                st.warning(f"{ICONES['alerta']} Selecione a **Conta Débito**.")
+                            elif not conta_credito:
+                                st.warning(f"{ICONES['alerta']} Selecione a **Conta Crédito**.")
+                            elif valor <= 0:
+                                st.warning(f"{ICONES['alerta']} O **Valor** do lançamento deve ser maior que R$ 0,00.")
+                            elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
+                                st.warning(f"{ICONES['alerta']} Você escolheu 'Digitar Histórico do Zero'. Por favor, preencha o **Complemento do Histórico**.")
+                            else:
+                                hist_final = comp_hist if hist_sel == "Digitar Histórico do Zero" else f"{hist_sel} {comp_hist}"
+                                conn = get_connection()
+                                cursor = conn.cursor()
+                                cursor.execute(
+                                    "INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) VALUES (%s, %s, %s, %s, %s, %s)",
+                                    (cliente_ativo_id, str(data), conta_debito, conta_credito, valor, hist_final.strip())
+                                )
+                                conn.commit()
+                                conn.close()
+                                limpar_cache()
+                                st.success(f"{ICONES['sucesso']} Lançamento em Partida Dupla registrado!")
+                                st.rerun()
+
+            # --------------------------------------------------------------
+            # ABA 2: CONSULTA / HISTÓRICO (Livro Caixa e Manutenção)
+            # --------------------------------------------------------------
+            with tab_consulta:
+                st.markdown("##### Histórico de Movimentações Registradas")
+
+                # Carregamento dos lançamentos e dados cadastrais do cliente ativo
+                df_clientes_cad = df_info_cli if 'df_info_cli' in locals() else pd.DataFrame()
+                df_lancamentos = carregar_lancamentos(cliente_ativo_id)
+
+                if not df_clientes_cad.empty:
+                    row_cli = df_clientes_cad.iloc[0]
+                    with st.container(border=True):
+                        st.caption("Ficha Cadastral do Cliente Ativo")
+                        col_c1, col_c2, col_c3 = st.columns([2, 1.5, 1.5])
+                        with col_c1:
+                            st.write(f"**Empresa:** {row_cli.get('Razão Social', '-')}")
+                            st.write(f"**CNPJ/CPF:** {row_cli.get('CNPJ/CPF', '-')}")
+                        with col_c2:
+                            st.write(f"**Regime:** {row_cli.get('Regime Contábil', '-')}")
+                            st.write(f"**Telefone:** {row_cli.get('Telefone', '-')}")
+                        with col_c3:
+                            st.write(f"**CNAE:** {row_cli.get('CNAE / Atividade', '-')}")
+                            limite_val = float(row_cli['Limite Faturamento (R$)']) if row_cli.get('Limite Faturamento (R$)') else 81000.0
+                            st.write(f"**Teto MEI:** {formatar_brl(limite_val)}")
+
+                st.divider()
+
+                if df_lancamentos.empty:
+                    st.info("Nenhum lançamento encontrado para este cliente.")
+                else:
+                    df_lancamentos["data_dt"] = pd.to_datetime(df_lancamentos["data"], errors="coerce").dt.date
+                    df_lancamentos = df_lancamentos.dropna(subset=["data_dt"])
+
+                    with st.expander("Filtros de Busca e Auditoria", expanded=True):
+                        col_f1, col_f2, col_f3 = st.columns(3)
+
+                        min_data = df_lancamentos["data_dt"].min()
+                        max_data = df_lancamentos["data_dt"].max()
+
+                        with col_f1:
+                            datas_sel = st.date_input(
+                                "Período",
+                                value=(min_data, max_data),
+                                format="DD/MM/YYYY",
+                                key="dt_filtro_consulta"
+                            )
+                            if isinstance(datas_sel, (tuple, list)) and len(datas_sel) == 2:
+                                data_inicio, data_fim = datas_sel
+                            else:
+                                data_inicio, data_fim = min_data, max_data
+
+                        with col_f2:
+                            tipo_sel = st.selectbox(
+                                "Tipo de Operação",
+                                ["Todos", "🟢 Receitas (Entradas)", "🔴 Despesas (Saídas)"],
+                                key="sb_tipo_operacao_filtro"
+                            )
+
+                        contas_unicas = sorted(list(
+                            set(df_lancamentos["conta_debito"].dropna().unique()).union(
+                            set(df_lancamentos["conta_credito"].dropna().unique()))
+                        ))
+                        
+                        with col_f3:
+                            conta_sel = st.selectbox(
+                                "Conta / Categoria",
+                                ["Todas"] + contas_unicas,
+                                key="sb_conta_filtro"
+                            )
+
+                    # Aplicação dos Filtros Selecionados
+                    df_filtrado = df_lancamentos.copy()
+
+                    df_filtrado = df_filtrado[
+                        (df_filtrado["data_dt"] >= data_inicio) & 
+                        (df_filtrado["data_dt"] <= data_fim)
+                    ]
+
+                    if tipo_sel == "🟢 Receitas (Entradas)":
+                        df_filtrado = df_filtrado[
+                            df_filtrado["conta_credito"].str.contains("3\.|Receita", case=False, na=False)
+                        ]
+                    elif tipo_sel == "🔴 Despesas (Saídas)":
+                        df_filtrado = df_filtrado[
+                            df_filtrado["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)
+                        ]
+
+                    if conta_sel != "Todas":
+                        df_filtrado = df_filtrado[
+                            (df_filtrado["conta_debito"] == conta_sel) | 
+                            (df_filtrado["conta_credito"] == conta_sel)
+                        ]
+
+                    # Indicadores do Período Filtrado
+                    total_registros = len(df_filtrado)
+                    soma_valor = df_filtrado["valor"].sum() if not df_filtrado.empty else 0.0
+
+                    col_r1, col_r2 = st.columns([2, 1])
+                    with col_r1:
+                        st.caption(f"Exibindo **{total_registros}** lançamento(s) encontrado(s)")
+                    with col_r2:
+                        st.markdown(f"**Total do Período Filtrado:** `{formatar_brl(soma_valor)}`")
+
+                    # Grid de Dados do Histórico
+                    df_exibir = df_filtrado.copy()
+                    df_exibir["Data"] = df_exibir["data_dt"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notna(x) else "")
+                    df_exibir["Valor"] = df_exibir["valor"].apply(formatar_brl)
+
+                    cols_exibicao = ["id", "Data", "conta_debito", "conta_credito", "Valor", "historico"]
                     
-                    if item["Tipo"] == "Entrada":
-
-                        if any(k in memo_upper for k in ["VENDA", "MERCADORIA", "PRODUTO"]):
-                            item["Conta Contrapartida"] = next((c for c in contas_receitas if "Mercadoria" in c or "Comércio" in c), contas_receitas[0] if contas_receitas else "")
-                        else:
-                            item["Conta Contrapartida"] = next((c for c in contas_receitas if "Serviço" in c or "Servico" in c), contas_receitas[0] if contas_receitas else "")
-                    else:
-
-                        if any(k in memo_upper for k in ["TARIFA", "TAXA", "IOF", "ANUIDADE", "MANUTENCAO"]):
-                            item["Conta Contrapartida"] = next((c for c in contas_despesas if "Financeira" in c or "Tarifa" in c or "Banc" in c), contas_despesas[0] if contas_despesas else "")
-                        elif any(k in memo_upper for k in ["PECA", "PEÇAS", "FORNECEDOR", "COMPRA", "MATERIAL"]):
-                            item["Conta Contrapartida"] = next((c for c in contas_despesas if "Estoque" in c or "Custo" in c or "Fornecedor" in c), contas_despesas[0] if contas_despesas else "")
-                        else:
-                            item["Conta Contrapartida"] = next((c for c in contas_despesas if "Gerais" in c or "Operacional" in c or "Despesa" in c), contas_despesas[0] if contas_despesas else "")
-
-            df_previa = pd.DataFrame(dados_processados)
-
-
-            df_editado = st.data_editor(
-                df_previa,
-                column_config={
-                    "Data": st.column_config.TextColumn("Data", disabled=True),
-                    "Tipo": st.column_config.TextColumn("Tipo", disabled=True),
-                    "Valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", disabled=True),
-                    "Histórico / Descrição": st.column_config.TextColumn("Histórico Bancário", disabled=True),
-                    "Conta Contrapartida": st.column_config.SelectboxColumn(
-                        "Categoria / Conta de Destino",
-                        help="Defina para qual conta de receita ou despesa esse lançamento deve ir.",
-                        options=lista_todas_contas,
-                        required=True
+                    st.dataframe(
+                        df_exibir[cols_exibicao].rename(columns={
+                            "id": "ID",
+                            "conta_debito": "Conta Débito",
+                            "conta_credito": "Conta Crédito",
+                            "historico": "Histórico / Documento"
+                        }),
+                        use_container_width=True,
+                        hide_index=True,
+                        height=280
                     )
-                },
-                hide_index=True,
-                use_container_width=True
-            )
 
-            conta_banco_final = conta_destino_ofx if tipo_origem == "Extrato Bancário (.OFX)" else contas_bancos[0]
+                    st.divider()
 
-            if st.button("Confirmar e Importar Todos os Lançamentos", type="primary", use_container_width=True):
-                progresso = st.progress(0)
-                linhas_finais = df_editado.to_dict(orient="records")
-                total = len(linhas_finais)
-                sucessos = 0
-
-                conn = get_connection()
-                cursor = conn.cursor()
-
-                try:
-                    for i, item in enumerate(linhas_finais):
-                        data_val = item["Data"]
-                        tipo_mov = item["Tipo"]
-                        valor_val = float(item["Valor"])
-                        hist_val = f"[Importação em Lote] {item['Histórico / Descrição']}".strip()
-                        contrapartida = item["Conta Contrapartida"]
-
-                        if tipo_mov == "Entrada":
-                            c_debito = conta_banco_final
-                            c_credito = contrapartida
+                    # Sanfona de Manutenção (Alteração / Exclusão)
+                    with st.expander(
+                        f"{ICONES.get('ferramentas', ':material/build:')} Central de Manutenção (Alterar / Excluir Lançamento)", 
+                        expanded=False
+                    ):
+                        if df_filtrado.empty:
+                            st.info("Nenhum lançamento disponível para alteração/exclusão com os filtros atuais.")
                         else:
-                            c_debito = contrapartida
-                            c_credito = conta_banco_final
+                            dict_lancamentos = {}
+                            for _, r in df_filtrado.iterrows():
+                                dt_fmt = r["data_dt"].strftime("%d/%m/%Y") if pd.notna(r["data_dt"]) else ""
+                                v_fmt = formatar_brl(r["valor"])
+                                rotulo = f"ID #{r['id']} | {dt_fmt} | {v_fmt} | {str(r['historico'])[:40]}"
+                                dict_lancamentos[rotulo] = r["id"]
 
-                        cursor.execute(
-                            "INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) VALUES (%s, %s, %s, %s, %s, %s)",
-                            (cliente_ativo_id, data_val, c_debito, c_credito, valor_val, hist_val)
+                            item_selecionado_rotulo = st.selectbox(
+                                "Selecione o lançamento que deseja Alterar ou Excluir:",
+                                options=list(dict_lancamentos.keys()),
+                                key="sb_sel_lanc_manutencao"
+                            )
+
+                            id_alvo = dict_lancamentos[item_selecionado_rotulo]
+                            row_alvo = df_lancamentos[df_lancamentos["id"] == id_alvo].iloc[0]
+
+                            tab_alt, tab_exc = st.tabs(["Alterar Lançamento", "Excluir Lançamento"])
+
+                            # SUB-ABA: EDITAR LANÇAMENTO
+                            with tab_alt:
+                                df_plano = carregar_plano_contas(cliente_ativo_id)
+
+                                if not df_plano.empty:
+                                    lista_contas = (df_plano['codigo'].astype(str) + " - " + df_plano['descricao'].astype(str)).tolist()
+                                else:
+                                    lista_contas = []
+
+                                c_deb_atual = str(row_alvo["conta_debito"])
+                                c_cred_atual = str(row_alvo["conta_credito"])
+
+                                if c_deb_atual and c_deb_atual not in lista_contas:
+                                    lista_contas.append(c_deb_atual)
+                                if c_cred_atual and c_cred_atual not in lista_contas:
+                                    lista_contas.append(c_cred_atual)
+
+                                lista_contas = sorted(list(set(lista_contas)))
+
+                                idx_deb = lista_contas.index(c_deb_atual) if c_deb_atual in lista_contas else 0
+                                idx_cred = lista_contas.index(c_cred_atual) if c_cred_atual in lista_contas else 0
+
+                                with st.form(f"form_editar_lanc_{id_alvo}"):
+                                    col_e1, col_e2 = st.columns(2)
+                                    
+                                    with col_e1:
+                                        data_edit = st.date_input("Data do Lançamento", value=row_alvo["data_dt"], format="DD/MM/YYYY")
+                                        c_deb_edit = st.selectbox("Conta Débito", options=lista_contas, index=idx_deb)
+                                        val_edit = st.number_input("Valor (R$)", value=float(row_alvo["valor"]), step=0.01)
+                                        
+                                    with col_e2:
+                                        c_cred_edit = st.selectbox("Conta Crédito", options=lista_contas, index=idx_cred)
+                                        hist_edit = st.text_area("Histórico / Documento", value=str(row_alvo["historico"]))
+
+                                    btn_salvar_edit = st.form_submit_button(
+                                        "Salvar Alterações",
+                                        icon=ICONES.get("salvar", ":material/save:")
+                                    )
+
+                                    if btn_salvar_edit:
+                                        conn_act = get_connection()
+                                        cursor_act = conn_act.cursor()
+                                        cursor_act.execute(
+                                            """
+                                            UPDATE lancamentos 
+                                            SET data = %s, conta_debito = %s, conta_credito = %s, valor = %s, historico = %s
+                                            WHERE id = %s AND cliente_id = %s
+                                            """,
+                                            (data_edit.strftime("%Y-%m-%d"), c_deb_edit, c_cred_edit, val_edit, hist_edit, id_alvo, cliente_ativo_id)
+                                        )
+                                        conn_act.commit()
+                                        conn_act.close()
+                                        limpar_cache()
+                                        st.success(f"Lançamento ID #{id_alvo} atualizado com sucesso!")
+                                        st.rerun()
+
+                            # SUB-ABA: EXCLUIR LANÇAMENTO
+                            with tab_exc:
+                                st.warning(f"{ICONES['alerta']} Tem certeza que deseja excluir o lançamento **ID #{id_alvo}**?")
+                                st.write(f"**Data:** {row_alvo['data_dt'].strftime('%d/%m/%Y') if pd.notna(row_alvo['data_dt']) else ''} | **Valor:** {formatar_brl(row_alvo['valor'])}")
+                                st.write(f"**Histórico:** {row_alvo['historico']}")
+
+                                if st.button(
+                                    f"{ICONES.get('excluir', ':material/delete:')} Confirmar Exclusão do Lançamento",
+                                    key=f"btn_excluir_lanc_{id_alvo}",
+                                    type="primary"
+                                ):
+                                    supabase.table("lancamentos").delete().eq("id", id_alvo).eq("cliente_id", cliente_ativo_id).execute()
+                                    limpar_cache()
+                                    st.success(f"Lançamento ID #{id_alvo} excluído com sucesso!")
+                                    st.rerun() 
+                
+# FINAL DO BLOCO
+                        
+# ==============================================================================
+# BLOCO IMPORTAÇÃO - UNIFICADO E ALINHADO
+# ==============================================================================
+elif opcao == "Importação":
+    st.markdown(f"#### {ICONES.get('importar', ':material/upload_file:')} Central de Importação de Movimentações")
+
+    cliente_ativo_id = st.session_state.get("cliente_id_ativo")
+
+    if not cliente_ativo_id:
+        st.warning("Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
+    else:
+        # Contentor rolável com altura controlada
+        with st.container(height=580, border=True):
+            
+            tab_planilhas, tab_extratos = st.tabs([
+                f"{ICONES.get('importar', ':material/table_view:')} Carga em Lote (Excel / CSV / OFX)",
+                f"{ICONES.get('extrato', ':material/receipt_long:')} Planilha do Cliente (Simples)"
+            ])
+
+            # --------------------------------------------------------------
+            # ABA 1: IMPORTAÇÃO EM LOTE (Com Paywall para Plano Grátis)
+            # --------------------------------------------------------------
+            with tab_planilhas:
+                st.markdown("##### Carga e Classificação em Lote")
+
+                if not regras.get('importacao_lote', False):
+                    st.info("ℹ️ Carregue centenas de lançamentos de uma só vez a partir de arquivos OFX ou de planilhas padronizadas.")
+                    exibir_bloqueio_upgrade("Importação em Lote via Planilhas e OFX", plano_minimo="pro")
+                else:
+                    st.caption("Importe dezenas de transações de uma só vez a partir do extrato bancário (.OFX) ou de uma planilha (.xlsx / .csv).")
+
+                    conn = get_connection()
+                    try:
+                        df_contas = pd.read_sql_query(
+                            "SELECT codigo, descricao AS nome, tipo FROM plano_contas WHERE cliente_id = %s OR cliente_id IS NULL ORDER BY codigo ASC",
+                            conn, params=(cliente_ativo_id,)
                         )
-                        sucessos += 1
-                        progresso.progress((i + 1) / total)
+                    finally:
+                        conn.close()
 
-                    conn.commit()
+                    lista_todas_contas = [f"{r['codigo']} - {r['nome']}" for _, r in df_contas.iterrows()]
+                    contas_bancos = [c for c in lista_todas_contas if c.startswith("1.1.1") or "Banco" in c or "Caixa" in c]
+                    contas_receitas = [c for c in lista_todas_contas if c.startswith("3.") or "Receita" in c]
+                    contas_despesas = [c for c in lista_todas_contas if c.startswith("4.") or "Despesa" in c or "Estoque" in c]
 
-                    limpar_cache()
-                    
-                    st.success(f"Pronto! **{sucessos} lançamentos** foram importados e classificados com sucesso!")
-                    st.balloons()
+                    tipo_origem = st.radio(
+                        "Selecione o formato do arquivo:",
+                        ["Extrato Bancário (.OFX)", "Planilha Padrão (.xlsx / .csv)"],
+                        horizontal=True,
+                        key="radio_tipo_origem_lote"
+                    )
 
-                except Exception as err:
-                    conn.rollback()
-                    st.error(f"Erro ao salvar lançamentos em lote: {err}")
-                finally:
-                    conn.close()
+                    st.markdown("---")
+                    dados_processados = []
 
+                    if tipo_origem == "Extrato Bancário (.OFX)":
+                        col_b1, col_b2 = st.columns([1.5, 2])
+                        with col_b1:
+                            conta_destino_ofx = st.selectbox(
+                                "Qual conta bancária representa este extrato?",
+                                contas_bancos,
+                                help="Ex: 1.1.1.02.01 - Banco CORA",
+                                key="sb_conta_dest_ofx"
+                            )
+                        with col_b2:
+                            arquivo_ofx = st.file_uploader(
+                                "Selecione o arquivo .OFX baixado do banco", 
+                                type=["ofx"],
+                                key="upload_arquivo_ofx"
+                            )
+
+                        if arquivo_ofx:
+                            try:
+                                from ofxparse import OfxParser
+                                import io
+
+                                conteudo_bytes = io.BytesIO(arquivo_ofx.read())
+                                ofx = OfxParser.parse(conteudo_bytes)
+
+                                for transacao in ofx.account.statement.transactions:
+                                    v = float(transacao.amount)
+                                    dt = transacao.date.strftime('%Y-%m-%d')
+                                    memo = str(transacao.memo).strip()
+                                    tipo_mov = "Entrada" if v > 0 else "Saída"
+
+                                    dados_processados.append({
+                                        "Data": dt,
+                                        "Tipo": tipo_mov,
+                                        "Valor": abs(v),
+                                        "Histórico / Descrição": memo,
+                                        "Conta Contrapartida": "" 
+                                    })
+
+                                st.success(f"{ICONES['sucesso']} Extrato lido com sucesso: **{len(dados_processados)} transações** identificadas!")
+                            except Exception as e:
+                                st.error(f"Erro ao processar arquivo OFX: {e}")
+
+                    else:
+                        col_p1, col_p2 = st.columns([1.2, 2])
+                        with col_p1:
+                            st.write("**Planilha Modelo:**")
+                            st.caption("Baixe o template padrão para preencher com seus dados:")
+                            df_exemplo = pd.DataFrame([
+                                {
+                                    "Data": "2026-01-15", 
+                                    "Tipo": "Entrada", 
+                                    "Valor": 1500.00, 
+                                    "Descricao": "Serviço Prestado Empresa X", 
+                                    "Conta_Banco": contas_bancos[0] if contas_bancos else "1.1.1.01 - Caixa", 
+                                    "Categoria": contas_receitas[0] if contas_receitas else "3.2.1 - Serviços"
+                                },
+                                {
+                                    "Data": "2026-01-18", 
+                                    "Tipo": "Saída", 
+                                    "Valor": 180.50, 
+                                    "Descricao": "Material de Escritório", 
+                                    "Conta_Banco": contas_bancos[0] if contas_bancos else "1.1.1.01 - Caixa", 
+                                    "Categoria": contas_despesas[0] if contas_despesas else "4.1.1 - Despesas"
+                                }
+                            ])
+                            csv_modelo = df_exemplo.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+                            st.download_button(
+                                "📥 Baixar Modelo (.CSV)", 
+                                data=csv_modelo, 
+                                file_name="modelo_importacao_kazimm.csv", 
+                                mime="text/csv",
+                                key="btn_download_modelo_csv"
+                            )
+
+                        with col_p2:
+                            arquivo_planilha = st.file_uploader(
+                                "Selecione sua planilha preenchida", 
+                                type=["xlsx", "csv"],
+                                key="upload_arquivo_planilha"
+                            )
+
+                        if arquivo_planilha:
+                            try:
+                                if arquivo_planilha.name.endswith(".csv"):
+                                    df_upload = pd.read_csv(arquivo_planilha, sep=None, engine="python", decimal=",")
+                                else:
+                                    df_upload = pd.read_excel(arquivo_planilha)
+
+                                df_upload.columns = [c.strip().lower() for c in df_upload.columns]
+                                for _, row in df_upload.iterrows():
+                                    dados_processados.append({
+                                        "Data": str(row.get("data", "")),
+                                        "Tipo": "Entrada" if "ent" in str(row.get("tipo", "")).lower() else "Saída",
+                                        "Valor": float(row.get("valor", 0.0)),
+                                        "Histórico / Descrição": str(row.get("descricao", row.get("historico", ""))),
+                                        "Conta Contrapartida": str(row.get("categoria", ""))
+                                    })
+                                st.success(f"{ICONES['sucesso']} Planilha lida com sucesso: **{len(dados_processados)} transações** encontradas!")
+                            except Exception as e:
+                                st.error(f"Erro ao processar planilha: {e}")
+
+                    if dados_processados:
+                        st.markdown("---")
+                        st.write(f"{ICONES['pesquisar']} #### Revisão e Classificação dos Lançamentos")
+                        st.caption("Classifique as contrapartidas diretamente na tabela abaixo antes de confirmar a importação.")
+
+                        for item in dados_processados:
+                            if not item["Conta Contrapartida"]:
+                                memo_upper = item["Histórico / Descrição"].upper()
+                                
+                                if item["Tipo"] == "Entrada":
+                                    if any(k in memo_upper for k in ["VENDA", "MERCADORIA", "PRODUTO"]):
+                                        item["Conta Contrapartida"] = next((c for c in contas_receitas if "Mercadoria" in c or "Comércio" in c), contas_receitas[0] if contas_receitas else "")
+                                    else:
+                                        item["Conta Contrapartida"] = next((c for c in contas_receitas if "Serviço" in c or "Servico" in c), contas_receitas[0] if contas_receitas else "")
+                                else:
+                                    if any(k in memo_upper for k in ["TARIFA", "TAXA", "IOF", "ANUIDADE", "MANUTENCAO"]):
+                                        item["Conta Contrapartida"] = next((c for c in contas_despesas if "Financeira" in c or "Tarifa" in c or "Banc" in c), contas_despesas[0] if contas_despesas else "")
+                                    elif any(k in memo_upper for k in ["PECA", "PEÇAS", "FORNECEDOR", "COMPRA", "MATERIAL"]):
+                                        item["Conta Contrapartida"] = next((c for c in contas_despesas if "Estoque" in c or "Custo" in c or "Fornecedor" in c), contas_despesas[0] if contas_despesas else "")
+                                    else:
+                                        item["Conta Contrapartida"] = next((c for c in contas_despesas if "Gerais" in c or "Operacional" in c or "Despesa" in c), contas_despesas[0] if contas_despesas else "")
+
+                        df_previa = pd.DataFrame(dados_processados)
+
+                        df_editado = st.data_editor(
+                            df_previa,
+                            column_config={
+                                "Data": st.column_config.TextColumn("Data", disabled=True),
+                                "Tipo": st.column_config.TextColumn("Tipo", disabled=True),
+                                "Valor": st.column_config.NumberColumn("Valor (R$)", format="R$ %.2f", disabled=True),
+                                "Histórico / Descrição": st.column_config.TextColumn("Histórico Bancário", disabled=True),
+                                "Conta Contrapartida": st.column_config.SelectboxColumn(
+                                    "Categoria / Conta de Destino",
+                                    help="Defina para qual conta de receita ou despesa esse lançamento deve ir.",
+                                    options=lista_todas_contas,
+                                    required=True
+                                )
+                            },
+                            hide_index=True,
+                            use_container_width=True,
+                            key="editor_importacao_lote"
+                        )
+
+                        conta_banco_final = conta_destino_ofx if tipo_origem == "Extrato Bancário (.OFX)" else contas_bancos[0]
+
+                        if st.button("Confirmar e Importar Todos os Lançamentos", type="primary", use_container_width=True, key="btn_confirmar_lote_final"):
+                            progresso = st.progress(0)
+                            linhas_finais = df_editado.to_dict(orient="records")
+                            total = len(linhas_finais)
+                            sucessos = 0
+
+                            conn = get_connection()
+                            cursor = conn.cursor()
+
+                            try:
+                                for i, item in enumerate(linhas_finais):
+                                    data_val = item["Data"]
+                                    tipo_mov = item["Tipo"]
+                                    valor_val = float(item["Valor"])
+                                    hist_val = f"[Importação em Lote] {item['Histórico / Descrição']}".strip()
+                                    contrapartida = item["Conta Contrapartida"]
+
+                                    if tipo_mov == "Entrada":
+                                        c_debito = conta_banco_final
+                                        c_credito = contrapartida
+                                    else:
+                                        c_debito = contrapartida
+                                        c_credito = conta_banco_final
+
+                                    cursor.execute(
+                                        "INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) VALUES (%s, %s, %s, %s, %s, %s)",
+                                        (cliente_ativo_id, data_val, c_debito, c_credito, valor_val, hist_val)
+                                    )
+                                    sucessos += 1
+                                    progresso.progress((i + 1) / total)
+
+                                conn.commit()
+                                limpar_cache()
+                                st.success(f"Pronto! **{sucessos} lançamentos** foram importados e classificados com sucesso!")
+                                st.balloons()
+
+                            except Exception as err:
+                                conn.rollback()
+                                st.error(f"Erro ao salvar lançamentos em lote: {err}")
+                            finally:
+                                conn.close()
+
+            # --------------------------------------------------------------
+            # ABA 2: IMPORTAR EXTRATO / PLANILHA DO CLIENTE (Simples)
+            # --------------------------------------------------------------
+            with tab_extratos:
+                st.markdown("##### Planilha Simplificada do Cliente (Leitura Automática)")
+                st.info("Envie a planilha do cliente para realizar a leitura e o registro automático no Livro Caixa.")
+
+                arquivo = st.file_uploader(
+                    "Selecione a planilha do cliente", 
+                    type=["xlsx", "xls", "xlsm"],
+                    key="upload_planilha_cliente_simples"
+                )
+
+                if arquivo is not None:
+                    try:
+                        df = pd.read_excel(arquivo)
+                        
+                        st.write("##### Pré-visualização da planilha carregada:")
+                        st.dataframe(df.head(10), use_container_width=True)
+
+                        if st.button("Processar e Importar Lançamentos", use_container_width=True, key="btn_proc_planilha_simples"):
+                            conn = get_connection()
+                            cursor = conn.cursor()
+                            importados = 0
+
+                            for idx, row in df.iterrows():
+                                data_val = pd.to_datetime(row.get("Data"), errors="coerce")
+                                if pd.isna(data_val):
+                                    continue
+                                data_str = data_val.strftime("%Y-%m-%d")
+
+                                desc = str(row.get("Descrição", "") or "").strip()
+                                cat = str(row.get("Categoria", "") or "").strip()
+                                if cat.lower() in ["nan", "none", ""]:
+                                    cat = "Despesas Gerais"
+
+                                doc_num = row.get("Nfe / Cupom") or row.get("NFe_Cupom/Série") or row.get("NFe") or ""
+                                serie_num = row.get("Série") or ""
+                                
+                                doc_str = str(doc_num).strip() if pd.notna(doc_num) and str(doc_num).lower() not in ["nan", "none"] else ""
+                                serie_str = str(serie_num).strip() if pd.notna(serie_num) and str(serie_num).lower() not in ["nan", "none"] else ""
+                                
+                                doc_info = f"{doc_str} (Série {serie_str})" if (doc_str and serie_str) else (doc_str or serie_str or "S/N")
+
+                                val_saida = float(row.get("Valor Saída", 0) if pd.notna(row.get("Valor Saída")) else 0)
+                                val_entrada = float(row.get("Valor Entrada", 0) if pd.notna(row.get("Valor Entrada")) else 0)
+
+                                historico = f"{desc} | Doc: {doc_info} | Cat: {cat}".strip(" |")
+
+                                if val_entrada > 0:
+                                    cursor.execute(
+                                        """
+                                        INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
+                                        VALUES (%s, %s, '1.1.1 - Caixa Geral', '3.1.1 - Receita de Vendas/Serviços', %s, %s)
+                                        """,
+                                        (cliente_ativo_id, data_str, val_entrada, historico)
+                                    )
+                                    importados += 1
+
+                                if val_saida > 0:
+                                    conta_debito_despesa = f"4.1.1 - {cat}"
+                                    cursor.execute(
+                                        """
+                                        INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
+                                        VALUES (%s, %s, %s, '1.1.1 - Caixa Geral', %s, %s)
+                                        """,
+                                        (cliente_ativo_id, data_str, conta_debito_despesa, val_saida, historico)
+                                    )
+                                    importados += 1
+
+                            conn.commit()
+                            limpar_cache()
+                            conn.close()
+
+                            st.success(f"Importação concluída! **{importados}** registros foram salvos no banco de dados do cliente.")
+                            st.rerun()
+
+                    except Exception as e:
+                        st.error(f"Erro ao processar o arquivo Excel: {e}")
 
 elif "Provisões" in opcao:
     st.subheader("Provisões / Contas a Pagar")
@@ -1699,334 +2029,6 @@ elif "Provisões" in opcao:
                             df_pagas_exib[["data_vencimento", "descricao", "tipo", "valor", "status"]],
                             use_container_width=True
                         )
-
-elif opcao == "Importar Extrato / Excel":
-    st.subheader("Importação de Planilha do Cliente (Excel)")
-
-    cliente_ativo_id = st.session_state.get("cliente_id_ativo")
-
-    if not cliente_ativo_id:
-        st.warning(f"{ICONES['alerta']} Selecione um cliente ativo na barra lateral antes de importar.")
-    else:
-        st.info("Envie a planilha do cliente para realizar a leitura e o registro automático no Livro Caixa.")
-
-
-        arquivo = st.file_uploader("Selecione a planilha do cliente", type=["xlsx", "xls", "xlsm"])
-
-        if arquivo is not None:
-            try:
-                df = pd.read_excel(arquivo)
-                
-                st.write("##### Pré-visualização da planilha carregada:")
-                st.dataframe(df.head(10), use_container_width=True)
-
-                if st.button("Processar e Importar Lançamentos", use_container_width=True):
-                    conn = get_connection()
-                    cursor = conn.cursor()
-                    importados = 0
-
-                    for idx, row in df.iterrows():
-
-                        data_val = pd.to_datetime(row.get("Data"), errors="coerce")
-                        if pd.isna(data_val):
-                            continue
-                        data_str = data_val.strftime("%Y-%m-%d")
-
-
-                        desc = str(row.get("Descrição", "") or "").strip()
-                        cat = str(row.get("Categoria", "") or "").strip()
-                        if cat.lower() in ["nan", "none", ""]:
-                            cat = "Despesas Gerais"
-
-
-                        doc_num = row.get("Nfe / Cupom") or row.get("NFe_Cupom/Série") or row.get("NFe") or ""
-                        serie_num = row.get("Série") or ""
-                        
-                        doc_str = str(doc_num).strip() if pd.notna(doc_num) and str(doc_num).lower() not in ["nan", "none"] else ""
-                        serie_str = str(serie_num).strip() if pd.notna(serie_num) and str(serie_num).lower() not in ["nan", "none"] else ""
-                        
-                        doc_info = f"{doc_str} (Série {serie_str})" if (doc_str and serie_str) else (doc_str or serie_str or "S/N")
-
-
-                        val_saida = float(row.get("Valor Saída", 0) if pd.notna(row.get("Valor Saída")) else 0)
-                        val_entrada = float(row.get("Valor Entrada", 0) if pd.notna(row.get("Valor Entrada")) else 0)
-
-
-                        historico = f"{desc} | Doc: {doc_info} | Cat: {cat}".strip(" |")
-
-
-                        if val_entrada > 0:
-                            cursor.execute(
-                                """
-                                INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
-                                VALUES (%s, %s, '1.1.1 - Caixa Geral', '3.1.1 - Receita de Vendas/Serviços', %s, %s)
-                                """,
-                                (cliente_ativo_id, data_str, val_entrada, historico)
-                            )
-                            importados += 1
-
-
-                        if val_saida > 0:
-                            conta_debito_despesa = f"4.1.1 - {cat}"
-                            cursor.execute(
-                                """
-                                INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
-                                VALUES (%s, %s, %s, '1.1.1 - Caixa Geral', %s, %s)
-                                """,
-                                (cliente_ativo_id, data_str, conta_debito_despesa, val_saida, historico)
-                            )
-                            importados += 1
-
-                    conn.commit()
-                    limpar_cache()
-                    conn.close()
-
-                    st.success(f"Importação concluída! **{importados}** registros foram salvos no banco de dados do cliente.")
-                    st.rerun()
-
-            except Exception as e:
-                st.error(f"Erro ao processar o arquivo Excel: {e}")#Fim do Bloco
-
-
-elif opcao == "Ver Lançamentos":
-    st.subheader("Livro Caixa - Consulta, Edição & Exclusão")
-
-    user_id_atual = st.session_state.user.id
-    cliente_ativo_id = st.session_state.get("cliente_id_ativo")
-
-    if not cliente_ativo_id:
-        st.warning(f"{ICONES['alerta']} Selecione um cliente ativo na barra lateral para visualizar os lançamentos.")
-    else:
-        conn = get_connection()
-        
-
-        df_clientes_cad = df_info_cli
-
-        
-
-        conn.close()
-
-        df_lancamentos = carregar_lancamentos(cliente_ativo_id)
-
-        if not df_clientes_cad.empty:
-            row_cli = df_clientes_cad.iloc[0]
-            with st.container(border=True):
-                st.caption("Ficha Cadastral do Cliente Ativo")
-                col_c1, col_c2, col_c3 = st.columns([2, 1.5, 1.5])
-                with col_c1:
-                    st.write(f"**Empresa:** {row_cli['Razão Social']}")
-                    st.write(f"**CNPJ/CPF:** {row_cli['CNPJ/CPF']}")
-                with col_c2:
-                    st.write(f"**Regime:** {row_cli['Regime Contábil']}")
-                    st.write(f"**Telefone:** {row_cli['Telefone']}")
-                with col_c3:
-                    st.write(f"**CNAE:** {row_cli['CNAE / Atividade']}")
-                    limite_val = float(row_cli['Limite Faturamento (R$)']) if row_cli['Limite Faturamento (R$)'] else 81000.0
-                    st.write(f"**Teto MEI:** {formatar_brl(limite_val)}")
-
-        st.divider()
-
-
-        if df_lancamentos.empty:
-            st.info("Nenhum lançamento encontrado para este cliente.")
-        else:
-            df_lancamentos["data_dt"] = pd.to_datetime(df_lancamentos["data"], errors="coerce").dt.date
-            df_lancamentos = df_lancamentos.dropna(subset=["data_dt"])
-
-            with st.expander("Filtros de Busca e Auditoria", expanded=True):
-                col_f1, col_f2, col_f3 = st.columns(3)
-
-                min_data = df_lancamentos["data_dt"].min()
-                max_data = df_lancamentos["data_dt"].max()
-
-                with col_f1:
-                    datas_sel = st.date_input(
-                        "Período",
-                        value=(min_data, max_data),
-                        format="DD/MM/YYYY"
-                    )
-                    if isinstance(datas_sel, (tuple, list)) and len(datas_sel) == 2:
-                        data_inicio, data_fim = datas_sel
-                    else:
-                        data_inicio, data_fim = min_data, max_data
-
-                with col_f2:
-                    tipo_sel = st.selectbox(
-                        "Tipo de Operação",
-                        ["Todos", "🟢 Receitas (Entradas)", "🔴 Despesas (Saídas)"]
-                    )
-
-                contas_unicas = sorted(list(
-                    set(df_lancamentos["conta_debito"].dropna().unique()).union(
-                    set(df_lancamentos["conta_credito"].dropna().unique()))
-                ))
-                
-                with col_f3:
-                    conta_sel = st.selectbox(
-                        "Conta / Categoria",
-                        ["Todas"] + contas_unicas
-                    )
-
-
-            df_filtrado = df_lancamentos.copy()
-
-            df_filtrado = df_filtrado[
-                (df_filtrado["data_dt"] >= data_inicio) & 
-                (df_filtrado["data_dt"] <= data_fim)
-            ]
-
-            if tipo_sel == "🟢 Receitas (Entradas)":
-                df_filtrado = df_filtrado[
-                    df_filtrado["conta_credito"].str.contains("3\.|Receita", case=False, na=False)
-                ]
-            elif tipo_sel == "🔴 Despesas (Saídas)":
-                df_filtrado = df_filtrado[
-                    df_filtrado["conta_debito"].str.contains("4\.|Despesa|Estoque", case=False, na=False)
-                ]
-
-            if conta_sel != "Todas":
-                df_filtrado = df_filtrado[
-                    (df_filtrado["conta_debito"] == conta_sel) | 
-                    (df_filtrado["conta_credito"] == conta_sel)
-                ]
-
-
-            total_registros = len(df_filtrado)
-            soma_valor = df_filtrado["valor"].sum() if not df_filtrado.empty else 0.0
-
-            col_r1, col_r2 = st.columns([2, 1])
-            with col_r1:
-                st.caption(f"Exibindo **{total_registros}** lançamento(s) encontrado(s)")
-            with col_r2:
-                st.markdown(f"**Total do Período Filtrado:** `{formatar_brl(soma_valor)}`")
-
-            df_exibir = df_filtrado.copy()
-            df_exibir["Data"] = df_exibir["data_dt"].apply(lambda x: x.strftime("%d/%m/%Y") if pd.notna(x) else "")
-            df_exibir["Valor"] = df_exibir["valor"].apply(formatar_brl)
-
-            cols_exibicao = ["id", "Data", "conta_debito", "conta_credito", "Valor", "historico"]
-            
-            st.dataframe(
-                df_exibir[cols_exibicao].rename(columns={
-                    "id": "ID",
-                    "conta_debito": "Conta Débito",
-                    "conta_credito": "Conta Crédito",
-                    "historico": "Histórico / Documento"
-                }),
-                use_container_width=True,
-                hide_index=True
-            )
-
-
-            st.divider()
-            with st.expander(
-                f"{ICONES.get('ferramentas', ':material/build:')} Central de Carga e Manutenção de Dados (Importação / Exportação / Limpeza)", 
-                expanded=False
-            ):
-
-                if df_filtrado.empty:
-                    st.info("Nenhum lançamento disponível para alteração/exclusão com os filtros atuais.")
-                else:
-
-                    dict_lancamentos = {}
-                    for _, r in df_filtrado.iterrows():
-                        dt_fmt = r["data_dt"].strftime("%d/%m/%Y") if pd.notna(r["data_dt"]) else ""
-                        v_fmt = formatar_brl(r["valor"])
-                        rotulo = f"ID #{r['id']} | {dt_fmt} | {v_fmt} | {str(r['historico'])[:40]}"
-                        dict_lancamentos[rotulo] = r["id"]
-
-                    item_selecionado_rotulo = st.selectbox(
-                        "Selecione o lançamento que deseja Alterar ou Excluir:",
-                        options=list(dict_lancamentos.keys())
-                    )
-
-                    id_alvo = dict_lancamentos[item_selecionado_rotulo]
-                    row_alvo = df_lancamentos[df_lancamentos["id"] == id_alvo].iloc[0]
-
-
-                    tab_alt, tab_exc = st.tabs(["Alterar Lançamento", "Excluir Lançamento"])
-
-
-                    with tab_alt:
-
-                        cid_raw = st.session_state.get('cliente_id') or st.session_state.get('cliente_id_ativo')
-                        if not cid_raw:
-                            cid_raw = (
-                                locals().get('cliente_id_ativo') or
-                                locals().get('cliente_id') or
-                                globals().get('cliente_id_ativo') or
-                                globals().get('cliente_id')
-                            )
-                        cid_val = int(cid_raw) if cid_raw else None
-
-
-                        df_plano = carregar_plano_contas(cid_val)
-
-                        if not df_plano.empty:
-                            lista_contas = (df_plano['codigo'].astype(str) + " - " + df_plano['descricao'].astype(str)).tolist()
-                        else:
-                            lista_contas = []
-
-
-                        c_deb_atual = str(row_alvo["conta_debito"])
-                        c_cred_atual = str(row_alvo["conta_credito"])
-
-
-                        if c_deb_atual and c_deb_atual not in lista_contas:
-                            lista_contas.append(c_deb_atual)
-                        if c_cred_atual and c_cred_atual not in lista_contas:
-                            lista_contas.append(c_cred_atual)
-
-                        lista_contas = sorted(list(set(lista_contas)))
-
-
-                        idx_deb = lista_contas.index(c_deb_atual) if c_deb_atual in lista_contas else 0
-                        idx_cred = lista_contas.index(c_cred_atual) if c_cred_atual in lista_contas else 0
-
-
-                        with st.form("form_editar_lancamento"):
-                            col_e1, col_e2 = st.columns(2)
-                            
-                            with col_e1:
-                                data_edit = st.date_input("Data do Lançamento", value=row_alvo["data_dt"], format="DD/MM/YYYY")
-                                c_deb_edit = st.selectbox("Conta Débito", options=lista_contas, index=idx_deb)
-                                val_edit = st.number_input("Valor (R$)", value=float(row_alvo["valor"]), step=0.01)
-                                
-                            with col_e2:
-                                c_cred_edit = st.selectbox("Conta Crédito", options=lista_contas, index=idx_cred)
-                                hist_edit = st.text_area("Histórico / Documento", value=str(row_alvo["historico"]))
-
-                            btn_salvar_edit = st.form_submit_button("Salvar Alterações")
-
-                            if btn_salvar_edit:
-                                conn_act = get_connection()
-                                cursor_act = conn_act.cursor()
-                                cursor_act.execute(
-                                    """
-                                    UPDATE lancamentos 
-                                    SET data = %s, conta_debito = %s, conta_credito = %s, valor = %s, historico = %s
-                                    WHERE id = %s AND cliente_id = %s
-                                    """,
-                                    (data_edit.strftime("%Y-%m-%d"), c_deb_edit, c_cred_edit, val_edit, hist_edit, id_alvo, cliente_ativo_id)
-                                )
-                                conn_act.commit()
-                                conn_act.close()
-                                limpar_cache()
-                                st.success(f"Lançamento ID #{id_alvo} atualizado com sucesso!")
-                                st.rerun()
-
-                    # ABA EXCLUIR
-                    with tab_exc:
-                        st.warning(f"{ICONES['alerta']} Tem certeza que deseja excluir o lançamento **ID #{id_alvo}**?")
-                        st.write(f"**Data:** {row_alvo['data_dt'].strftime('%d/%m/%Y') if pd.notna(row_alvo['data_dt']) else ''} | **Valor:** {formatar_brl(row_alvo['valor'])}")
-                        st.write(f"**Histórico:** {row_alvo['historico']}")
-
-                        if st.button(f"{ICONES['erro_grave']} Confirmar Exclusão do Lançamento"):
-
-                            supabase.table("lancamentos").delete().eq("id", id_alvo).eq("cliente_id", cliente_ativo_id).execute()
-                            limpar_cache()
-                            st.success(f"Lançamento ID #{id_alvo} excluído com sucesso!")
-                            st.rerun()
 
 elif opcao == "Conciliação Bancária":
     st.markdown("### Conciliação Bancária & Evolução de Saldos")
