@@ -812,7 +812,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                         st.dataframe(df_todos_clientes, use_container_width=True, hide_index=True)
 
 elif opcao == "Cadastrar Conta / Fornecedor":
-    st.subheader("Gestão de Contas e Fornecedores")
+    st.markdown(f"#### {ICONES.get('fornecedor', ':material/domain:')} Gestão de Contas e Fornecedores")
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
@@ -832,120 +832,176 @@ elif opcao == "Cadastrar Conta / Fornecedor":
         else:
             nome_cliente = df_cliente.iloc[0]["nome"]
             regime_cliente = df_cliente.iloc[0]["regime"]
-            
-            col_cadastro, col_edicao = st.columns(2)
 
+            # 1. Carregamento unificado do Plano de Contas para as abas operacionais
+            conn = get_connection()
+            df_plano = pd.read_sql_query(
+                'SELECT id, codigo as "Código", descricao as "Nome da Conta", tipo as "Tipo" '
+                'FROM plano_contas WHERE cliente_id IS NULL OR cliente_id = %s ORDER BY codigo ASC',
+                conn,
+                params=(cliente_ativo_id,)
+            )
+            conn.close()
 
-            with col_cadastro:
-                st.markdown("##### Cadastro de Contas no Plano de Contas / Fornecedor")
-                with st.form("form_cadastrar_conta_nova", clear_on_submit=True):
-                    codigo = st.text_input("Código da Conta", placeholder="Ex: 4.1.1.08")
-                    descricao = st.text_input("Nome da Conta / Fornecedor", placeholder="Ex: Posto Shell Ltda")
-                    tipo_conta = st.selectbox(
-                        "Grupo / Tipo",
-                        ["Despesa", "Receita", "Ativo", "Passivo", "Patrimônio Líquido"],
-                    )
-                    salvar_conta = st.form_submit_button("Cadastrar Conta")
-
-                    if salvar_conta:
-                        if codigo and descricao:
-                            conn = get_connection()
-                            cursor = conn.cursor()
-                            try:
-                                cursor.execute(
-                                    "INSERT INTO plano_contas (codigo, descricao, tipo, cliente_id) VALUES (%s, %s, %s, %s)",
-                                    (codigo, descricao, tipo_conta, cliente_ativo_id),
-                                )
-                                conn.commit()
-                                st.success(f"Conta '{codigo} - {descricao}' inserida com sucesso!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Erro ao salvar no banco: {e}")
-                            finally:
-                                conn.close()
-                        else:
-                            st.error("Preencha o Código e o Nome da Conta.")
-
-
-            with col_edicao:
-                st.markdown("##### Alterar ou Excluir Conta / Fornecedor")
+            # 2. Painel rolável autônomo (Área reservada que não empurra o cabeçalho)
+            with st.container(height=580, border=True):
                 
-                conn = get_connection()
-                df_plano = pd.read_sql_query(
-                    'SELECT id, codigo as "Código", descricao as "Nome da Conta", tipo as "Tipo" FROM plano_contas WHERE cliente_id IS NULL OR cliente_id = %s ORDER BY codigo ASC',
-                    conn,
-                    params=(cliente_ativo_id,)
-                )
-                conn.close()
+                # 3. Abas de Funções conforme o padrão do manuscrito
+                tab_cadastro, tab_edicao, tab_visualizacao = st.tabs([
+                    f"{ICONES.get('adicionar', ':material/add_circle:')} Cadastrar Nova Conta",
+                    f"{ICONES.get('editar', ':material/edit:')} Alterar ou Excluir",
+                    f"{ICONES.get('plano_contas', ':material/account_tree:')} Plano de Contas Atual"
+                ])
 
-                if not df_plano.empty:
-                    df_plano["label"] = (
-                        df_plano["Código"] + " - " + df_plano["Nome da Conta"] + " (" + df_plano["Tipo"] + ")"
-                    )
-                    dict_contas = dict(zip(df_plano["label"], df_plano["id"]))
+                # ------------------------------------------------------------------
+                # ABA 1: CADASTRO DE CONTAS / FORNECEDORES
+                # ------------------------------------------------------------------
+                with tab_cadastro:
+                    st.markdown("##### Novo Registro no Plano de Contas")
+                    
+                    with st.form("form_cadastrar_conta_nova", clear_on_submit=True):
+                        col_c1, col_c2 = st.columns([1, 2])
+                        with col_c1:
+                            codigo = st.text_input("Código da Conta", placeholder="Ex: 4.1.1.08")
+                            tipo_conta = st.selectbox(
+                                "Grupo / Tipo",
+                                ["Despesa", "Receita", "Ativo", "Passivo", "Patrimônio Líquido"],
+                            )
+                        with col_c2:
+                            descricao = st.text_input("Nome da Conta / Fornecedor", placeholder="Ex: Posto Shell Ltda")
+                        
+                        salvar_conta = st.form_submit_button(
+                            "Cadastrar Conta", 
+                            type="primary", 
+                            icon=ICONES.get("adicionar", ":material/add:")
+                        )
 
-                    conta_sel_label = st.selectbox("Selecione para Modificar:", list(dict_contas.keys()), key="sb_modificar_conta_unica")
-                    id_conta_sel = dict_contas[conta_sel_label]
-
-                    conn = get_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT codigo, descricao, tipo FROM plano_contas WHERE id = %s", (id_conta_sel,))
-                    reg_conta = cursor.fetchone()
-                    conn.close()
-
-                    if reg_conta:
-                        cod_atual, nome_atual, tipo_atual = reg_conta
-
-                        with st.form("form_editar_conta_unica"):
-                            novo_codigo = st.text_input("Código", value=cod_atual)
-                            novo_nome = st.text_input("Nome / Fornecedor", value=nome_atual)
-
-                            tipos_possiveis = ["Despesa", "Receita", "Ativo", "Passivo", "Patrimônio Líquido"]
-                            idx_tipo = tipos_possiveis.index(tipo_atual) if tipo_atual in tipos_possiveis else 0
-                            novo_tipo = st.selectbox("Grupo / Tipo", tipos_possiveis, index=idx_tipo)
-
-                            salvar_edicao = st.form_submit_button("Salvar Alterações")
-
-                            if salvar_edicao:
-                                if novo_codigo and novo_nome:
-                                    conn = get_connection()
-                                    cursor = conn.cursor()
-                                    try:
-                                        cursor.execute(
-                                            "UPDATE plano_contas SET codigo = %s, descricao = %s, tipo = %s WHERE id = %s",
-                                            (novo_codigo, novo_nome, novo_tipo, id_conta_sel),
-                                        )
-                                        conn.commit()
-                                        st.success("Conta atualizada com sucesso!")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"Erro ao atualizar: {e}")
-                                    finally:
-                                        conn.close()
-                                else:
-                                    st.error("Preencha todos os campos.")
-
-                        with st.expander("Excluir esta Conta"):
-                            st.caption("Atenção: A exclusão removerá o registro do catálogo.")
-                            if st.button("Confirmar Exclusão", key=f"del_c_m2_{id_conta_sel}", type="primary", use_container_width=True):
+                        if salvar_conta:
+                            if codigo and descricao:
                                 conn = get_connection()
                                 cursor = conn.cursor()
-                                cursor.execute("DELETE FROM plano_contas WHERE id = %s", (id_conta_sel,))
-                                conn.commit()
-                                conn.close()
-                                st.success("Conta excluída!")
-                                st.rerun()
-                else:
-                    st.info("Nenhuma conta cadastrada para modificar.")
+                                try:
+                                    cursor.execute(
+                                        "INSERT INTO plano_contas (codigo, descricao, tipo, cliente_id) VALUES (%s, %s, %s, %s)",
+                                        (codigo, descricao, tipo_conta, cliente_ativo_id),
+                                    )
+                                    conn.commit()
+                                    st.success(f"Conta '{codigo} - {descricao}' inserida com sucesso!")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro ao salvar no banco: {e}")
+                                finally:
+                                    conn.close()
+                            else:
+                                st.error("Preencha o Código e o Nome da Conta.")
 
-            st.markdown("---")
-            st.write("### Plano de Contas Atual")
-            if 'df_plano' in locals() and not df_plano.empty:
-                df_exibicao_plano = df_plano.drop(columns=["id", "label"], errors="ignore")
-                st.dataframe(df_exibicao_plano, use_container_width=True, height=350)
-            else:
-                st.info("Nenhuma conta cadastrada no momento.")
-                
+                # ------------------------------------------------------------------
+                # ABA 2: ALTERAÇÃO E EXCLUSÃO
+                # ------------------------------------------------------------------
+                with tab_edicao:
+                    st.markdown("##### Gerenciamento de Registros Existentes")
+
+                    if not df_plano.empty:
+                        df_plano["label"] = (
+                            df_plano["Código"] + " - " + df_plano["Nome da Conta"] + " (" + df_plano["Tipo"] + ")"
+                        )
+                        dict_contas = dict(zip(df_plano["label"], df_plano["id"]))
+
+                        conta_sel_label = st.selectbox(
+                            "Selecione para Modificar:", 
+                            list(dict_contas.keys()), 
+                            key="sb_modificar_conta_unica"
+                        )
+                        id_conta_sel = dict_contas[conta_sel_label]
+
+                        # 1. Consulta incluindo cliente_id (exatamente 4 colunas para desempacotar)
+                        conn = get_connection()
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            "SELECT codigo, descricao, tipo, cliente_id FROM plano_contas WHERE id = %s", 
+                            (id_conta_sel,)
+                        )
+                        reg_conta = cursor.fetchone()
+                        conn.close()
+
+                        if reg_conta:
+                            cod_atual, nome_atual, tipo_atual, dono_conta_id = reg_conta
+                            eh_conta_padrao = (dono_conta_id is None)
+
+                            if eh_conta_padrao:
+                                st.info(f"{ICONES.get('fornecedor', ':material/domain:')} Esta é uma conta do **Plano Padrão do Sistema** (somente leitura para garantir a integridade contábil).")
+
+                            # 2. Formulário dedicado apenas à Edição
+                            with st.form("form_editar_conta_unica"):
+                                col_e1, col_e2 = st.columns([1, 2])
+                                with col_e1:
+                                    novo_codigo = st.text_input("Código", value=cod_atual, disabled=eh_conta_padrao)
+                                    tipos_possiveis = ["Despesa", "Receita", "Ativo", "Passivo", "Patrimônio Líquido"]
+                                    idx_tipo = tipos_possiveis.index(tipo_atual) if tipo_atual in tipos_possiveis else 0
+                                    novo_tipo = st.selectbox("Grupo / Tipo", tipos_possiveis, index=idx_tipo, disabled=eh_conta_padrao)
+                                with col_e2:
+                                    novo_nome = st.text_input("Nome / Fornecedor", value=nome_atual, disabled=eh_conta_padrao)
+
+                                salvar_edicao = st.form_submit_button(
+                                    "Salvar Alterações", 
+                                    icon=ICONES.get("salvar", ":material/save:"),
+                                    disabled=eh_conta_padrao
+                                )
+
+                                if salvar_edicao:
+                                    if novo_codigo and novo_nome:
+                                        conn = get_connection()
+                                        cursor = conn.cursor()
+                                        try:
+                                            cursor.execute(
+                                                "UPDATE plano_contas SET codigo = %s, descricao = %s, tipo = %s WHERE id = %s",
+                                                (novo_codigo, novo_nome, novo_tipo, id_conta_sel),
+                                            )
+                                            conn.commit()
+                                            st.success("Conta atualizada com sucesso!")
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"Erro ao atualizar: {e}")
+                                        finally:
+                                            conn.close()
+                                    else:
+                                        st.error("Preencha todos os campos.")
+
+                            # 3. Sanfona de Exclusão (FORA do st.form e liberada apenas para contas do cliente)
+                            if not eh_conta_padrao:
+                                with st.expander("Excluir esta Conta"):
+                                    st.caption("Atenção: A exclusão removerá o registro do catálogo deste cliente.")
+                                    if st.button(
+                                        "Confirmar Exclusão", 
+                                        key=f"del_c_m2_{id_conta_sel}", 
+                                        type="primary", 
+                                        icon=ICONES.get("excluir", ":material/delete:"),
+                                        use_container_width=True
+                                    ):
+                                        conn = get_connection()
+                                        cursor = conn.cursor()
+                                        cursor.execute("DELETE FROM plano_contas WHERE id = %s", (id_conta_sel,))
+                                        conn.commit()
+                                        conn.close()
+                                        st.success("Conta excluída com sucesso!")
+                                        st.rerun()
+                    else:
+                        st.info("Nenhuma conta cadastrada para modificar.")
+
+                # ------------------------------------------------------------------
+                # ABA 3: VISUALIZAÇÃO DO PLANO DE CONTAS VIGENTE
+                # ------------------------------------------------------------------
+                with tab_visualizacao:
+                    st.markdown("##### Estrutura Atualizada do Plano de Contas")
+                    if not df_plano.empty:
+                        df_exibicao_plano = df_plano.drop(columns=["id", "label"], errors="ignore")
+                        st.dataframe(
+                            df_exibicao_plano, 
+                            use_container_width=True, 
+                            height=460
+                        )
+                    else:
+                        st.info("Nenhuma conta cadastrada no momento.")                
 
 elif opcao == "Plano de Contas":
     st.subheader("Plano de Contas Simplificado (MEI)")
