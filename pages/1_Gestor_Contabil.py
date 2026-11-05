@@ -1581,7 +1581,7 @@ elif opcao == "Lançamentos":
 # BLOCO IMPORTAÇÃO - UNIFICADO E ALINHADO
 # ==============================================================================
 elif opcao == "Importação":
-    st.markdown(f"#### {ICONES.get('importar', ':material/upload_file:')} Central de Importação de Movimentações")
+    st.markdown(f"{ICONES.get('importar', ':material/upload_file:')} Central de Importação de Movimentações")
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
@@ -1900,136 +1900,190 @@ elif opcao == "Importação":
                     except Exception as e:
                         st.error(f"Erro ao processar o arquivo Excel: {e}")
 
-elif "Provisões" in opcao:
-    st.subheader("Provisões / Contas a Pagar")
+# ==============================================================================
+# BLOCO CONTAS A PAGAR E PROVISÕES - UNIFICADO E ROLÁVEL
+# ==============================================================================
+elif "Contas a Pagar" in str(opcao) or opcao == item_provisoes:
+    st.markdown(f"#### {ICONES.get('provisoes', ':material/schedule:')} Gestão de Contas a Pagar e Provisões")
 
-
-    plano_atual = st.session_state.get("plano_ativo", "gratis")
-    if not REGRAS_PLANOS.get(plano_atual, {}).get("provisoes", False):
-        exibir_bloqueio_upgrade("Agendamento de Provisões e Contas a Pagar", plano_minimo="pro")
-        st.stop()
-
-    cliente_ativo_id = st.session_state.get("cliente_id_ativo")
-
-    if not cliente_ativo_id:
-        st.warning(f"{ICONES['alerta']} Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
+    # 1. Validação centralizada de permissões do plano (Paywall Freemium)
+    if not regras.get('provisoes', False):
+        st.info("ℹ️ Controle guias de impostos (DAS), parcelamentos e contas futuras com baixa automática no Livro Caixa.")
+        exibir_bloqueio_upgrade("Contas a Pagar e Provisões Financeiras", plano_minimo="pro")
     else:
-        conn = get_connection()
+        cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
-        df_cliente = pd.read_sql_query(
-            "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
-            conn, 
-            params=(cliente_ativo_id, st.session_state.user.id)
-        )
-
-        if df_cliente.empty:
-            st.error("Erro de segurança: Cliente não encontrado ou sem permissão.")
-            conn.close()
+        if not cliente_ativo_id:
+            st.warning(f"{ICONES.get('alerta', ':material/warning:')} Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
         else:
-            nome_cliente = df_cliente.iloc[0]["nome"]
-            regime_cliente = df_cliente.iloc[0]["regime"]
-
-
-            with st.expander("Agendar Nova Guia / Conta a Pagar", expanded=True):
-                with st.form("form_nova_provisao", clear_on_submit=True):
-                    col_p1, col_p2, col_p3 = st.columns([2, 1, 1])
-                    
-                    with col_p1:
-                        desc_provisao = st.text_input("Descrição da Obrigação", placeholder="Ex: Guia DAS Mensal - 10/2026 ou Parcelamento RFB 02/10")
-                    with col_p2:
-                        tipo_provisao = st.selectbox("Tipo de Conta", ["Guia DAS", "Parcelamento RFB", "Aluguel", "Fornecedor / Compra", "Outros"])
-                        valor_provisao = st.number_input("Valor R$", min_value=0.01, step=10.0, format="%.2f")
-                    with col_p3:
-                        data_venc = st.date_input("Data de Vencimento")
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        salvar_prov = st.form_submit_button("Agendar Guia/Parcelamento", use_container_width=True)
-
-                    if salvar_prov:
-                        if desc_provisao and valor_provisao > 0:
-                            cursor = conn.cursor()
-                            cursor.execute(
-                                """
-                                INSERT INTO provisoes (cliente_id, descricao, tipo, valor, data_vencimento, status)
-                                VALUES (%s, %s, %s, %s, %s, 'Pendente')
-                                """,
-                                (cliente_ativo_id, desc_provisao, tipo_provisao, valor_provisao, data_venc)
-                            )
-                            conn.commit()
-                            st.success(f"Guia/Parcelamemto '{desc_provisao}' agendada com sucesso!")
-                            st.rerun()
-                        else:
-                            st.warning("Preencha a descrição e um valor válido.")
-
-            st.markdown("---")
-
-
-            df_provisoes = pd.read_sql_query(
-                """
-                SELECT id, descricao, tipo, valor, data_vencimento, status 
-                FROM provisoes 
-                WHERE cliente_id = %s 
-                ORDER BY status DESC, data_vencimento ASC
-                """,
-                conn,
-                params=(cliente_ativo_id,)
+            conn = get_connection()
+            df_cliente = pd.read_sql_query(
+                "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
+                conn, 
+                params=(cliente_ativo_id, st.session_state.user.id)
             )
             conn.close()
 
-            if df_provisoes.empty:
-                st.info("Nenhuma conta a pagar agendada para este cliente.")
+            if df_cliente.empty:
+                st.error("Erro de segurança: Cliente não encontrado ou sem permissão de acesso.")
             else:
-                df_pendentes = df_provisoes[df_provisoes["status"] == "Pendente"]
-                df_pagas = df_provisoes[df_provisoes["status"] == "Pago"]
+                # 2. Painel rolável com altura fixa (padrão de ergonomia ERP)
+                with st.container(height=580, border=True):
+                    
+                    tab_pendentes, tab_agendar, tab_historico = st.tabs([
+                        f"{ICONES.get('pendente', ':material/pending_actions:')} Contas Pendentes",
+                        f"{ICONES.get('adicionar', ':material/add_circle:')} Agendar Nova Obrigação",
+                        f"{ICONES.get('lancamentos', ':material/history:')} Histórico de Pagas"
+                    ])
 
+                    # Carregamento centralizado de provisões do cliente
+                    conn = get_connection()
+                    df_provisoes = pd.read_sql_query(
+                        """
+                        SELECT id, descricao, tipo, valor, data_vencimento, status 
+                        FROM provisoes 
+                        WHERE cliente_id = %s 
+                        ORDER BY status DESC, data_vencimento ASC
+                        """,
+                        conn,
+                        params=(cliente_ativo_id,)
+                    )
+                    conn.close()
 
-                total_pendente = df_pendentes["valor"].sum() if not df_pendentes.empty else 0.0
-                st.write(f"##### Guias e Contas Pendentes (Total: **{formatar_brl(total_pendente)}**)")
+                    df_pendentes = df_provisoes[df_provisoes["status"] == "Pendente"] if not df_provisoes.empty else pd.DataFrame()
+                    df_pagas = df_provisoes[df_provisoes["status"] == "Pago"] if not df_provisoes.empty else pd.DataFrame()
 
-                if df_pendentes.empty:
-                    st.success("Nenhuma conta pendente no momento!")
-                else:
-                    for idx, row in df_pendentes.iterrows():
-                        col_info, col_acao = st.columns([3, 1])
+                    # ----------------------------------------------------------
+                    # ABA 1: CONTAS PENDENTES & LIQUIDAÇÃO
+                    # ----------------------------------------------------------
+                    with tab_pendentes:
+                        total_pendente = df_pendentes["valor"].sum() if not df_pendentes.empty else 0.0
                         
-                        with col_info:
-                            venc_formatado = pd.to_datetime(row['data_vencimento']).strftime('%d/%m/%Y')
-                            st.write(f" **Vencimento: {venc_formatado}** | **{row['descricao']}** ({row['tipo']})")
-                            st.caption(f"Valor a Pagar: **{formatar_brl(row['valor'])}** | Status: **{row['status']}**")
+                        col_tot1, col_tot2 = st.columns([2, 1])
+                        with col_tot1:
+                            st.markdown(f"##### Obrigações em Aberto")
+                        with col_tot2:
+                            st.markdown(f"<div style='text-align: right; font-size: 0.9rem;'>Total Pendente: <strong>{formatar_brl(total_pendente)}</strong></div>", unsafe_allow_html=True)
 
-                        with col_acao:
+                        if df_pendentes.empty:
+                            st.success("Tudo em dia! Nenhuma conta ou guia pendente para este cliente.")
+                        else:
+                            for idx, row in df_pendentes.iterrows():
+                                with st.container(border=True):
+                                    col_info, col_acao = st.columns([3, 1.2], vertical_alignment="center")
+                                    
+                                    with col_info:
+                                        venc_formatado = pd.to_datetime(row['data_vencimento']).strftime('%d/%m/%Y')
+                                        st.markdown(f"**Vencimento: {venc_formatado}** — `{row['tipo']}`")
+                                        st.write(f"**{row['descricao']}**")
+                                        st.caption(f"Valor a Liquidar: **{formatar_brl(row['valor'])}**")
 
-                            if st.button("Pagar / Dar Baixa", key=f"btn_pago_{row['id']}"):
-                                conn_baixa = get_connection()
-                                cursor_baixa = conn_baixa.cursor()
-                                
+                                    with col_acao:
+                                        if st.button(
+                                            "Pagar / Baixar", 
+                                            key=f"btn_baixa_prov_{row['id']}", 
+                                            icon=ICONES.get("sucesso", ":material/check_circle:"),
+                                            use_container_width=True
+                                        ):
+                                            conn_baixa = get_connection()
+                                            cursor_baixa = conn_baixa.cursor()
+                                            
+                                            # Atualiza status da provisão
+                                            cursor_baixa.execute("UPDATE provisoes SET status = 'Pago' WHERE id = %s", (row['id'],))
+                                            
+                                            # Registra a saída no Livro Caixa financeiro
+                                            cursor_baixa.execute(
+                                                """
+                                                INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
+                                                VALUES (%s, CURRENT_DATE, '4.1.1 - Despesas Operacionais', '1.1.1 - Caixa Geral', %s, %s)
+                                                """,
+                                                (cliente_ativo_id, row['valor'], f"Pagamento baixado de provisão: {row['descricao']}")
+                                            )
+                                            conn_baixa.commit()
+                                            conn_baixa.close()
+                                            limpar_cache()
+                                            
+                                            st.success(f"Conta '{row['descricao']}' liquidada com sucesso!")
+                                            st.rerun()
 
-                                cursor_baixa.execute("UPDATE provisoes SET status = 'Pago' WHERE id = %s", (row['id'],))
-                                
-
-                                cursor_baixa.execute(
-                                    """
-                                    INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
-                                    VALUES (%s, CURRENT_DATE, '4.1.1 - Despesas Operacionais', '1.1.1 - Caixa Geral', %s, %s)
-                                    """,
-                                    (cliente_ativo_id, row['valor'], f"Pagamento baixado de provisão: {row['descricao']}")
+                    # ----------------------------------------------------------
+                    # ABA 2: AGENDAR NOVA OBRIGAÇÃO / GUIA
+                    # ----------------------------------------------------------
+                    with tab_agendar:
+                        st.markdown("##### Registo de Nova Obrigação Futura")
+                        
+                        with st.form("form_nova_provisao_slim", clear_on_submit=True):
+                            col_p1, col_p2 = st.columns([2, 1])
+                            with col_p1:
+                                desc_provisao = st.text_input(
+                                    "Descrição da Obrigação", 
+                                    placeholder="Ex: Guia DAS Mensal - 10/2026 ou Parcelamento RFB 02/10"
                                 )
-                                conn_baixa.commit()
-                                conn_baixa.close()
-                                
-                                st.success(f"Conta '{row['descricao']}' baixada e registrada no Livro Caixa!")
-                                st.rerun()
-                        st.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
+                            with col_p2:
+                                tipo_provisao = st.selectbox(
+                                    "Tipo de Conta", 
+                                    ["Guia DAS", "Parcelamento RFB", "Aluguel", "Fornecedor / Compra", "Outros"]
+                                )
 
+                            col_p3, col_p4 = st.columns([1, 1])
+                            with col_p3:
+                                valor_provisao = st.number_input("Valor (R$)", min_value=0.01, step=10.0, format="%.2f")
+                            with col_p4:
+                                data_venc = st.date_input("Data de Vencimento")
 
-                if not df_pagas.empty:
-                    with st.expander("Ver Histórico de Contas Já Pagas", expanded=False):
-                        df_pagas_exib = df_pagas.copy()
-                        df_pagas_exib["valor"] = df_pagas_exib["valor"].apply(formatar_brl)
-                        st.dataframe(
-                            df_pagas_exib[["data_vencimento", "descricao", "tipo", "valor", "status"]],
-                            use_container_width=True
-                        )
+                            salvar_prov = st.form_submit_button(
+                                "Agendar Conta a Pagar", 
+                                type="primary",
+                                icon=ICONES.get("adicionar", ":material/add:"),
+                                use_container_width=True
+                            )
 
+                            if salvar_prov:
+                                if desc_provisao and valor_provisao > 0:
+                                    conn_ins = get_connection()
+                                    cursor_ins = conn_ins.cursor()
+                                    cursor_ins.execute(
+                                        """
+                                        INSERT INTO provisoes (cliente_id, descricao, tipo, valor, data_vencimento, status)
+                                        VALUES (%s, %s, %s, %s, %s, 'Pendente')
+                                        """,
+                                        (cliente_ativo_id, desc_provisao, tipo_provisao, valor_provisao, data_venc)
+                                    )
+                                    conn_ins.commit()
+                                    conn_ins.close()
+                                    limpar_cache()
+                                    st.success(f"Obrigação '{desc_provisao}' agendada com sucesso!")
+                                    st.rerun()
+                                else:
+                                    st.warning("Preencha a descrição e indique um valor válido.")
+
+                    # ----------------------------------------------------------
+                    # ABA 3: HISTÓRICO DE OBRIGAÇÕES LIQUIDADAS
+                    # ----------------------------------------------------------
+                    with tab_historico:
+                        st.markdown("##### Obrigações Já Liquidadas")
+                        if df_pagas.empty:
+                            st.info("Nenhuma conta liquidada no histórico deste cliente.")
+                        else:
+                            total_pago = df_pagas["valor"].sum()
+                            st.caption(f"Volume Total Liquidado: **{formatar_brl(total_pago)}**")
+
+                            df_pagas_exib = df_pagas.copy()
+                            df_pagas_exib["Data Vencimento"] = pd.to_datetime(df_pagas_exib["data_vencimento"]).dt.strftime('%d/%m/%Y')
+                            df_pagas_exib["Valor (R$)"] = df_pagas_exib["valor"].apply(formatar_brl)
+
+                            st.dataframe(
+                                df_pagas_exib[["Data Vencimento", "descricao", "tipo", "Valor (R$)", "status"]].rename(columns={
+                                    "descricao": "Descrição",
+                                    "tipo": "Categoria",
+                                    "status": "Status"
+                                }),
+                                use_container_width=True,
+                                hide_index=True,
+                                height=420
+                            )
+
+                            
 elif opcao == "Conciliação Bancária":
     st.markdown("### Conciliação Bancária & Evolução de Saldos")
     st.caption("Verifique as entradas, saídas e o saldo acumulado mês a mês para conferência com o extrato.")
