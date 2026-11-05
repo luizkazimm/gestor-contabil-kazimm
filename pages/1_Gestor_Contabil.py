@@ -999,105 +999,145 @@ elif opcao == "Cadastrar Contas":
                     else:
                         st.info("Nenhuma conta cadastrada no momento.")                
 
+# ==============================================================================
+# BLOCO PLANO DE CONTAS - ESTRUTURA SLIM EM ABAS
+# ==============================================================================
 elif opcao == "Plano de Contas":
-    st.subheader("Plano de Contas Simplificado (MEI)")
+    st.markdown(f"#### {ICONES.get('plano_contas', ':material/account_tree:')} Estrutura do Plano de Contas")
 
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
     if not cliente_ativo_id:
-        st.warning("Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
+        st.warning(f"{ICONES.get('alerta', ':material/warning:')} Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
     else:
         conn = get_connection()
-
-        df_cliente = pd.read_sql_query(
-            "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
-            conn, 
-            params=(cliente_ativo_id, st.session_state.user.id)
-        )
-
-        if df_cliente.empty:
-            st.error("Erro de segurança: Cliente não encontrado ou sem permissão.")
-            conn.close()
-        else:
-            nome_cliente = df_cliente.iloc[0]["nome"]
-            regime_cliente = df_cliente.iloc[0]["regime"]
-            
-
-            df_plano = pd.read_sql_query(
-                """
-                SELECT 
-                    codigo as "Código", 
-                    descricao as "Nome da Conta / Fornecedor", 
-                    tipo as "Grupo / Tipo",
-                    CASE 
-                        WHEN cliente_id IS NULL THEN '🌐 Padrão do Sistema'
-                        ELSE '🏢 Específica da Empresa'
-                    END AS "Origem"
-                FROM plano_contas 
-                WHERE cliente_id IS NULL OR cliente_id = %s
-                ORDER BY codigo ASC
-                """,
-                conn,
-                params=(cliente_ativo_id,)
+        try:
+            # 1. Validação de segurança e permissão de acesso ao cliente
+            df_cliente = pd.read_sql_query(
+                "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
+                conn, 
+                params=(cliente_ativo_id, st.session_state.user.id)
             )
+
+            if df_cliente.empty:
+                st.error("Erro de segurança: Cliente não encontrado ou sem permissão de acesso.")
+                df_plano = pd.DataFrame()
+            else:
+                # 2. Carregamento do plano de contas (padrão global + específicas do cliente)
+                df_plano = pd.read_sql_query(
+                    """
+                    SELECT 
+                        codigo as "Código", 
+                        descricao as "Nome da Conta / Fornecedor", 
+                        tipo as "Grupo / Tipo",
+                        CASE 
+                            WHEN cliente_id IS NULL THEN '🌐 Padrão do Sistema'
+                            ELSE '🏢 Específica da Empresa'
+                        END AS "Origem"
+                    FROM plano_contas 
+                    WHERE cliente_id IS NULL OR cliente_id = %s
+                    ORDER BY codigo ASC
+                    """,
+                    conn,
+                    params=(cliente_ativo_id,)
+                )
+        except Exception as e:
+            st.error(f"Erro ao carregar o plano de contas: {e}")
+            df_plano = pd.DataFrame()
+        finally:
             conn.close()
 
+        if not df_cliente.empty:
             if df_plano.empty:
                 st.info("Nenhuma conta cadastrada no Plano de Contas.")
             else:
-                busca = st.text_input(
-                    f"{ICONES['pesquisar']} Buscar Conta ou Fornecedor", placeholder="Ex: Combustível, Ambev ou 4.1.1"
-                )
-                if busca:
-                    df_plano = df_plano[
-                        df_plano["Código"].str.contains(busca, case=False, na=False)
-                        | df_plano["Nome da Conta / Fornecedor"].str.contains(busca, case=False, na=False)
-                    ]
+                # Contentor delimitado com altura fixa de 580px
+                with st.container(height=580, border=True):
+                    
+                    # Barra superior: Busca rápida à esquerda e Download (.CSV) à direita
+                    col_b1, col_b2 = st.columns([3, 1.2], vertical_alignment="bottom")
+                    with col_b1:
+                        busca = st.text_input(
+                            "Buscar Conta ou Fornecedor:",
+                            placeholder="Ex: Combustível, Ambev, 4.1.1 ou Caixa...",
+                            key="txt_busca_plano_contas"
+                        )
+                    with col_b2:
+                        csv_plano = df_plano.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+                        st.download_button(
+                            label="Exportar (.CSV)",
+                            data=csv_plano,
+                            file_name="plano_de_contas_kazimm.csv",
+                            mime="text/csv",
+                            icon=ICONES.get("extrato", ":material/download:"),
+                            use_container_width=True,
+                            key="btn_download_plano_contas"
+                        )
 
-                tab_geral, tab_receitas, tab_despesas, tab_financeiro = st.tabs(
-                    [
-                        " Visão Geral",
-                        " Receitas (Entradas)",
-                        " Despesas & Fornecedores (Saídas)",
-                        " Caixas e Bancos",
-                    ]
-                )
+                    # Filtro dinâmico da tabela em memória
+                    if busca:
+                        df_plano = df_plano[
+                            df_plano["Código"].str.contains(busca, case=False, na=False)
+                            | df_plano["Nome da Conta / Fornecedor"].str.contains(busca, case=False, na=False)
+                        ]
 
-                with tab_geral:
-                    st.dataframe(df_plano, use_container_width=True, height=400)
+                    tab_geral, tab_receitas, tab_despesas, tab_financeiro = st.tabs([
+                        f"{ICONES.get('dashboard', ':material/view_list:')} Visão Geral",
+                        f"{ICONES.get('adicionar', ':material/trending_up:')} Receitas (Grupo 3)",
+                        f"{ICONES.get('provisoes', ':material/trending_down:')} Despesas & Fornecedores (Grupo 4)",
+                        f"{ICONES.get('conciliacao', ':material/account_balance:')} Caixas e Bancos (Grupo 1)"
+                    ])
 
-                with tab_receitas:
-                    st.markdown("##### Contas de Receita (Faturamento MEI)")
-                    st.dataframe(
-                        df_plano[df_plano["Grupo / Tipo"] == "Receita"],
-                        use_container_width=True,
-                        height=300
-                    )
+                    # ----------------------------------------------------------
+                    # ABA 1: VISÃO GERAL COMPLETA
+                    # ----------------------------------------------------------
+                    with tab_geral:
+                        st.caption(f"Total de contas listadas: **{len(df_plano)}**")
+                        st.dataframe(
+                            df_plano, 
+                            use_container_width=True, 
+                            hide_index=True, 
+                            height=430
+                        )
 
-                with tab_despesas:
-                    st.markdown("##### Contas de Despesa e Fornecedores")
-                    st.dataframe(
-                        df_plano[df_plano["Grupo / Tipo"].isin(["Despesa", "Passivo"])],
-                        use_container_width=True,
-                        height=300
-                    )
+                    # ----------------------------------------------------------
+                    # ABA 2: RECEITAS / FATURAMENTO (GRUPO 3)
+                    # ----------------------------------------------------------
+                    with tab_receitas:
+                        df_rec = df_plano[df_plano["Grupo / Tipo"] == "Receita"]
+                        st.caption(f"Contas de Receita identificadas: **{len(df_rec)}**")
+                        st.dataframe(
+                            df_rec, 
+                            use_container_width=True, 
+                            hide_index=True, 
+                            height=430
+                        )
 
-                with tab_financeiro:
-                    st.markdown("##### Movimentação Financeira (Caixa / Contas Bancárias)")
-                    st.dataframe(
-                        df_plano[df_plano["Grupo / Tipo"] == "Ativo"],
-                        use_container_width=True,
-                        height=300
-                    )
+                    # ----------------------------------------------------------
+                    # ABA 3: DESPESAS, CUSTOS & FORNECEDORES (GRUPO 4 / PASSIVO)
+                    # ----------------------------------------------------------
+                    with tab_despesas:
+                        df_desp = df_plano[df_plano["Grupo / Tipo"].isin(["Despesa", "Passivo"])]
+                        st.caption(f"Contas de Despesas e Fornecedores: **{len(df_desp)}**")
+                        st.dataframe(
+                            df_desp, 
+                            use_container_width=True, 
+                            hide_index=True, 
+                            height=430
+                        )
 
-                st.markdown("---")
-                csv_plano = df_plano.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
-                st.download_button(
-                    label="Baixar Plano de Contas em Excel (.csv)",
-                    data=csv_plano,
-                    file_name="plano_de_contas_mei.csv",
-                    mime="text/csv",
-                )
+                    # ----------------------------------------------------------
+                    # ABA 4: CAIXAS E CONTAS BANCÁRIAS (GRUPO 1 / ATIVO)
+                    # ----------------------------------------------------------
+                    with tab_financeiro:
+                        df_fin = df_plano[df_plano["Grupo / Tipo"] == "Ativo"]
+                        st.caption(f"Contas Financeiras e Patrimoniais: **{len(df_fin)}**")
+                        st.dataframe(
+                            df_fin, 
+                            use_container_width=True, 
+                            hide_index=True, 
+                            height=430
+                        )
 
 #BLOCO BOTÃO ÚNICO - LANÇAMENTOS
 elif opcao == "Lançamentos":
@@ -2083,114 +2123,160 @@ elif "Contas a Pagar" in str(opcao) or opcao == item_provisoes:
                                 height=420
                             )
 
-                            
+
+# ==============================================================================
+# BLOCO CONCILIAÇÃO BANCÁRIA - ESTRUTURA SLIM EM ABAS
+# ==============================================================================
 elif opcao == "Conciliação Bancária":
-    st.markdown("### Conciliação Bancária & Evolução de Saldos")
-    st.caption("Verifique as entradas, saídas e o saldo acumulado mês a mês para conferência com o extrato.")
+    st.markdown(f"#### {ICONES.get('conciliacao', ':material/sync_alt:')} Conciliação Bancária & Evolução de Saldos")
 
+    cliente_ativo_id = st.session_state.get("cliente_id_ativo") or st.session_state.get("cliente_id")
 
-    cid_raw = st.session_state.get('cliente_id') or st.session_state.get('cliente_id_ativo')
-    if not cid_raw:
-        cid_raw = (
-            locals().get('cliente_id_ativo') or 
-            locals().get('cliente_id') or 
-            globals().get('cliente_id_ativo') or 
-            globals().get('cliente_id')
-        )
-    cid_val = int(cid_raw) if cid_raw else None
-
-
-    df_lancamentos = pd.DataFrame()
-    if cid_val:
+    if not cliente_ativo_id:
+        st.warning(f"{ICONES.get('alerta', ':material/warning:')} Selecione um cliente ativo na barra lateral para prosseguir.")
+    else:
+        df_lancamentos = pd.DataFrame()
+        conn = get_connection()
         try:
-            conn = get_connection()
             df_lancamentos = pd.read_sql(
                 "SELECT * FROM lancamentos WHERE cliente_id = %s ORDER BY data ASC;", 
                 conn, 
-                params=(cid_val,)
+                params=(cliente_ativo_id,)
             )
         except Exception as e:
             st.error(f"Erro ao carregar lançamentos para a conciliação: {e}")
+        finally:
+            conn.close()
 
+        if df_lancamentos.empty:
+            st.info("Nenhum lançamento encontrado para este cliente para realizar a conciliação.")
+        else:
+            df_conc = df_lancamentos.copy()
+            df_conc['data_dt'] = pd.to_datetime(df_conc['data'], errors='coerce')
+            df_conc = df_conc.dropna(subset=['data_dt'])
+            df_conc['mes_ano'] = df_conc['data_dt'].dt.strftime('%Y-%m')
 
-    if df_lancamentos.empty:
-        st.info("Nenhum lançamento encontrado para este cliente para realizar a conciliação.")
-    else:
+            # Mapeamento dinâmico das contas de Caixa e Bancos
+            contas_deb = df_conc['conta_debito'].dropna().unique().tolist()
+            contas_cred = df_conc['conta_credito'].dropna().unique().tolist()
+            todas_contas = sorted(list(set(contas_deb + contas_cred)))
+            
+            contas_bancarias = [c for c in todas_contas if any(k in c.lower() for k in ['banco', 'caixa', '1.1.1'])]
+            if not contas_bancarias:
+                contas_bancarias = todas_contas
 
-        df_conc = df_lancamentos.copy()
-        df_conc['data_dt'] = pd.to_datetime(df_conc['data'], errors='coerce')
-        df_conc = df_conc.dropna(subset=['data_dt'])
-        df_conc['mes_ano'] = df_conc['data_dt'].dt.strftime('%Y-%m')
-
-
-        contas_deb = df_conc['conta_debito'].dropna().unique().tolist()
-        contas_cred = df_conc['conta_credito'].dropna().unique().tolist()
-        todas_contas = sorted(list(set(contas_deb + contas_cred)))
-        
-        contas_bancarias = [c for c in todas_contas if any(k in c.lower() for k in ['banco', 'caixa', '1.1.1'])]
-        if not contas_bancarias:
-            contas_bancarias = todas_contas
-
-        col_c1, col_c2 = st.columns([2, 1])
-        with col_c1:
-            conta_sel = st.selectbox("Selecione a Conta Bancária / Caixa:", contas_bancarias)
-        with col_c2:
-            saldo_ini = st.number_input("Saldo Inicial da Conta (R$):", value=0.00, step=100.00, format="%.2f")
-
-        if conta_sel:
-
-            meses_unicos = sorted(df_conc['mes_ano'].unique())
-            dados_conc = []
-            saldo_acum = saldo_ini
-
-            for m in meses_unicos:
-                df_mes = df_conc[df_conc['mes_ano'] == m]
-                entradas = df_mes[df_mes['conta_debito'] == conta_sel]['valor'].sum()
-                saidas = df_mes[df_mes['conta_credito'] == conta_sel]['valor'].sum()
-                saldo_mes = entradas - saidas
-                saldo_final = saldo_acum + saldo_mes
-
-                dt_ref = pd.to_datetime(m + "-01")
+            # Área de trabalho delimitada (container rolável)
+            with st.container(height=580, border=True):
                 
+                # Seletor de Conta e Saldo Inicial no topo da área rolável
+                col_c1, col_c2 = st.columns([2, 1])
+                with col_c1:
+                    conta_sel = st.selectbox(
+                        "Conta Bancária / Caixa em Análise:", 
+                        contas_bancarias,
+                        key="sb_conc_conta_ativa"
+                    )
+                with col_c2:
+                    saldo_ini = st.number_input(
+                        "Saldo Inicial da Conta (R$):", 
+                        value=0.00, 
+                        step=100.00, 
+                        format="%.2f",
+                        key="num_conc_saldo_inicial"
+                    )
 
-                meses_pt = {
-                    1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
-                    7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
-                }
-                mes_label = f"{meses_pt[dt_ref.month]}/{dt_ref.year}"
+                if conta_sel:
+                    # Apuração da evolução mensal de saldos
+                    meses_unicos = sorted(df_conc['mes_ano'].unique())
+                    dados_conc = []
+                    saldo_acum = saldo_ini
 
-                dados_conc.append({
-                    'Mês/Ano': mes_label,
-                    'Saldo Anterior': saldo_acum,
-                    'Entradas (R$)': entradas,
-                    'Saídas (R$)': saidas,
-                    'Resultado do Mês': saldo_mes,
-                    'Saldo Final (Calculado)': saldo_final
-                })
+                    for m in meses_unicos:
+                        df_mes = df_conc[df_conc['mes_ano'] == m]
+                        entradas = df_mes[df_mes['conta_debito'] == conta_sel]['valor'].sum()
+                        saidas = df_mes[df_mes['conta_credito'] == conta_sel]['valor'].sum()
+                        saldo_mes = entradas - saidas
+                        saldo_final = saldo_acum + saldo_mes
 
-                saldo_acum = saldo_final
+                        dt_ref = pd.to_datetime(m + "-01")
+                        meses_pt = {
+                            1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
+                            7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
+                        }
+                        mes_label = f"{meses_pt[dt_ref.month]}/{dt_ref.year}"
 
-            df_conciliado = pd.DataFrame(dados_conc)
+                        dados_conc.append({
+                            'Mês/Ano': mes_label,
+                            'Saldo Anterior': saldo_acum,
+                            'Entradas (R$)': entradas,
+                            'Saídas (R$)': saidas,
+                            'Resultado do Mês': saldo_mes,
+                            'Saldo Final (Calculado)': saldo_final
+                        })
+                        saldo_acum = saldo_final
 
+                    df_conciliado = pd.DataFrame(dados_conc)
 
-            st.markdown("---")
-            m1, m2, m3, m4 = st.columns(4)
-            tot_ent = df_conciliado['Entradas (R$)'].sum()
-            tot_sai = df_conciliado['Saídas (R$)'].sum()
-            saldo_atual = df_conciliado['Saldo Final (Calculado)'].iloc[-1] if not df_conciliado.empty else saldo_ini
+                    tab_fechamento, tab_analitico = st.tabs([
+                        f"{ICONES.get('dre', ':material/table_chart:')} Fechamento Mensal",
+                        f"{ICONES.get('lancamentos', ':material/receipt_long:')} Extrato Analítico da Conta"
+                    ])
 
-            m1.metric("Saldo Inicial", f"R$ {saldo_ini:,.2f}")
-            m2.metric("Total Entradas", f"R$ {tot_ent:,.2f}")
-            m3.metric("Total Saídas", f"R$ {tot_sai:,.2f}")
-            m4.metric("Saldo Atual", f"R$ {saldo_atual:,.2f}")
+                    # ----------------------------------------------------------
+                    # ABA 1: FECHAMENTO MENSAL & EVOLUÇÃO
+                    # ----------------------------------------------------------
+                    with tab_fechamento:
+                        tot_ent = df_conciliado['Entradas (R$)'].sum() if not df_conciliado.empty else 0.0
+                        tot_sai = df_conciliado['Saídas (R$)'].sum() if not df_conciliado.empty else 0.0
+                        saldo_atual = df_conciliado['Saldo Final (Calculado)'].iloc[-1] if not df_conciliado.empty else saldo_ini
 
+                        # Cartões de métricas compactos
+                        m1, m2, m3, m4 = st.columns(4)
+                        m1.metric("Saldo Inicial", f"R$ {saldo_ini:,.2f}")
+                        m2.metric("Total Entradas", f"R$ {tot_ent:,.2f}")
+                        m3.metric("Total Saídas", f"R$ {tot_sai:,.2f}")
+                        m4.metric("Saldo Atual", f"R$ {saldo_atual:,.2f}")
 
-            st.markdown("#### Fechamento Mensal")
-            df_exib = df_conciliado.copy()
-            for c in ['Saldo Anterior', 'Entradas (R$)', 'Saídas (R$)', 'Resultado do Mês', 'Saldo Final (Calculado)']:
-                df_exib[c] = df_exib[c].apply(lambda x: f"R$ {x:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
+                        st.markdown("##### Resumo de Saldos e Resultados")
+                        df_exib = df_conciliado.copy()
+                        for c in ['Saldo Anterior', 'Entradas (R$)', 'Saídas (R$)', 'Resultado do Mês', 'Saldo Final (Calculado)']:
+                            df_exib[c] = df_exib[c].apply(lambda x: f"R$ {x:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
 
-            st.dataframe(df_exib, use_container_width=True, hide_index=True)
+                        st.dataframe(df_exib, use_container_width=True, hide_index=True, height=280)
+
+                    # ----------------------------------------------------------
+                    # ABA 2: EXTRATO ANALÍTICO (Livro Razão da Conta)
+                    # ----------------------------------------------------------
+                    with tab_analitico:
+                        st.markdown(f"##### Movimentações Detalhadas — `{conta_sel}`")
+                        
+                        df_conta_det = df_conc[
+                            (df_conc['conta_debito'] == conta_sel) | 
+                            (df_conc['conta_credito'] == conta_sel)
+                        ].copy()
+
+                        if df_conta_det.empty:
+                            st.info("Nenhuma movimentação registrada especificamente nesta conta.")
+                        else:
+                            df_conta_det['Tipo'] = df_conta_det['conta_debito'].apply(
+                                lambda c: "🟢 Entrada" if c == conta_sel else "🔴 Saída"
+                            )
+                            df_conta_det['Data'] = df_conta_det['data_dt'].dt.strftime('%d/%m/%Y')
+                            df_conta_det['Valor (R$)'] = df_conta_det['valor'].apply(formatar_brl)
+                            df_conta_det['Contrapartida'] = df_conta_det.apply(
+                                lambda r: r['conta_credito'] if r['conta_debito'] == conta_sel else r['conta_debito'], 
+                                axis=1
+                            )
+
+                            cols_view = ['Data', 'Tipo', 'Valor (R$)', 'Contrapartida', 'historico']
+                            st.dataframe(
+                                df_conta_det[cols_view].rename(columns={
+                                    'historico': 'Histórico / Documento'
+                                }),
+                                use_container_width=True,
+                                hide_index=True,
+                                height=380
+                            )
 
 elif "Relatório por Categoria" in opcao or "Relatório" in opcao:
     st.subheader("Central de Relatórios Financeiros")
