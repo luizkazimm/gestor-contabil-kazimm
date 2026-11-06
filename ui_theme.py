@@ -6,7 +6,9 @@ import pandas as pd
 DIR_RAIZ = Path(__file__).resolve().parent
 CAMINHO_LOGO = DIR_RAIZ / "assets" / "Logo.png"
 
-# Dicionário Central de Ícones (Google Material Symbols)
+# =============================================================================
+# DICIONÁRIO CENTRAL DE ÍCONES (GOOGLE MATERIAL SYMBOLS)
+# =============================================================================
 ICONES = {
     # Módulos principais (Barra Superior)
     "contabil": ":material/account_balance:",       # 🏛️ Módulo Contábil
@@ -63,42 +65,279 @@ ICONES = {
     "transmissao": ":material/rocket_launch:",      # 🚀 Transmissão de eventos (eSocial/NF)
     "relatorios": ":material/description:",         # 📄 Relatórios textuais
 }
+
 def aplicar_tema_global():
     """
-    Injeta as regras visuais padronizadas em toda a aplicação (Estilo Kazimm / Montserrat)
+    Injeta as regras visuais padronizadas em toda a aplicação (Estilo Kazimm / Montserrat & Inter).
     """
     st.markdown("""
     <style>
+    /* 1. Importação das fontes Montserrat e Inter */
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+    html, body, .stApp {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    h1, h2, h3, [data-testid="stHeader"] {
+        font-family: 'Montserrat', sans-serif !important;
+    }
+
     /* ========================================================
-       REDUÇÃO DE MARGENS E APROVEITAMENTO DE TELA (PADRÃO ERP)
+       REDUÇÃO DE MARGENS E APROVEITAMENTO DE TELA
        ======================================================== */
-    /* Elimina o vazio superior nativo de 5rem/6rem do Streamlit */
     .block-container {
-        padding-top: 1.5rem !important;
-        padding-bottom: 2rem !important;
+        padding-top: 1.2rem !important;
+        padding-bottom: 1.5rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
         max-width: 98% !important;
     }
 
-    /* Oculta o cabeçalho original vazio mantendo a barra de navegação acessível */
     header[data-testid="stHeader"] {
         background-color: transparent !important;
         height: 0px !important;
     }
 
+    /* Oculta marca d'água nativa do Streamlit */
+    div[class*="viewerBadge"],
+    [data-testid="manage-app-button"],
+    #manage-app-button,
+    .viewerBadge_container,
+    [data-testid="stToolbar"],
+    [data-testid="stDecoration"],
+    #MainMenu, footer {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
     /* ========================================================
-       ESTILIZAÇÃO DAS ABAS DE FUNÇÕES (st.tabs) E ÁREA ROLÁVEL
+       BARRA LATERAL (SIDEBAR)
        ======================================================== */
-    /* Barra horizontal de navegação das abas */
+    [data-testid="stSidebar"] {
+        background-color: #F8FAFC !important;
+        border-right: 1px solid #E2E8F0 !important;
+    }
+
+    div[role="radiogroup"] {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+        width: 100% !important;
+        padding-top: 6px;
+    }
+
+    /* Oculta totalmente a bolinha padrão do rádio */
+    div[role="radiogroup"] label input,
+    div[role="radiogroup"] label input + div,
+    div[role="radiogroup"] label > div:first-of-type:not(:last-child),
+    div[role="radiogroup"] label > div > div:first-child:not(:last-child) {
+        display: none !important;
+        visibility: hidden !important;
+        width: 0px !important;
+        height: 0px !important;
+    }
+
+    /* Cartão do Menu em Repouso (Inativo) */
+    div[role="radiogroup"] label {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 8px !important;
+        padding: 9px 14px !important;
+        margin: 0 !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease-in-out !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+        display: flex !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+
+    div[role="radiogroup"] label [data-testid="stMarkdownContainer"],
+    div[role="radiogroup"] label [data-testid="stMarkdownContainer"] p {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        color: #334155 !important;
+        font-weight: 600 !important;
+        font-size: 0.88rem !important;
+        margin: 0 !important;
+        width: 100% !important;
+    }
+
+    div[role="radiogroup"] label span[data-testid="stIconMaterial"] {
+        color: #007791 !important;
+        font-size: 1.20rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+    }
+
+    /* Hover no Menu Lateral */
+    div[role="radiogroup"] label:hover {
+        border-color: #00A3B4 !important;
+        background-color: #F0FDFA !important;
+        transform: translateX(3px);
+        box-shadow: 0 4px 10px rgba(0, 163, 180, 0.12) !important;
+    }
+
+    /* CARTÃO ATIVO (PADRÃO KAZIMM DA IMG 1) */
+    div[role="radiogroup"] label:has(input:checked) {
+        background: linear-gradient(135deg, #00A3B4 0%, #007791 100%) !important;
+        border: 1px solid #007791 !important;
+        box-shadow: 0 4px 12px rgba(0, 163, 180, 0.30) !important;
+        transform: translateX(4px);
+    }
+
+    div[role="radiogroup"] label:has(input:checked) [data-testid="stMarkdownContainer"] p,
+    div[role="radiogroup"] label:has(input:checked) span[data-testid="stIconMaterial"] {
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+    }
+
+    /* Botão Sair / Logout */
+    div[data-testid="stSidebar"] button:has(p:contains("Sair")) {
+        background-color: #FEE2E2 !important;
+        border: 1px solid #FCA5A5 !important;
+        color: #DC2626 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stSidebar"] button:has(p:contains("Sair")):hover {
+        background-color: #DC2626 !important;
+        color: #FFFFFF !important;
+    }
+
+    /* ========================================================
+       ESTRUTURA: CONTAINER 580PX, SANFONA & FORMULÁRIOS
+       ======================================================== */
+    /* Container principal de 580px: borda limpa, sem efeito de arame */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 10px !important;
+        background-color: #FFFFFF !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+    }
+
+    /* Sanfona de contexto (st.expander) */
+    div[data-testid="stExpander"] {
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 10px !important;
+        background-color: #FFFFFF !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+        overflow: hidden;
+    }
+
+    div[data-testid="stExpander"] details {
+        border: none !important;
+    }
+
+    div[data-testid="stForm"] {
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 10px !important;
+    }
+
+    /* ========================================================
+       CARDS DE MÉTRICAS (FINANCEIRO & DASHBOARD)
+       ======================================================== */
+    [data-testid="stMetric"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 10px !important;
+        padding: 12px 16px !important;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    [data-testid="stMetric"]:hover {
+        border-color: #00A3B4 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 163, 180, 0.08) !important;
+    }
+
+    div[data-testid="stHorizontalBlock"] {
+        gap: 10px !important;
+    }
+
+    div[data-testid="column"] {
+        padding: 0 !important;
+    }
+
+    /* ========================================================
+       BOTÕES DE MÓDULOS NO TOPO (st.page_link)
+       ======================================================== */
+    /* Em repouso (Inativo) */
+    div[data-testid="stPageLink"] a,
+    [data-testid="stPageLink-NavLink"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 8px !important;
+        padding: 6px 12px !important;
+        min-height: 38px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
+        transition: all 0.15s ease-in-out !important;
+        text-decoration: none !important;
+    }
+
+    div[data-testid="stPageLink"] a p,
+    [data-testid="stPageLink-NavLink"] span {
+        font-size: 0.80rem !important;
+        line-height: 1 !important;
+        margin: 0 !important;
+        color: #475569 !important;
+        font-weight: 600 !important;
+    }
+
+    div[data-testid="stPageLink"] span[data-testid="stIconMaterial"],
+    div[data-testid="stPageLink-NavLink"] span[data-testid="stIconMaterial"] {
+        font-size: 1.35rem !important;
+        color: #007791 !important;
+        vertical-align: middle !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+
+    /* Hover nos botões de módulo */
+    div[data-testid="stPageLink"] a:hover,
+    [data-testid="stPageLink-NavLink"]:hover {
+        border-color: #00A3B4 !important;
+        background-color: #F0FDFA !important;
+        transform: translateY(-1px);
+    }
+
+    /* MÓDULO ATIVO (DESTAQUE CIANO SUAVE KAZIMM) */
+    [data-testid="stPageLink"] a[aria-current="page"],
+    [data-testid="stPageLink-NavLink"][aria-current="page"],
+    div[data-testid="stPageLink"] a:has(strong) {
+        background-color: #F0FDFA !important;
+        border: 1.5px solid #00A3B4 !important;
+        box-shadow: 0 2px 8px rgba(0, 163, 180, 0.15) !important;
+    }
+
+    [data-testid="stPageLink"] a[aria-current="page"] p,
+    [data-testid="stPageLink"] a[aria-current="page"] span,
+    div[data-testid="stPageLink"] a:has(strong) p,
+    div[data-testid="stPageLink"] a:has(strong) strong {
+        color: #007791 !important;
+        font-weight: 700 !important;
+    }
+
+    [data-testid="stPageLink"] a[aria-current="page"] span[data-testid="stIconMaterial"],
+    div[data-testid="stPageLink"] a:has(strong) span[data-testid="stIconMaterial"] {
+        color: #00A3B4 !important;
+    }
+
+    /* ========================================================
+       ABAS DE NAVEGAÇÃO INTERNA (st.tabs)
+       ======================================================== */
     div[data-testid="stTabs"] [role="tablist"] {
         gap: 8px !important;
-        border-bottom: 2px solid #0176A1 !important;
+        border-bottom: 2px solid #E2E8F0 !important;
         padding-bottom: 2px !important;
         margin-bottom: 12px !important;
     }
 
-    /* Cada aba individual */
     div[data-testid="stTabs"] [role="tab"] {
         font-family: 'Inter', sans-serif !important;
         font-size: 0.82rem !important;
@@ -111,325 +350,15 @@ def aplicar_tema_global():
         transition: all 0.2s ease !important;
     }
 
-    /* Aba ativa / selecionada */
     div[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
         color: #007791 !important;
         border-bottom: 3px solid #00A3B4 !important;
         font-weight: 700 !important;
     }
 
-    /* Contentor com rolamento interno elegante */
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 8px !important;
-        border: 1px solid #0176A1 !important;
-        background-color: #FFFFFF !important;
-    }
-
     /* ========================================================
-       COMPACTAÇÃO DOS BOTÕES DE NAVEGAÇÃO (st.page_link)
+       BOTÕES DE LINK (st.link_button COM TEXTO BRANCO NÍTIDO)
        ======================================================== */
-    div[data-testid="stPageLink"] a,
-    [data-testid="stPageLink-NavLink"] {
-        padding: 4px 10px !important;
-        min-height: 34px !important;
-        height: 34px !important;
-        border: 1px solid #0176A1 !important;
-        border-radius: 6px !important;
-        background-color: #FFFFFF !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 6px !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
-        transition: all 0.15s ease-in-out !important;
-    }
-
-    /* Reduz o texto interno e zera espaçamentos residuais */
-    div[data-testid="stPageLink"] a p,
-    [data-testid="stPageLink-NavLink"] span {
-        font-size: 0.78rem !important;
-        line-height: 1 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    /* Efeito hover elegante */
-    div[data-testid="stPageLink"] a:hover,
-    [data-testid="stPageLink-NavLink"]:hover {
-        border-color: #00A3B4 !important;
-        background-color: #F0FDFA !important;
-        color: #007791 !important;
-    }
-
-
-    /* 1. Importação das fontes Montserrat e Inter */
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap');
-
-    html, body, .stApp {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-
-    /* Títulos padronizados em Montserrat */
-    h1, h2, h3, [data-testid="stHeader"] {
-        font-family: 'Montserrat', sans-serif !important;
-    }
-
-    /* 2. Barra lateral clean */
-    [data-testid="stSidebar"] {
-        background-color: #F8FAFC !important;
-        border-right: 1px solid #0176A1;
-    }
-
-    /* 3. Container do Menu de Navegação */
-    div[role="radiogroup"] {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 8px !important;
-        width: 100% !important;
-        padding-top: 6px;
-    }
-
-    /* ========================================================
-       COMPACTAÇÃO DAS COLUNAS E CARDS DE MÉTRICAS
-       ======================================================== */
-    /* Reduz o vão horizontal entre as 4 colunas de métricas */
-    div[data-testid="stHorizontalBlock"] {
-        gap: 10px !important;
-    }
-
-    /* Reduz o respiro vertical dentro das colunas */
-    div[data-testid="column"] {
-        padding: 0 !important;
-    }
-
-    /* Se os seus cards usam div com borda (estilo container de métrica) */
-    div[data-testid="column"] > div {
-        margin-bottom: 4px !important;
-    }
-
-    
-      /* ========================================================
-       CONTROLE DO RÁDIO: OCULTA APENAS A BOLINHA
-       ======================================================== */
-
-    /* 1. Oculta o input padrão */
-    div[role="radiogroup"] label input {
-        display: none !important;
-    }
-
-    /* 2. Oculta a bolinha (irmã direta do input ou primeiro item antes do texto) */
-    div[role="radiogroup"] label input + div,
-    div[role="radiogroup"] label > div:first-of-type:not(:last-child),
-    div[role="radiogroup"] label > div > div:first-child:not(:last-child) {
-        display: none !important;
-    }
-
-    /* 3. Cartão do Menu em Repouso */
-    div[role="radiogroup"] label {
-        background-color: #FFFFFF !important;
-        border: 1px solid #0176A1 !important;
-        border-radius: 10px !important;
-        padding: 10px 14px !important;
-        margin: 0 !important;
-        cursor: pointer !important;
-        transition: all 0.2s ease-in-out !important;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
-        display: flex !important;
-        align-items: center !important;
-        width: 100% !important;
-    }
-
-    /* 4. Garante o texto e ícone nítidos e alinhados */
-    div[role="radiogroup"] label [data-testid="stMarkdownContainer"],
-    div[role="radiogroup"] label [data-testid="stMarkdownContainer"] p {
-        display: flex !important;
-        align-items: center !important;
-        gap: 8px !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        color: #334155 !important;
-        font-weight: 600 !important;
-        font-size: 0.90rem !important;
-        margin: 0 !important;
-        width: 100% !important;
-    }
-
-    div[role="radiogroup"] label span[data-testid="stIconMaterial"] {
-        color: #007791 !important;
-        font-size: 1.25rem !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        visibility: visible !important;
-    }
-
-    /* 5. Efeito Hover no Cartão */
-    div[role="radiogroup"] label:hover {
-        border-color: #00A3B4 !important;
-        background-color: #F0FDFA !important;
-        transform: translateX(4px);
-        box-shadow: 0 4px 12px rgba(0, 163, 180, 0.12) !important;
-    }
-
-    div[role="radiogroup"] label:hover span[data-testid="stIconMaterial"] {
-        color: #00A3B4 !important;
-    }
-
-    /* 6. Cartão Ativo (Selecionado) */
-    /* Botão ativo: fundo azul claro, borda destacada e sombra suave */
-    [data-testid="stPageLink"] a[aria-current="page"],
-    [data-testid="stPageLink-NavLink"][aria-current="page"],
-    div[data-testid="stPageLink"] a:has(strong) {
-        background-color: #EBF5FF !important;
-        border: 1.5px solid #0176A1 !important;
-        box-shadow: 0 2px 8px rgba(1, 118, 161, 0.15) !important;
-        transform: translateY(-1px);
-    }
-
-    /* Texto e rótulo do módulo ativo na cor da marca */
-    [data-testid="stPageLink"] a[aria-current="page"] p,
-    [data-testid="stPageLink"] a[aria-current="page"] span,
-    div[data-testid="stPageLink"] a:has(strong) p,
-    div[data-testid="stPageLink"] a:has(strong) strong {
-        color: #0176A1 !important;
-        font-weight: 700 !important;
-    }
-
-    /* Ícone Material Symbol do módulo ativo */
-    [data-testid="stPageLink"] a[aria-current="page"] span[data-testid="stIconMaterial"],
-    div[data-testid="stPageLink"] a:has(strong) span[data-testid="stIconMaterial"] {
-        color: #0176A1 !important;
-        transform: scale(1.08);
-    }
-    
-
-    /* Botão Sair / Logout */
-    div[data-testid="stSidebar"] button:has(p:contains("Sair")) {
-        background-color: #FEE2E2 !important;
-        border: 1px solid #FCA5A5 !important;
-        color: #DC2626 !important;
-        border-radius: 10px !important;
-        font-weight: 600 !important;
-    }
-    div[data-testid="stSidebar"] button:has(p:contains("Sair")):hover {
-        background-color: #DC2626 !important;
-        color: #FFFFFF !important;
-    }
-
-    /* Cards de Métricas (Dashboard) */
-    [data-testid="stMetric"] {
-        background-color: #FFFFFF !important;
-        border: 1px solid #0176A1 !important;
-        border-radius: 12px !important;
-        padding: 14px 18px !important;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04) !important;
-        transition: transform 0.2s ease;
-    }
-    [data-testid="stMetric"]:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08) !important;
-    }
-    /* Força o container principal a ocupar 100% da tela */
-    .block-container {
-        max-width: 98% !important;
-        padding-left: 2.5rem !important;
-        padding-right: 2.5rem !important;
-        padding-top: 1.5rem !important;
-    }
-
-    /* Estilização dos Links de Página em Cartões Modernos no Topo */
-    [data-testid="stPageLink"] a,
-    div[data-testid="stPageLink-NavLink"] {
-        background-color: #FFFFFF !important;
-        border: 1px solid #0176A1 !important;
-        border-radius: 10px !important;
-        padding: 10px 14px !important;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
-        transition: all 0.2s ease-in-out !important;
-        text-align: center !important;
-        text-decoration: none !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-    }
-
-    [data-testid="stPageLink"] a:hover,
-    div[data-testid="stPageLink-NavLink"]:hover {
-        border-color: #00A3B4 !important;
-        background-color: #F0FDFA !important;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 163, 180, 0.15) !important;
-    }
-
-    /* Cartão Ativo (Página atual destacada em gradiente) */
-    [data-testid="stPageLink"] a[aria-current="page"],
-    div[data-testid="stPageLink-NavLink"][aria-current="page"] {
-        background: linear-gradient(135deg, #00A3B4 0%, #007791 100%) !important;
-        border-color: #007791 !important;
-        box-shadow: 0 4px 14px rgba(0, 163, 180, 0.35) !important;
-    }
-
-    [data-testid="stPageLink"] a[aria-current="page"] p,
-    [data-testid="stPageLink"] a[aria-current="page"] span,
-    div[data-testid="stPageLink-NavLink"][aria-current="page"] p {
-        color: #FFFFFF !important;
-        font-weight: 700 !important;
-    }
-
-    /* ========================================================
-       CONTROLE DOS ÍCONES (MATERIAL SYMBOLS) NOS CARTÕES
-       ======================================================== */
-
-    /* 1. Tamanho e Cor em Repouso */
-    [data-testid="stPageLink"] span[data-testid="stIconMaterial"],
-    div[data-testid="stPageLink-NavLink"] span[data-testid="stIconMaterial"] {
-        font-size: 1.55rem !important;  /* <-- TAMANHO DO ÍCONE (ex: 1.2rem a 1.6rem) */
-        color: #00A3BA !important;      /* <-- COR DO ÍCONE (Azul Petróleo da marca) */
-        vertical-align: middle !important;
-        transition: all 0.2s ease-in-out !important;
-    }
-
-    /* 2. Efeito ao Passar o Mouse (Hover) */
-    [data-testid="stPageLink"]:hover span[data-testid="stIconMaterial"],
-    div[data-testid="stPageLink-NavLink"]:hover span[data-testid="stIconMaterial"] {
-        color: #00A3B4 !important;      /* Transição para Ciano/Turquesa */
-        transform: scale(1.12);         /* Micro-animação de zoom */
-    }
-
-    /* 3. Ícone no Cartão Selecionado (Página Ativa) */
-    [data-testid="stPageLink"] a[aria-current="page"] span[data-testid="stIconMaterial"],
-    div[data-testid="stPageLink-NavLink"][aria-current="page"] span[data-testid="stIconMaterial"] {
-        color: #FFFFFF !important;      /* Branco puro sobre o gradiente ativo */
-    }
-
-    /* 1. Oculta o botão "Manage app" e selos no canto inferior direito */
-    div[class*="viewerBadge"],
-    [data-testid="manage-app-button"],
-    #manage-app-button,
-    .viewerBadge_container {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    /* 2. Oculta a barra superior nativa (botões "Fork", GitHub e menu de 3 pontinhos) */
-    [data-testid="stToolbar"],
-    [data-testid="stDecoration"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    /* Mantém o rodapé visível sem gerar margem excessiva no fim do scroll */
-    .block-container {
-        padding-bottom: 1rem !important;
-    }
-
-    #MainMenu, footer {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    /* =========================================================================
-       CORREÇÃO DO TEXTO DO ST.LINK_BUTTON (COR BRANCA COM ALTO CONTRASTE)
-       ========================================================================= */
     [data-testid="stLinkButton"] a,
     [data-testid="stLinkButton"] a *,
     [data-testid="stLinkButton"] a p,
@@ -440,52 +369,44 @@ def aplicar_tema_global():
         text-decoration: none !important;
     }
 
-    /* Estado de foco/hover ao passar o rato */
     [data-testid="stLinkButton"] a:hover,
     [data-testid="stLinkButton"] a:hover * {
         color: #F8FAFC !important;
         text-decoration: none !important;
     }
-    
     </style>
     """, unsafe_allow_html=True)
-    
 
 
+# =============================================================================
+# CABEÇALHO SLIM INSTITUCIONAL
+# =============================================================================
 def exibir_cabecalho(
     titulo: str, 
     subtitulo: str = "Plataforma de Gestão Integrada", 
     versao: str = "v1.0.2-beta",
     logo_b64: str = None
 ):
-    """
-    Renderiza o cabeçalho compacto (Slim ERP) com logo dinâmica, 
-    identificação do módulo e versão alinhada à direita.
-    """
     col_logo, col_texto, col_versao = st.columns([1.3, 7.2, 1.5], vertical_alignment="center")
 
     with col_logo:
-        # 1. Se vier logo em Base64 do cliente/empresa ativa, renderiza ela
         if logo_b64:
             st.markdown(
-                f'<img src="{logo_b64}" style="max-height: 42px; width: auto; object-fit: contain;">', 
+                f'<img src="{logo_b64}" style="max-height: 40px; width: auto; object-fit: contain;">', 
                 unsafe_allow_html=True
             )
-        # 2. Se não, usa a logo oficial do arquivo local
         elif CAMINHO_LOGO.exists():
-            st.image(str(CAMINHO_LOGO), width=135)
-        # 3. Fallback de texto caso a imagem não seja encontrada
+            st.image(str(CAMINHO_LOGO), width=130)
         else:
             st.markdown("<h3 style='color:#007791; margin:0; font-weight:800;'>KAZIMM</h3>", unsafe_allow_html=True)
 
     with col_texto:
-        # Tipografia enxuta e proporcional (estilo Omie / Conta Azul)
         st.markdown(f"""
-        <div style="font-family: 'Montserrat', sans-serif; margin-left: 6px; line-height: 1.15;">
-            <div style="font-size: 0.72rem; font-weight: 700; color: #00A3B4; text-transform: uppercase; letter-spacing: 0.8px;">
+        <div style="font-family: 'Montserrat', sans-serif; margin-left: 4px; line-height: 1.15;">
+            <div style="font-size: 0.70rem; font-weight: 700; color: #00A3B4; text-transform: uppercase; letter-spacing: 0.8px;">
                 {subtitulo}
             </div>
-            <div style="font-size: 1.35rem; color: #007791; font-weight: 800; letter-spacing: -0.3px; margin-top: 1px;">
+            <div style="font-size: 1.30rem; color: #007791; font-weight: 800; letter-spacing: -0.3px; margin-top: 1px;">
                 {titulo}
             </div>
         </div>
@@ -494,56 +415,18 @@ def exibir_cabecalho(
     with col_versao:
         st.markdown(f"""
         <div style="display: flex; justify-content: flex-end; align-items: center;">
-            <span style="background: #F1F5F9; color: #475569; font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; border: 1px solid #0176A1;">
+            <span style="background: #F1F5F9; color: #475569; font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; border: 1px solid #E2E8F0;">
                 {versao}
             </span>
         </div>
         """, unsafe_allow_html=True)
 
-    # Linha divisória ultra-fina e colada ao cabeçalho (sem espaços mortos)
-    st.markdown("<hr style='margin: 6px 0 10px 0; border: none; border-top: 1px solid #0176A1;'>", unsafe_allow_html=True)
-
-def exibir_menu_modulos_topo():
-    """
-    Renderiza os 4 módulos principais do Kazimm em cartões horizontais no topo,
-    utilizando os ícones vetoriais centralizados.
-    """
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.page_link("pages/1_Gestor_Contabil.py", label="Gestor Contábil", icon=ICONES["contabil"], use_container_width=True)
-    with col2:
-        st.page_link("pages/2_Gerador_Contratos.py", label="Gerador de Contratos", icon=ICONES["contratos"], use_container_width=True)
-    with col3:
-        st.page_link("pages/3_Empregados_Previdencia.py", label="Empregados / Previdência", icon=ICONES["previdencia"], use_container_width=True)
-    with col4:
-        st.page_link("pages/4_Gestor_Fiscal.py", label="Gestor Fiscal", icon=ICONES["fiscal"], use_container_width=True)
-
-    st.markdown("<div style='margin-bottom: 18px;'></div>", unsafe_allow_html=True)
-# ==============================================================================
-# COMPONENTES ESTRUTURAIS WHITE-LABEL (NAVBAR, CONTEXTO E RODAPÉ)
-# ==============================================================================
-
-def exibir_navbar_superior(modulo_ativo: str = "Gestor Contábil", versao: str = "v1.0.2-beta"):
-    """
-    Renderiza a barra superior unificada conforme o topo do manuscrito:
-    [LOGO KAZIMM] -------- [MÓDULO ATIVO] -------- [VERSÃO / AMBIENTE]
-    """
-    html_navbar = f"""<div style="display: flex; justify-content: space-between; align-items: center; background-color: #FFFFFF; border: 1px solid #0176A1; border-radius: 12px; padding: 10px 20px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
-    <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="font-family: 'Montserrat', sans-serif; font-size: 1.25rem; font-weight: 800; color: #007791; letter-spacing: -0.5px;">KAZIMM</span>
-        <span style="background: #F0FDFA; color: #00A3B4; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid #CCFBF1;">SaaS</span>
-    </div>
-    <div style="display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #00A3B4 0%, #007791 100%); color: #FFFFFF; padding: 6px 18px; border-radius: 20px; font-size: 0.88rem; font-weight: 600; box-shadow: 0 2px 8px rgba(0, 163, 180, 0.25);">
-        <span>{modulo_ativo}</span>
-    </div>
-    <div style="display: flex; align-items: center; gap: 10px;">
-        <span style="background: #F1F5F9; color: #475569; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 6px;">{versao}</span>
-    </div>
-</div>"""
-    st.markdown(html_navbar, unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 6px 0 10px 0; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
 
 
+# =============================================================================
+# BANNER DE CONTEXTO DO CLIENTE ATIVO
+# =============================================================================
 def exibir_banner_cliente_ativo(
     nome_cliente: str, 
     regime: str = "MEI (Microempreendedor Individual)", 
@@ -551,16 +434,12 @@ def exibir_banner_cliente_ativo(
     cnpj: str = "", 
     **kwargs
 ):
-    """
-    Banner de contexto ultra-slim:
-    [Ícone + Cliente Ativo + Regime + CNPJ] ---------------- [Tag Plano]
-    """
     cnpj_html = f'<span style="color: #94A3B8; font-size: 0.78rem;"> • CNPJ: {cnpj}</span>' if cnpj else ""
 
     html_banner = (
         f'<div style="display: flex; justify-content: space-between; align-items: center; '
-        f'background-color: #F8FAFC; border: 1px solid #0176A1; border-radius: 8px; '
-        f'padding: 6px 14px; margin-bottom: 8px;">'
+        f'background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; '
+        f'padding: 8px 14px; margin-bottom: 8px;">'
         f'<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">'
         f'<span style="color: #007791; display: inline-flex; align-items: center;">'
         f'<svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="currentColor">'
@@ -574,7 +453,7 @@ def exibir_banner_cliente_ativo(
         f'{cnpj_html}'
         f'</div>'
         f'<div>'
-        f'<span style="background-color: #E0F2FE; color: #007791; font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 10px; border: 1px solid #BAE6FD;">'
+        f'<span style="background-color: #E0F2FE; color: #007791; font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 12px; border: 1px solid #BAE6FD;">'
         f'{plano}'
         f'</span>'
         f'</div>'
@@ -582,11 +461,11 @@ def exibir_banner_cliente_ativo(
     )
     st.markdown(html_banner, unsafe_allow_html=True)
 
+
+# =============================================================================
+# BOTÕES DE NAVEGAÇÃO GLOBAL ENTRE OS 4 MÓDULOS
+# =============================================================================
 def exibir_botoes_modulos_navegacao(modulo_atual: str = "contabil"):
-    """
-    Exibe os 4 botões de navegação rápida entre módulos (conforme a 2ª linha do manuscrito).
-    Utiliza st.page_link para troca instantânea de rotas sem recarregar a sessão.
-    """
     modulos = [
         {
             "id": "contabil",
@@ -620,11 +499,45 @@ def exibir_botoes_modulos_navegacao(modulo_atual: str = "contabil"):
             rotulo = f"**{m['nome']}**" if m["id"] == modulo_atual else m["nome"]
             st.page_link(m["page"], label=rotulo, icon=m["icon"], use_container_width=True)
 
+# =============================================================================
+# BARRA SUPERIOR UNIFICADA (NAVBAR)
+# =============================================================================
+def exibir_navbar_superior(modulo_ativo: str = "Gestor Contábil", versao: str = "v1.0.2-beta"):
+    """
+    Renderiza a barra superior unificada:
+    [LOGO KAZIMM] -------- [MÓDULO ATIVO] -------- [VERSÃO / AMBIENTE]
+    """
+    html_navbar = f"""<div style="display: flex; justify-content: space-between; align-items: center; background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 10px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-family: 'Montserrat', sans-serif; font-size: 1.25rem; font-weight: 800; color: #007791; letter-spacing: -0.5px;">KAZIMM</span>
+        <span style="background: #F0FDFA; color: #00A3B4; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid #CCFBF1;">SaaS</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #00A3B4 0%, #007791 100%); color: #FFFFFF; padding: 6px 18px; border-radius: 20px; font-size: 0.88rem; font-weight: 600; box-shadow: 0 2px 8px rgba(0, 163, 180, 0.25);">
+        <span>{modulo_ativo}</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="background: #F1F5F9; color: #475569; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 6px; border: 1px solid #E2E8F0;">{versao}</span>
+    </div>
+</div>"""
+    st.markdown(html_navbar, unsafe_allow_html=True)
 
+# =============================================================================
+# SANFONA UNIFICADA DE CONTEXTO
+# =============================================================================
+def exibir_painel_contexto(pagina_atual="contabil"):
+    nome_cliente = st.session_state.get("cliente_nome_ativo", "Kazimm Gestão e Tecnologia")
+    regime_cliente = st.session_state.get("cliente_regime_ativo", "MEI (Microempreendedor Individual)")
+    plano_nome = st.session_state.get("plano_nome_ativo", "Plano MEI Pro")
+
+    with st.expander("👤 Painel de Contexto e Módulos do Sistema", expanded=True):
+        exibir_banner_cliente_ativo(nome_cliente=nome_cliente, regime=regime_cliente, plano=plano_nome)
+        exibir_botoes_modulos_navegacao(modulo_atual=pagina_atual)
+
+
+# =============================================================================
+# RODAPÉ INSTITUCIONAL SLIM
+# =============================================================================
 def exibir_rodape_institucional(versao: str = "v1.0.2-beta", status_servico: str = "Supabase Conectado"):
-    """
-    Renderiza o rodapé institucional com o ponto verde pulsante.
-    """
     html_rodape = f"""<style>
 @keyframes pulse-green {{
     0% {{ transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }}
@@ -640,7 +553,7 @@ def exibir_rodape_institucional(versao: str = "v1.0.2-beta", status_servico: str
     animation: pulse-green 2s infinite;
 }}
 </style>
-<div style="margin-top: 40px; padding-top: 14px; padding-bottom: 8px; border-top: 1px solid #0176A1; display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #64748B;">
+<div style="margin-top: 30px; padding-top: 12px; padding-bottom: 8px; border-top: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #64748B;">
     <div>© 2026 <strong>Kazimm Gestão & Tecnologia</strong> • Todos os direitos reservados.</div>
     <div style="display: flex; align-items: center; gap: 16px;">
         <div style="display: flex; align-items: center; gap: 6px;">
@@ -650,58 +563,38 @@ def exibir_rodape_institucional(versao: str = "v1.0.2-beta", status_servico: str
         <span>•</span>
         <span style="background: #F1F5F9; padding: 2px 8px; border-radius: 4px; font-weight: 600;">{versao}</span>
         <span>•</span>
-        <a href="#" style="color: #007791; text-decoration: none; font-weight: 600;">Suporte VIP</a>
+        <a href="[https://wa.me/5521972700481?text=Olá,%20estou%20testando%20o%20Kazimm%20ERP](https://wa.me/55SEUNUMERO?text=Olá,%20estou%20testando%20o%20Kazimm%20ERP)" style="color: #007791; text-decoration: none; font-weight: 600;">Suporte VIP</a>
     </div>
 </div>"""
     st.markdown(html_rodape, unsafe_allow_html=True)
 
 
-# -----------------------------------------------------------------------------
-# 1. FORMATAÇÃO MONETÁRIA E LIMPEZA DE CACHE
-# -----------------------------------------------------------------------------
-def formatar_brl(valor):
+# =============================================================================
+# UTILITÁRIOS GLOBAIS DE FORMATAÇÃO E CACHE (COLUNA ZERO / ESCOPO GLOBAL)
+# =============================================================================
+def formatar_brl(valor) -> str:
+    if valor is None:
+        return "R$ 0,00"
     try:
-        return f"R$ {float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        if isinstance(valor, str):
+            val_limpo = valor.replace("R$", "").strip()
+            if "," in val_limpo and "." in val_limpo:
+                val_limpo = val_limpo.replace(".", "").replace(",", ".")
+            elif "," in val_limpo:
+                val_limpo = val_limpo.replace(",", ".")
+            num = float(val_limpo)
+        else:
+            num = float(valor)
+
+        return f"R$ {num:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     except (ValueError, TypeError):
         return "R$ 0,00"
 
+
 def limpar_cache():
-    st.cache_data.clear()    
+    st.cache_data.clear()
 
-# -----------------------------------------------------------------------------
-# 3. SANFONA DE CONTEXTO E NAVEGAÇÃO GLOBAL ENTRE MÓDULOS
-# -----------------------------------------------------------------------------
-def exibir_painel_contexto(pagina_atual="gestor_contabil"):
-    nome_cliente = st.session_state.get("cliente_nome_ativo", "Kazimm Gestão e Tecnologia")
-    regime_cliente = st.session_state.get("cliente_regime_ativo", "MEI (Microempreendedor Individual)")
-    plano_nome = st.session_state.get("plano_nome_ativo", "Plano MEI Pro")
 
-    with st.expander("👤 Painel de Contexto e Módulos do Sistema", expanded=True):
-        # Linha 1: Contexto do Cliente Ativo e Badge de Plano
-        col_c1, col_c2 = st.columns([4, 1.2], vertical_alignment="center")
-        with col_c1:
-            st.markdown(f"👤 **Cliente Ativo:** {nome_cliente} &nbsp;|&nbsp; <span style='color: #64748B;'>Regime: {regime_cliente}</span>", unsafe_allow_html=True)
-        with col_c2:
-            st.markdown(f"""
-            <div style="text-align: right;">
-                <span style="background: #EBF5FF; border: 1px solid #BAE6FD; border-radius: 20px; padding: 4px 12px; font-size: 0.78rem; color: #0284C7; font-weight: 700;">
-                    {plano_nome}
-                </span>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("<div style='margin-top: 6px;'></div>", unsafe_allow_html=True)
-        
-        # Linha 2: Botões de Navegação Direta entre os 4 Módulos
-        m1, m2, m3, m4 = st.columns(4)
-        with m1:
-            st.page_link("pages/1_Gestor_Contabil.py", label="Gestor Contábil", icon=":material/account_balance:", use_container_width=True)
-        with m2:
-            st.page_link("pages/2_Gerador_Contratos.py", label="Gerador de Contratos", icon=":material/contract:", use_container_width=True)
-        with m3:
-            st.page_link("pages/3_Empregados_Folha.py", label="Empregados / Folha", icon=":material/badge:", use_container_width=True)
-        with m4:
-            st.page_link("pages/4_Gestor_Fiscal.py", label="Gestor Fiscal", icon=":material/receipt_long:", use_container_width=True)
-
-# Alias de compatibilidade
+# Aliases de retrocompatibilidade
 aplicar_estilo_moderno = aplicar_tema_global
+exibir_menu_modulos_topo = exibir_botoes_modulos_navegacao
