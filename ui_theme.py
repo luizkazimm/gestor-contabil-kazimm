@@ -1,5 +1,6 @@
 from pathlib import Path
 import streamlit as st
+import pandas as pd
 
 # Localiza a raiz do projeto e o arquivo exato da Logo
 DIR_RAIZ = Path(__file__).resolve().parent
@@ -640,6 +641,54 @@ def exibir_rodape_institucional(versao: str = "v1.0.2-beta", status_servico: str
     </div>
 </div>"""
     st.markdown(html_rodape, unsafe_allow_html=True)
+
+
+# -----------------------------------------------------------------------------
+# 1. FORMATAÇÃO MONETÁRIA E LIMPEZA DE CACHE
+# -----------------------------------------------------------------------------
+def formatar_brl(valor):
+    try:
+        return f"R$ {float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except (ValueError, TypeError):
+        return "R$ 0,00"
+
+def limpar_cache():
+    st.cache_data.clear()    
+
+# -----------------------------------------------------------------------------
+# 3. SANFONA DE CONTEXTO E NAVEGAÇÃO GLOBAL ENTRE MÓDULOS
+# -----------------------------------------------------------------------------
+def exibir_painel_contexto(pagina_atual="gestor_contabil"):
+    nome_cliente = st.session_state.get("cliente_nome_ativo", "Kazimm Gestão e Tecnologia")
+    regime_cliente = st.session_state.get("cliente_regime_ativo", "MEI (Microempreendedor Individual)")
+    plano_nome = st.session_state.get("plano_nome_ativo", "Plano MEI Pro")
+
+    with st.expander("👤 Painel de Contexto e Módulos do Sistema", expanded=True):
+        # Linha 1: Contexto do Cliente Ativo e Badge de Plano
+        col_c1, col_c2 = st.columns([4, 1.2], vertical_alignment="center")
+        with col_c1:
+            st.markdown(f"👤 **Cliente Ativo:** {nome_cliente} &nbsp;|&nbsp; <span style='color: #64748B;'>Regime: {regime_cliente}</span>", unsafe_allow_html=True)
+        with col_c2:
+            st.markdown(f"""
+            <div style="text-align: right;">
+                <span style="background: #EBF5FF; border: 1px solid #BAE6FD; border-radius: 20px; padding: 4px 12px; font-size: 0.78rem; color: #0284C7; font-weight: 700;">
+                    {plano_nome}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("<div style='margin-top: 6px;'></div>", unsafe_allow_html=True)
+        
+        # Linha 2: Botões de Navegação Direta entre os 4 Módulos
+        m1, m2, m3, m4 = st.columns(4)
+        with m1:
+            st.page_link("pages/1_Gestor_Contabil.py", label="Gestor Contábil", icon=":material/account_balance:", use_container_width=True)
+        with m2:
+            st.page_link("pages/2_Gerador_Contratos.py", label="Gerador de Contratos", icon=":material/contract:", use_container_width=True)
+        with m3:
+            st.page_link("pages/3_Empregados_Folha.py", label="Empregados / Folha", icon=":material/badge:", use_container_width=True)
+        with m4:
+            st.page_link("pages/4_Gestor_Fiscal.py", label="Gestor Fiscal", icon=":material/receipt_long:", use_container_width=True)
 
 # Alias de compatibilidade
 aplicar_estilo_moderno = aplicar_tema_global
