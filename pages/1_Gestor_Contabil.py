@@ -253,7 +253,7 @@ if cliente_ativo_id:
 
         with col_m1:
             st.markdown(
-                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
+                f"""<div style="border: 1px solid #0176a1; border-radius: 6px; padding: 8px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
 <div style="font-size: 15px; color: #0176a1;"> Receita Realizada</div>
 <div style="font-size: 20px; font-weight: bold; color: #00875a; margin: 2px 0;">{formatar_brl(rec_g)}</div>
 <div style="font-size: 10px; color: #000000; line-height: 1.3;">Bancos: {formatar_brl(rec_bancos_g)}<br>Caixa: {formatar_brl(rec_caixa_g)}</div>
@@ -263,7 +263,7 @@ if cliente_ativo_id:
 
         with col_m2:
             st.markdown(
-                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
+                f"""<div style="border: 1px solid #0176a1; border-radius: 6px; padding: 8px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
 <div style="font-size: 15px; color: #0176a1;"> Despesas Pagas</div>
 <div style="font-size: 20px; font-weight: bold; color: #de350b; margin: 2px 0;">{formatar_brl(desp_g)}</div>
 <div style="font-size: 10px; color: transparent; line-height: 1.3;">&nbsp;<br>&nbsp;</div>
@@ -273,7 +273,7 @@ if cliente_ativo_id:
 
         with col_m3:
             st.markdown(
-                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
+                f"""<div style="border: 1px solid #0176a1; border-radius: 6px; padding: 8px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
 <div style="font-size: 15px; color: #0176a1;"> Saldo em Caixa/Banco</div>
 <div style="font-size: 20px; font-weight: bold; color: {cor_saldo}; margin: 2px 0;">{formatar_brl(saldo_g)}</div>
 <div style="font-size: 10px; color: #000000; line-height: 1.3;">Bancos: {formatar_brl(saldo_disp_bancos_g)}<br>Caixa: {formatar_brl(saldo_disp_caixa_g)}</div>
@@ -283,7 +283,7 @@ if cliente_ativo_id:
 
         with col_m4:
             st.markdown(
-                f"""<div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
+                f"""<div style="border: 1px solid #0176a1; border-radius: 6px; padding: 8px; text-align: center; background-color: rgba(128, 128, 128, 0.05);">
 <div style="font-size: 15px; color: #0176a1;"> A Pagar (Guias/Parcelamento)</div>
 <div style="font-size: 20px; font-weight: bold; color: #ff9900; margin: 2px 0;">{formatar_brl(a_pagar_g)}</div>
 <div style="font-size: 10px; color: transparent; line-height: 1.3;">&nbsp;<br>&nbsp;</div>

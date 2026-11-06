@@ -93,7 +93,7 @@ def aplicar_tema_global():
     /* Barra horizontal de navegação das abas */
     div[data-testid="stTabs"] [role="tablist"] {
         gap: 8px !important;
-        border-bottom: 2px solid #E2E8F0 !important;
+        border-bottom: 2px solid #0176A1 !important;
         padding-bottom: 2px !important;
         margin-bottom: 12px !important;
     }
@@ -121,7 +121,7 @@ def aplicar_tema_global():
     /* Contentor com rolamento interno elegante */
     div[data-testid="stVerticalBlockBorderWrapper"] {
         border-radius: 8px !important;
-        border: 1px solid #E2E8F0 !important;
+        border: 1px solid #0176A1 !important;
         background-color: #FFFFFF !important;
     }
 
@@ -133,7 +133,7 @@ def aplicar_tema_global():
         padding: 4px 10px !important;
         min-height: 34px !important;
         height: 34px !important;
-        border: 1px solid #E2E8F0 !important;
+        border: 1px solid #0176A1 !important;
         border-radius: 6px !important;
         background-color: #FFFFFF !important;
         display: flex !important;
@@ -177,7 +177,7 @@ def aplicar_tema_global():
     /* 2. Barra lateral clean */
     [data-testid="stSidebar"] {
         background-color: #F8FAFC !important;
-        border-right: 1px solid #E2E8F0;
+        border-right: 1px solid #0176A1;
     }
 
     /* 3. Container do Menu de Navegação */
@@ -227,7 +227,7 @@ def aplicar_tema_global():
     /* 3. Cartão do Menu em Repouso */
     div[role="radiogroup"] label {
         background-color: #FFFFFF !important;
-        border: 1px solid #E2E8F0 !important;
+        border: 1px solid #0176A1 !important;
         border-radius: 10px !important;
         padding: 10px 14px !important;
         margin: 0 !important;
@@ -275,17 +275,30 @@ def aplicar_tema_global():
     }
 
     /* 6. Cartão Ativo (Selecionado) */
-    div[role="radiogroup"] label:has(input:checked) {
-        background: linear-gradient(135deg, #00A3B4 0%, #007791 100%) !important;
-        border-color: #007791 !important;
-        box-shadow: 0 4px 14px rgba(0, 163, 180, 0.35) !important;
-        transform: translateX(4px);
+    /* Botão ativo: fundo azul claro, borda destacada e sombra suave */
+    [data-testid="stPageLink"] a[aria-current="page"],
+    [data-testid="stPageLink-NavLink"][aria-current="page"],
+    div[data-testid="stPageLink"] a:has(strong) {
+        background-color: #EBF5FF !important;
+        border: 1.5px solid #0176A1 !important;
+        box-shadow: 0 2px 8px rgba(1, 118, 161, 0.15) !important;
+        transform: translateY(-1px);
     }
 
-    div[role="radiogroup"] label:has(input:checked) [data-testid="stMarkdownContainer"] p,
-    div[role="radiogroup"] label:has(input:checked) span[data-testid="stIconMaterial"] {
-        color: #FFFFFF !important;
+    /* Texto e rótulo do módulo ativo na cor da marca */
+    [data-testid="stPageLink"] a[aria-current="page"] p,
+    [data-testid="stPageLink"] a[aria-current="page"] span,
+    div[data-testid="stPageLink"] a:has(strong) p,
+    div[data-testid="stPageLink"] a:has(strong) strong {
+        color: #0176A1 !important;
         font-weight: 700 !important;
+    }
+
+    /* Ícone Material Symbol do módulo ativo */
+    [data-testid="stPageLink"] a[aria-current="page"] span[data-testid="stIconMaterial"],
+    div[data-testid="stPageLink"] a:has(strong) span[data-testid="stIconMaterial"] {
+        color: #0176A1 !important;
+        transform: scale(1.08);
     }
     
 
@@ -294,7 +307,7 @@ def aplicar_tema_global():
         background-color: #FEE2E2 !important;
         border: 1px solid #FCA5A5 !important;
         color: #DC2626 !important;
-        border-radius: 8px !important;
+        border-radius: 10px !important;
         font-weight: 600 !important;
     }
     div[data-testid="stSidebar"] button:has(p:contains("Sair")):hover {
@@ -305,7 +318,7 @@ def aplicar_tema_global():
     /* Cards de Métricas (Dashboard) */
     [data-testid="stMetric"] {
         background-color: #FFFFFF !important;
-        border: 1px solid #E2E8F0 !important;
+        border: 1px solid #0176A1 !important;
         border-radius: 12px !important;
         padding: 14px 18px !important;
         box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04) !important;
@@ -327,7 +340,7 @@ def aplicar_tema_global():
     [data-testid="stPageLink"] a,
     div[data-testid="stPageLink-NavLink"] {
         background-color: #FFFFFF !important;
-        border: 1px solid #E2E8F0 !important;
+        border: 1px solid #0176A1 !important;
         border-radius: 10px !important;
         padding: 10px 14px !important;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
@@ -481,14 +494,14 @@ def exibir_cabecalho(
     with col_versao:
         st.markdown(f"""
         <div style="display: flex; justify-content: flex-end; align-items: center;">
-            <span style="background: #F1F5F9; color: #475569; font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; border: 1px solid #E2E8F0;">
+            <span style="background: #F1F5F9; color: #475569; font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; border: 1px solid #0176A1;">
                 {versao}
             </span>
         </div>
         """, unsafe_allow_html=True)
 
     # Linha divisória ultra-fina e colada ao cabeçalho (sem espaços mortos)
-    st.markdown("<hr style='margin: 6px 0 10px 0; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 6px 0 10px 0; border: none; border-top: 1px solid #0176A1;'>", unsafe_allow_html=True)
 
 def exibir_menu_modulos_topo():
     """
@@ -516,7 +529,7 @@ def exibir_navbar_superior(modulo_ativo: str = "Gestor Contábil", versao: str =
     Renderiza a barra superior unificada conforme o topo do manuscrito:
     [LOGO KAZIMM] -------- [MÓDULO ATIVO] -------- [VERSÃO / AMBIENTE]
     """
-    html_navbar = f"""<div style="display: flex; justify-content: space-between; align-items: center; background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 10px 20px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+    html_navbar = f"""<div style="display: flex; justify-content: space-between; align-items: center; background-color: #FFFFFF; border: 1px solid #0176A1; border-radius: 12px; padding: 10px 20px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
     <div style="display: flex; align-items: center; gap: 8px;">
         <span style="font-family: 'Montserrat', sans-serif; font-size: 1.25rem; font-weight: 800; color: #007791; letter-spacing: -0.5px;">KAZIMM</span>
         <span style="background: #F0FDFA; color: #00A3B4; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; border: 1px solid #CCFBF1;">SaaS</span>
@@ -546,7 +559,7 @@ def exibir_banner_cliente_ativo(
 
     html_banner = (
         f'<div style="display: flex; justify-content: space-between; align-items: center; '
-        f'background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; '
+        f'background-color: #F8FAFC; border: 1px solid #0176A1; border-radius: 8px; '
         f'padding: 6px 14px; margin-bottom: 8px;">'
         f'<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">'
         f'<span style="color: #007791; display: inline-flex; align-items: center;">'
@@ -627,7 +640,7 @@ def exibir_rodape_institucional(versao: str = "v1.0.2-beta", status_servico: str
     animation: pulse-green 2s infinite;
 }}
 </style>
-<div style="margin-top: 40px; padding-top: 14px; padding-bottom: 8px; border-top: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #64748B;">
+<div style="margin-top: 40px; padding-top: 14px; padding-bottom: 8px; border-top: 1px solid #0176A1; display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #64748B;">
     <div>© 2026 <strong>Kazimm Gestão & Tecnologia</strong> • Todos os direitos reservados.</div>
     <div style="display: flex; align-items: center; gap: 16px;">
         <div style="display: flex; align-items: center; gap: 6px;">
