@@ -676,7 +676,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
     
                 with tab_novo:
-                        with st.form("form_novo_cliente_admin"):
+                        with st.form("form_adicionar_empresa", clear_on_submit=True):
                             st.markdown("##### Adicionar Novo MEI à sua Carteira")
                             col_n1, col_n2, col_n3 = st.columns(3)
                             with col_n1:
@@ -711,7 +711,8 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                                     )
                                     conn_add.commit()
                                     conn_add.close()
-                                    st.success(f"Empresa '{n_nome}' adicionada com sucesso!")
+                                    limpar_cache()
+                                    st.toast(f"Empresa '{n_nome}' adicionada com sucesso!", icon="✅")
                                     st.rerun()
                                 else:
                                     st.warning("Preencha Razão Social e CNPJ.")
