@@ -730,7 +730,7 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                             for _, row in df_cli_vinc.iterrows()
                         }
 
-                        with st.form("form_criar_usuario_admin"):
+                        with st.form("form_criar_acesso_login", clear_on_submit=True):
                             st.markdown("##### Criar Novo Login e Vincular à Empresa")
                             
                             cli_destino_rotulo = st.selectbox(
@@ -783,7 +783,10 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                                         conn_up_user.close()
 
                                         if checar_vincu and checar_vincu[0] is not None:
-                                            st.success(f"Sucesso! A empresa foi vinculada ao e-mail **{u_email}**. O cliente já pode acessar!")
+                                            limpar_cache()
+                                            st.toast(f"Acesso liberado com sucesso para {u_email}!", icon="🔑")
+                                            st.rerun()
+    
                                         else:
                                             st.warning(f"O usuário **{u_email}** ainda não existe no Supabase Auth. Certifique-se de que o e-mail está correto.")
 
