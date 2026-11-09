@@ -43,10 +43,11 @@ def login(email, password):
     try:
         response = supabase.auth.sign_in_with_password({"email": email, "password": password})
         st.session_state.user = response.user
+        st.session_state["user_id"] = response.user.id  # <-- Garante a gravação do UUID
         st.rerun()
     except Exception:
         st.error("Login inválido. Verifique seu e-mail e senha.")
-
+        
 def logout():
     supabase.auth.sign_out()
     st.session_state.user = None

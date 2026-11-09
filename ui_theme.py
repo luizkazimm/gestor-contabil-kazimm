@@ -445,6 +445,41 @@ def aplicar_tema_global():
         color: #007791 !important;
     }
 
+    /* ========================================================
+       TELA DE LOGIN CENTRALIZADA E PROPORCIONAL (APP.PY)
+       ======================================================== */
+    /* 1. Rótulos e caixas de entrada padronizadas */
+    label, [data-testid="stWidgetLabel"] p {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        color: #1E293B !important;
+    }
+
+    div[data-baseweb="input"] {
+        background-color: #F8FAFC !important;
+        border: 1.5px solid #CBD5E1 !important;
+        border-radius: 8px !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+
+    div[data-baseweb="input"]:focus-within {
+        border-color: #007791 !important;
+        background-color: #FFFFFF !important;
+        box-shadow: 0px 0px 0px 3px rgba(0, 119, 145, 0.15) !important;
+    }
+
+    /* 2. Limita a largura máxima do formulário de login e adiciona sombra suave */
+    form[data-testid="stForm"]:has(input[type="password"]) {
+        max-width: 420px !important;
+        margin: 0 auto !important;
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 12px !important;
+        padding: 24px !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04) !important;
+    }
+
     </style>
     """, unsafe_allow_html=True)
 

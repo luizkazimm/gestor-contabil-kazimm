@@ -22,7 +22,8 @@ from database import (
     limpar_cache,
     carregar_historicos_padrao,
     salvar_novo_historico_padrao,
-    verificar_e_agendar_das_mensal
+    verificar_e_agendar_das_mensal,
+    validar_pertencimento_cliente
 )
 
 from supabase import create_client
@@ -209,12 +210,26 @@ opcao = st.sidebar.radio(
 cliente_ativo_id = st.session_state.get("cliente_id_ativo")
 
 if cliente_ativo_id:
+    # -------------------------------------------------------------------------
+    # TRAVA DE SEGURANÇA MULTI-TENANT (ANTI-TAMPERING)
+    # -------------------------------------------------------------------------
+    user_obj = st.session_state.get("user")
+    user_id_atual = st.session_state.get("user_id") or (getattr(user_obj, "id", None) if user_obj else None)
+    # -----------------------------------------------------------------------------
+    # TESTE TEMPORÁRIO DE SEGURANÇA (Para testar, descomente a linha abaixo):
+    #cliente_ativo_id = 999999
+    # -----------------------------------------------------------------------------
+    # Se não identificar o usuário logado OU se a empresa NÃO pertencer a ele -> BLOQUEIO
+    if not user_id_atual or not validar_pertencimento_cliente(cliente_ativo_id, user_id_atual):
+        st.error("🚨 Acesso Não Autorizado: Esta empresa não pertence à sua conta.")
+        st.session_state["cliente_id_ativo"] = None
+        st.stop()
+
     # 1. Leitura 100% em memória RAM (zero latência na nuvem)
     df_lanc_global = carregar_lancamentos(cliente_ativo_id)
     df_prov_global = carregar_provisoes_pendentes(cliente_ativo_id)
     df_info_cli = carregar_dados_cliente_ativo(cliente_ativo_id)
-
-       
+           
     if not df_info_cli.empty:
         nome_empresa = df_info_cli.iloc[0]["nome"]
         regime_empresa = df_info_cli.iloc[0]["regime"]

@@ -1,20 +1,38 @@
-import streamlit as st
+import re
 import urllib.parse
-import resend
-import base64        # NOVO: Necessário para converter os PDFs em anexo para o Resend
-import requests      # NOVO: Necessário para baixar o PDF da NFS-e direto da Focus NFe
+import requests
+import streamlit as st
+import resend     
 
 # ==============================================================================
-# 1. FUNÇÕES DO MÓDULO CONTAS A PAGAR & GUIA DAS-MEI (PERMANECEM 100% INTACTAS)
+# UTILITÁRIOS DE VALIDAÇÃO (NOVOS)
+# ==============================================================================
+def validar_email(email: str) -> bool:
+    """Verifica se a estrutura do e-mail é válida sintaticamente."""
+    if not email or not isinstance(email, str):
+        return False
+    padrao = r"^[\w\.-]+@[\w\.-]+\.\w+$"
+    return bool(re.match(padrao, email.strip()))
+
+def sanitizar_telefone(telefone: str) -> str:
+    """Remove caracteres especiais e garante o formato internacional para WhatsApp."""
+    if not telefone:
+        return ""
+    nums = re.sub(r"\D", "", str(telefone))
+    if len(nums) in (10, 11):
+        return f"55{nums}"
+    elif len(nums) in (12, 13) and nums.startswith("55"):
+        return nums
+    return ""
+
+# ==============================================================================
+# 1. FUNÇÕES DO MÓDULO CONTAS A PAGAR & GUIA DAS-MEI (INTACTAS + UTF8 SEGURO)
 # ==============================================================================
 
 def gerar_link_whatsapp(telefone, nome_empresa, descricao_conta, valor, data_venc, status):
     """Gera um link clicável do WhatsApp Web/App com a mensagem de cobrança formatada."""
-    if not telefone or str(telefone).strip() == '-':
-        return None
-        
-    telefone_limpo = "".join(filter(str.isdigit, str(telefone)))
-    if len(telefone_limpo) < 10:  # Evita telefones inválidos
+    telefone_limpo = sanitizar_telefone(telefone)
+    if not telefone_limpo:
         return None
         
     venc_str = data_venc.strftime('%d/%m/%Y')
@@ -27,8 +45,9 @@ def gerar_link_whatsapp(telefone, nome_empresa, descricao_conta, valor, data_ven
     else:
         mensagem = f"Olá! Lembramos que a conta *{descricao_conta}* da empresa *{nome_empresa}*, no valor de *R$ {valor_fmt}*, vence no dia *{venc_str}*."
         
-    texto_url = urllib.parse.quote(mensagem)
-    return f"https://wa.me/55{telefone_limpo}?text={texto_url}"
+    # urlencode explícito em UTF-8 elimina qualquer risco de losango com interrogação
+    texto_url = urllib.parse.quote(mensagem, encoding="utf-8")
+    return f"https://wa.me/{telefone_limpo}?text={texto_url}"
 
 
 @st.dialog("✉️ Enviar Lembrete por E-mail")
@@ -36,85 +55,80 @@ def modal_enviar_email(nome_cliente, descricao, valor, vencimento):
     """Modal para confirmar o e-mail do destinatário e disparar a notificação via Resend."""
     st.markdown(f"**Conta/Guia:** {descricao} <br> **Vencimento:** {vencimento}", unsafe_allow_html=True)
     st.write("")
-    email_dest = st.text_input("E-mail de Destino do Cliente", placeholder="cliente@email.com")
+    email_dest = st.text_input("E-mail de Destino do Cliente", placeholder="cliente@email.com").strip()
     
     if st.button("Disparar E-mail via Resend", type="primary", use_container_width=True):
-        if email_dest:
-            try:
-                # Captura flexível da chave (na raiz, em [resend] ou em [focusnfe])
-                chave_resend = (
-                    st.secrets.get("RESEND_API_KEY")
-                    or st.secrets.get("resend", {}).get("api_key")
-                    or st.secrets.get("resend", {}).get("RESEND_API_KEY")
-                    or st.secrets.get("focusnfe", {}).get("RESEND_API_KEY")
-                )
-                
-                if not chave_resend:
-                    st.error("Chave do Resend não encontrada no arquivo secrets.toml.")
-                    st.stop()
-                
-                resend.api_key = chave_resend
-                
-                valor_fmt = f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                
-                resend.Emails.send({
-                    "from": "Kazimm ERP <luizcasemiro@kazimm.com.br>", # Domínio validado no Resend
-                    "to": email_dest,
-                    "subject": f"⚠️ Lembrete de Vencimento: {descricao} - Kazimm",
-                    "html": f"""
-                    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px;">
-                        <h3 style="color: #0176a1; margin-top: 0;">Lembrete de Conta a Pagar</h3>
-                        <p>Olá, <strong>{nome_cliente}</strong>.</p>
-                        <p>A conta/guia <strong>{descricao}</strong> no valor de <strong>R$ {valor_fmt}</strong> tem vencimento programado para <strong>{vencimento}</strong>.</p>
-                        <p>Acesse o Kazimm ERP ou o portal oficial para liquidar a fatura e evitar encargos adicionais.</p>
-                        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-                        <p style="font-size: 12px; color: #64748b; margin: 0;">Mensagem automática gerada pelo Kazimm Gestão e Tecnologia.</p>
-                    </div>
-                    """
-                })
-                st.toast(f"E-mail enviado com sucesso para {email_dest}!", icon="✅")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Erro na API do Resend: {e}")
-        else:
-            st.warning("Informe um e-mail válido para o disparo.")
+        if not validar_email(email_dest):
+            st.warning("Informe um e-mail válido (ex: contato@empresa.com) para o disparo.")
+            return
+
+        try:
+            chave_resend = (
+                st.secrets.get("RESEND_API_KEY")
+                or st.secrets.get("resend", {}).get("api_key")
+                or st.secrets.get("resend", {}).get("RESEND_API_KEY")
+                or st.secrets.get("focusnfe", {}).get("RESEND_API_KEY")
+            )
+            
+            if not chave_resend:
+                st.error("Chave do Resend não encontrada no arquivo secrets.toml.")
+                st.stop()
+            
+            resend.api_key = chave_resend
+            
+            valor_fmt = f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            
+            resend.Emails.send({
+                "from": "Kazimm ERP <luizcasemiro@kazimm.com.br>", 
+                "to": email_dest,
+                "subject": f"⚠️ Lembrete de Vencimento: {descricao} - Kazimm",
+                "html": f"""
+                <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px;">
+                    <h3 style="color: #0176a1; margin-top: 0;">Lembrete de Conta a Pagar</h3>
+                    <p>Olá, <strong>{nome_cliente}</strong>.</p>
+                    <p>A conta/guia <strong>{descricao}</strong> no valor de <strong>R$ {valor_fmt}</strong> tem vencimento programado para <strong>{vencimento}</strong>.</p>
+                    <p>Acesse o Kazimm ERP ou o portal oficial para liquidar a fatura e evitar encargos adicionais.</p>
+                    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+                    <p style="font-size: 12px; color: #64748b; margin: 0;">Mensagem automática gerada pelo Kazimm Gestão e Tecnologia.</p>
+                </div>
+                """
+            })
+            st.toast(f"E-mail enviado com sucesso para {email_dest}!", icon="✅")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erro na API do Resend: {e}")
 
 
 # ==============================================================================
-# 2. NOVAS FUNÇÕES: DISPARO DE NFS-e + COBRANÇA (BOLETO / PIX)
+# 2. DISPARO DE NFS-e + COBRANÇA (BOLETO / PIX) COM VALIDAÇÕES
 # ==============================================================================
 
 def gerar_link_whatsapp_cobranca_nfse(telefone, nome_tomador, descricao, valor, vencimento, url_nfse, pix_copia_cola=None):
     """
-    Gera link do WhatsApp para o tomador do serviço com:
-    - Link oficial do PDF da NFS-e (Focus NFe)
-    - Valor e Vencimento
-    - Código Pix Copia e Cola formatado
+    Gera link do WhatsApp para o tomador do serviço com formatação segura UTF-8.
     """
-    if not telefone or str(telefone).strip() == '-':
-        return None
-        
-    telefone_limpo = "".join(filter(str.isdigit, str(telefone)))
-    if len(telefone_limpo) < 10:
+    telefone_limpo = sanitizar_telefone(telefone)
+    if not telefone_limpo:
         return None
         
     valor_fmt = f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     
+    # Uso de marcadores simples (*) para não corromper ícones visuais (losangos)
     msg = (
         f"Olá, *{nome_tomador}*!\n\n"
         f"Segue a sua Nota Fiscal de Serviços referente a: *{descricao}*.\n"
-        f"💰 *Valor:* R$ {valor_fmt}\n"
-        f"📅 *Vencimento:* {vencimento}\n\n"
-        f"📄 *Visualizar NFS-e Oficial:* {url_nfse}\n"
+        f"• *Valor:* R$ {valor_fmt}\n"
+        f"• *Vencimento:* {vencimento}\n\n"
+        f"• *Visualizar NFS-e Oficial:* {url_nfse}\n"
     )
     
-    if pix_copia_cola:
-        msg += f"\n📱 *Pix Copia e Cola:*\n`{pix_copia_cola}`\n"
+    if pix_copia_cola and str(pix_copia_cola).strip():
+        msg += f"\n*Pix Copia e Cola:*\n`{pix_copia_cola.strip()}`\n"
         
-    msg += "\nCaso já tenha efetuado o pagamento, por favor desconsidere este aviso. Obrigado!"
+    msg += "\n_Caso já tenha efetuado o pagamento, por favor desconsidere este aviso. Obrigado!_"
     
-    texto_encoded = urllib.parse.quote(msg)
-    return f"https://wa.me/55{telefone_limpo}?text={texto_encoded}"
+    texto_encoded = urllib.parse.quote(msg, encoding="utf-8")
+    return f"https://wa.me/{telefone_limpo}?text={texto_encoded}"
 
 
 def disparar_cobranca_nfse_email(
@@ -129,11 +143,12 @@ def disparar_cobranca_nfse_email(
     pix_copia_cola=None
 ):
     """
-    Dispara e-mail profissional via Resend anexando os arquivos em PDF:
-    1. O PDF da NFS-e baixado da Focus NFe.
-    2. O Boleto bancário enviado pelo usuário (se houver).
-    3. Pix Copia e Cola em destaque no corpo do e-mail.
+    Dispara e-mail profissional via Resend anexando PDFs reais sem quebrar em caso de erros.
     """
+    email_limpo = str(destinatario_email).strip()
+    if not validar_email(email_limpo):
+        return False, "O e-mail informado não possui um formato válido (ex: cliente@empresa.com)."
+
     chave_resend = (
         st.secrets.get("RESEND_API_KEY")
         or st.secrets.get("resend", {}).get("api_key")
@@ -147,39 +162,37 @@ def disparar_cobranca_nfse_email(
     resend.api_key = chave_resend
     anexos = []
 
-    # 1. Faz o download silencioso do PDF da NFS-e a partir da Focus NFe
+    # 1. Faz o download seguro do PDF (em bytes)
     if url_pdf_nfse:
         try:
-            resp = requests.get(url_pdf_nfse, timeout=12)
+            resp = requests.get(url_pdf_nfse, timeout=10)
             if resp.status_code == 200:
-                nfse_b64 = base64.b64encode(resp.content).decode("utf-8")
                 anexos.append({
                     "filename": "NFSe_Eletronica.pdf",
-                    "content": nfse_b64
+                    "content": list(resp.content)  # Formato oficial aceito pela versão atual do SDK Resend
                 })
         except Exception as e:
             print(f"Aviso ao baixar PDF da Focus NFe: {e}")
 
-    # 2. Anexa o Boleto bancário enviado pelo MEI (caso tenha sido feito upload)
+    # 2. Anexa o Boleto bancário (em bytes)
     if arquivo_boleto_bytes:
         try:
-            boleto_b64 = base64.b64encode(arquivo_boleto_bytes).decode("utf-8")
             anexos.append({
-                "filename": nome_arquivo_boleto,
-                "content": boleto_b64
+                "filename": nome_arquivo_boleto or "Boleto_Bancario.pdf",
+                "content": list(arquivo_boleto_bytes)
             })
         except Exception as e:
-            print(f"Aviso ao converter boleto em base64: {e}")
+            return False, f"Falha ao processar o arquivo de boleto: {e}"
 
     valor_fmt = f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     
-    # Bloco visual do Pix (Copia e Cola)
+    # Bloco visual do Pix
     bloco_pix = ""
-    if pix_copia_cola:
+    if pix_copia_cola and str(pix_copia_cola).strip():
         bloco_pix = f"""
         <div style="background-color: #f8fafc; border: 1px dashed #0176a1; padding: 12px; border-radius: 6px; margin: 15px 0;">
-            <p style="margin: 0 0 6px 0; font-weight: bold; color: #0176a1; font-size: 13px;">📱 Pagamento via Pix (Copia e Cola):</p>
-            <code style="word-break: break-all; font-size: 11px; color: #334155; display: block; background: #fff; padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1;">{pix_copia_cola}</code>
+            <p style="margin: 0 0 6px 0; font-weight: bold; color: #0176a1; font-size: 13px;">Pagamento via Pix (Copia e Cola):</p>
+            <code style="word-break: break-all; font-size: 11px; color: #334155; display: block; background: #fff; padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1;">{str(pix_copia_cola).strip()}</code>
         </div>
         """
 
@@ -212,13 +225,16 @@ def disparar_cobranca_nfse_email(
     """
 
     try:
-        resend.Emails.send({
+        dados_envio = {
             "from": "Kazimm Faturamento <luizcasemiro@kazimm.com.br>",
-            "to": destinatario_email,
+            "to": [email_limpo],
             "subject": f"🧾 NFS-e & Cobrança: {descricao_servico} - Vencimento {vencimento}",
-            "html": corpo_html,
-            "attachments": anexos
-        })
+            "html": corpo_html
+        }
+        if anexos:
+            dados_envio["attachments"] = anexos
+
+        resend.Emails.send(dados_envio)
         return True, "E-mail de cobrança com anexos enviado com sucesso!"
     except Exception as e:
         return False, f"Erro no disparo via Resend: {e}"

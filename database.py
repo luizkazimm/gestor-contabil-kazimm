@@ -177,6 +177,31 @@ def carregar_clientes(user_id):
         cursor.close()
         conn.close()
 
+# MÉTODO VERIFICADOR (Segurança do Sistema)
+def validar_pertencimento_cliente(cliente_id, user_id):
+    """
+    Trava de segurança Multi-tenant:
+    Retorna True se e somente se o cliente_id pertencer de fato ao user_id logado.
+    """
+    if not cliente_id or not user_id:
+        return False
+        
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "SELECT 1 FROM clientes WHERE id = %s AND user_id = %s LIMIT 1",
+            (cliente_id, str(user_id))
+        )
+        return cursor.fetchone() is not None
+    except Exception as e:
+        print(f"Erro na validação de segurança de empresa: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
 @st.cache_data(ttl=300)
 def carregar_plano_contas(cliente_id=None):
     """Busca o plano de contas mantendo em memória."""

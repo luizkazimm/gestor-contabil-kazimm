@@ -447,14 +447,26 @@ with st.container(height=580, border=True):
                             st.caption(f"Valor: **R$ {val_serv:,.2f}** | Status Focus: `{st_focus}`")
 
                         with col_acao:
-                            if st.button(
-                                f"{ICONES.get('transmissao', ':material/rocket_launch:')} Cobrar / Enviar", 
-                                key=f"btn_cobrar_nf_{nota.get('id')}", 
-                                type="primary", 
-                                use_container_width=True,
-                                help="Enviar NFS-e e Boleto/Pix por E-mail ou WhatsApp"
-                            ):
-                                modal_enviar_cobranca_nfse(nota.to_dict())
+                                st_atual = str(nota.get('status', '')).lower()
+                                nota_autorizada = ("autorizad" in st_atual or "concluido" in st_atual)
+
+                                if nota_autorizada:
+                                    if st.button(
+                                        f"{ICONES.get('transmissao', ':material/rocket_launch:')} Cobrança / Enviar", 
+                                        key=f"btn_cobr_nf_{nota.get('id')}", 
+                                        type="primary", 
+                                        use_container_width=True,
+                                        help="Enviar NFS-e e Boleto/Pix por E-mail ou WhatsApp"
+                                    ):
+                                        modal_enviar_cobranca_nfse(nota.to_dict())
+                                else:
+                                    st.button(
+                                        f"{ICONES.get('provisoes', ':material/pending_actions:')} Indisponível", 
+                                        key=f"btn_cobr_indisp_{nota.get('id')}", 
+                                        disabled=True, 
+                                        use_container_width=True,
+                                        help="Esta nota ainda não foi autorizada pela prefeitura."
+                                    )
 
 # -----------------------------------------------------------------------------
 # 6. RODAPÉ INSTITUCIONAL NATIVO
