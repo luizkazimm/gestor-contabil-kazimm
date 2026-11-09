@@ -43,7 +43,12 @@ def exibir_bloqueio_upgrade():
             <p style="color: #64748b; font-size: 14px; margin: 0;">O modelo de contrato completo é um recurso do <strong>Plano MEI Pro</strong>.</p>
         </div>""", unsafe_allow_html=True
     )
-    st.link_button("⭐ Fazer Upgrade Agora", "https://asaas.com/c/seu-link-asaas", type="primary")
+    st.link_button(
+    label="⭐ Fazer Upgrade Agora",
+    url="https://www.asaas.com/000/c/serwm0gti8wzfqe7",
+    type="primary",
+    use_container_width=False
+)
 
 def montar_html_contrato(cliente_mei, dados_contrato):
     data_dt = pd.to_datetime(dados_contrato['data_inicio'])

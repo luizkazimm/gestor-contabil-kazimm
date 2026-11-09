@@ -58,7 +58,12 @@ def exibir_bloqueio_upgrade(nome_recurso: str):
         """,
         unsafe_allow_html=True
     )
-    st.link_button("⭐ Fazer Upgrade Agora", "https://asaas.com/c/seu-link-asaas", type="primary")
+    st.link_button(
+    label="⭐ Fazer Upgrade Agora",
+    url="https://www.asaas.com/000/c/serwm0gti8wzfqe7",
+    type="primary",
+    use_container_width=False
+)
 
 # -----------------------------------------------------------------------------
 # 3. VALIDAÇÃO DE SESSÃO E CLIENTE ATIVO

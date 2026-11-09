@@ -19,10 +19,16 @@ from database import (
     carregar_provisoes_pendentes,
     carregar_dados_cliente_ativo,
     carregar_todos_clientes_completos, 
-    limpar_cache
+    limpar_cache,
+    carregar_historicos_padrao,
+    salvar_novo_historico_padrao,
+    verificar_e_agendar_das_mensal
 )
 
 from supabase import create_client
+
+from modals import modal_novo_historico
+from notificacoes import gerar_link_whatsapp, modal_enviar_email
 
 from ui_theme import (
     ICONES, 
@@ -136,11 +142,11 @@ def exibir_bloqueio_upgrade(nome_recurso: str, plano_minimo: str = "pro"):
     col_cta1, col_cta2 = st.columns([1, 2])
     with col_cta1:
         st.link_button(
-            "⭐ Fazer Upgrade Agora", 
-            "https://kazimm.com.br/planos", 
-            type="primary", 
-            use_container_width=True
-        )
+            label="⭐ Fazer Upgrade Agora",
+            url="https://www.asaas.com/000/c/serwm0gti8wzfqe7",
+            type="primary",
+            use_container_width=False
+)
     with col_cta2:
         st.caption("Fale com o suporte ou gerencie sua assinatura pelo painel administrativo.")
 
@@ -1144,6 +1150,7 @@ elif opcao == "Plano de Contas":
                         )
 
 #BLOCO BOTÃO ÚNICO - LANÇAMENTOS
+
 elif opcao == "Lançamentos":
     st.markdown(f"#### {ICONES.get('lancamentos', ':material/edit_note:')} Livro Caixa e Movimentações Contábeis")
 
@@ -1159,7 +1166,8 @@ elif opcao == "Lançamentos":
                 f"{ICONES.get('adicionar', ':material/add_circle:')} Novo Lançamento",
                 f"{ICONES.get('lancamentos', ':material/search:')} Consulta e Histórico"
             ])
-
+            
+                
             # --------------------------------------------------------------
             # ABA 1: NOVO LANÇAMENTO
             # --------------------------------------------------------------
@@ -1218,16 +1226,37 @@ elif opcao == "Lançamentos":
                 else:
                     opcoes_rec = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_contas.iterrows()]
 
-                historicos_padrao = [
-                    "Digitar Histórico do Zero",
-                    "Pg. Supermercado Premium de B.Roxo - NFc:",
-                    "Pg. Supermercado Real de Eden - NFc:",
-                    "Pg. Drogaria Ebenezer de Madureira - NFc",
-                    "Pg. Remar Hortifruti Ltda - NFc:",
-                    "Pg. Mercadinho Natural de B.Roxo - Recibo:",
-                    "Pg. Supermercados Feira Nova Ltda - NFc:",
-                    "Pg. Bazar Amigão de Madureita - NFc:",
-                ]
+                # --------------------------------------------------------------
+                # [ALTERAÇÃO 1]: CARREGAMENTO DINÂMICO VIA BANCO DE DADOS
+                # --------------------------------------------------------------
+                # Substitui a lista estática pela busca no Supabase através do database.py
+                historicos_padrao = carregar_historicos_padrao(cliente_ativo_id)
+
+                # --------------------------------------------------------------
+                # [ALTERAÇÃO 2]: BOTÃO PARA CRIAR NOVO HISTÓRICO PADRÃO
+                # Posicionado fora do formulário para evitar erros de form aninhado
+                # --------------------------------------------------------------
+                col_topo_info, col_topo_btn = st.columns([3, 1])
+                with col_topo_btn:
+                    if st.button("➕ Novo Histórico Padrão", use_container_width=True, key="btn_abrir_modal_hp"):
+                        modal_novo_historico(cliente_ativo_id)
+                        
+                        if st.button("Salvar Histórico", type="primary", use_container_width=True, key="btn_salvar_nh"):
+                            if nh_desc and nh_texto:
+                                sucesso, msg = salvar_novo_historico_padrao(
+                                    cliente_id=cliente_ativo_id,
+                                    codigo=nh_cod or "GERAL",
+                                    descricao=nh_desc,
+                                    texto_padrao=nh_texto
+                                )
+                                if sucesso:
+                                    st.success(msg)
+                                    st.rerun()
+                                else:
+                                    st.error(msg)
+                            else:
+                                st.warning("Preencha ao menos o Título e o Texto do histórico.")
+
 
                 # Roteamento por Regime Tributário
                 if "Lançamento Simples" in regime_cliente:
@@ -1276,11 +1305,18 @@ elif opcao == "Lançamentos":
                                     st.warning(f"{ICONES['alerta']} Selecione a **Categoria da Receita**.")
                                 elif valor <= 0:
                                     st.warning(f"{ICONES['alerta']} O **Valor da Receita** deve ser maior que R$ 0,00.")
-                                elif hist_sel == "Digitar Histórico do Zero" and not comp_hist.strip():
-                                    st.warning(f"{ICONES['alerta']} Você escolheu 'Digitar Histórico do Zero'. Por favor, escreva o **Complemento do Histórico**.")
                                 else:
+                                    # Montagem flexível dos dados do documento
                                     info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + (f" - {nome_cliente_rec.strip()}" if nome_cliente_rec.strip() else "") + "]"
-                                    hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
+                                    
+                                    # Montagem do histórico sem travar se o campo estiver vazio
+                                    partes = [info_doc]
+                                    if hist_sel and hist_sel != "Digitar Histórico do Zero":
+                                        partes.append(hist_sel.strip())
+                                    if comp_hist.strip():
+                                        partes.append(comp_hist.strip())
+                                    
+                                    hist_final = " ".join(partes)
 
                                     supabase.table("lancamentos").insert({
                                         "cliente_id": cliente_ativo_id,
@@ -1962,7 +1998,7 @@ elif "Contas a Pagar" in str(opcao) or opcao == item_provisoes:
         else:
             conn = get_connection()
             df_cliente = pd.read_sql_query(
-                "SELECT id, nome, regime FROM clientes WHERE id = %s AND user_id = %s", 
+                "SELECT id, nome, regime, cnpj_cpf, cnae_atividade, telefone FROM clientes WHERE id = %s AND user_id = %s", 
                 conn, 
                 params=(cliente_ativo_id, st.session_state.user.id)
             )
@@ -1998,9 +2034,16 @@ elif "Contas a Pagar" in str(opcao) or opcao == item_provisoes:
                     df_pagas = df_provisoes[df_provisoes["status"] == "Pago"] if not df_provisoes.empty else pd.DataFrame()
 
                     # ----------------------------------------------------------
-                    # ABA 1: CONTAS PENDENTES & LIQUIDAÇÃO
+                    # ABA 1: CONTAS PENDENTES, EMISSÃO DAS & LIQUIDAÇÃO
                     # ----------------------------------------------------------
                     with tab_pendentes:
+                        # 1. Executa a checagem automática do DAS-MEI em segundo plano
+                        cnae_cli = df_cliente.iloc[0].get("cnae_atividade", "") if not df_cliente.empty else ""
+                        agendou_novo, val_gerado = verificar_e_agendar_das_mensal(cliente_ativo_id, cnae_cli)
+                        if agendou_novo:
+                            st.toast(f"🔔 Guia DAS-MEI deste mês agendada automaticamente: R$ {val_gerado:.2f}", icon="📅")
+                            st.rerun()
+
                         total_pendente = df_pendentes["valor"].sum() if not df_pendentes.empty else 0.0
                         
                         col_tot1, col_tot2 = st.columns([2, 1])
@@ -2012,40 +2055,136 @@ elif "Contas a Pagar" in str(opcao) or opcao == item_provisoes:
                         if df_pendentes.empty:
                             st.success("Tudo em dia! Nenhuma conta ou guia pendente para este cliente.")
                         else:
+                            from datetime import date
+                            hoje = date.today()
+                            cnpj_raw = "".join(filter(str.isdigit, str(df_cliente.iloc[0].get("cnpj_cpf", ""))))
+
                             for idx, row in df_pendentes.iterrows():
+                                dt_venc = pd.to_datetime(row['data_vencimento']).date()
+                                dias_restantes = (dt_venc - hoje).days
+                                eh_das = (row['tipo'] == 'Guia DAS')
+
+                                # Régua de Alertas (Vencida vs Vencendo em 5 dias vs No prazo)
+                                if dias_restantes < 0:
+                                    status_badge = f"<span style='background-color: #fee2e2; color: #dc2626; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;'>🔴 VENCIDA HÁ {abs(dias_restantes)} DIA(S)</span>"
+                                    cor_borda = "#ef4444"
+                                elif dias_restantes <= 5:
+                                    txt_alerta = "VENCE HOJE" if dias_restantes == 0 else f"VENCE EM {dias_restantes} DIA(S)"
+                                    status_badge = f"<span style='background-color: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;'>🟡 {txt_alerta}</span>"
+                                    cor_borda = "#f59e0b"
+                                else:
+                                    status_badge = f"<span style='background-color: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;'>🟢 Vence em {dias_restantes} dias</span>"
+                                    cor_borda = "#e2e8f0"
+
                                 with st.container(border=True):
-                                    col_info, col_acao = st.columns([3, 1.2], vertical_alignment="center")
+                                    col_info, col_acao = st.columns([3, 1.4], vertical_alignment="center")
                                     
                                     with col_info:
-                                        venc_formatado = pd.to_datetime(row['data_vencimento']).strftime('%d/%m/%Y')
-                                        st.markdown(f"**Vencimento: {venc_formatado}** — `{row['tipo']}`")
+                                        venc_formatado = dt_venc.strftime('%d/%m/%Y')
+                                        st.markdown(f"**Vencimento: {venc_formatado}** — `{row['tipo']}` &nbsp; {status_badge}", unsafe_allow_html=True)
                                         st.write(f"**{row['descricao']}**")
                                         st.caption(f"Valor a Liquidar: **{formatar_brl(row['valor'])}**")
 
                                     with col_acao:
+                                        # Se for Guia DAS, exibe o botão no estilo oficial Kazimm + CNPJ para cópia
+                                        if eh_das:
+                                            url_pgmei = "https://www8.receita.fazenda.gov.br/SimplesNacional/Aplicacoes/ATSPO/pgmei.app/Identificacao"
+                                            
+                                            # Botão estilizado no padrão Kazimm (Azul institucional #0176a1)
+                                            st.markdown(
+                                                f"""
+                                                <a href="{url_pgmei}" target="_blank" style="
+                                                    display: flex;
+                                                    align-items: center;
+                                                    justify-content: center;
+                                                    gap: 6px;
+                                                    width: 100%;
+                                                    background-color: #f0f7fa;
+                                                    color: #0176a1;
+                                                    border: 1.5px solid #0176a1;
+                                                    border-radius: 6px;
+                                                    padding: 6px 10px;
+                                                    font-weight: 600;
+                                                    font-size: 13px;
+                                                    text-decoration: none;
+                                                    margin-bottom: 8px;
+                                                    transition: all 0.2s ease;
+                                                ">
+                                                    🌐 Emitir no PGMEI
+                                                </a>
+                                                """,
+                                                unsafe_allow_html=True
+                                            )
+                                            
+                                            # Exibe o CNPJ com botão nativo de 1 clique para copiar
+                                            if cnpj_raw:
+                                                st.code(cnpj_raw, language=None)
+                                        # ==============================================================
+                                        # RÉGUA DE AVISOS (WHATSAPP E E-MAIL)
+                                        # ==============================================================
+                                        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
+                                        col_wa, col_em = st.columns(2, gap="small")
+                                        
+                                        # 1. Recupera dados do cliente logado
+                                        telefone_cli = df_cliente.iloc[0].get("telefone", "")
+                                        nome_cli = df_cliente.iloc[0].get("nome", "Cliente")
+                                        
+                                        status_wa = "VENCIDA" if dias_restantes < 0 else ("HOJE" if dias_restantes == 0 else "AVENCER")
+                                        link_wa = gerar_link_whatsapp(telefone_cli, nome_cli, row['descricao'], row['valor'], dt_venc, status_wa)
+                                        
+                                        # 2. Renderiza os botões (Estilo Pill / Pílula)
+                                        with col_wa:
+                                            if link_wa:
+                                                st.markdown(
+                                                    f"""
+                                                    <a href="{link_wa}" target="_blank" style="
+                                                        display: flex; align-items: center; justify-content: center; gap: 4px;
+                                                        background-color: #25D366; color: white; border-radius: 4px; padding: 6px 0;
+                                                        font-weight: 600; font-size: 13px; text-decoration: none; transition: 0.2s;
+                                                    " title="Cobrar via WhatsApp">
+                                                        💬 Whats
+                                                    </a>
+                                                    """, unsafe_allow_html=True
+                                                )
+                                            else:
+                                                st.button("💬 Whats", disabled=True, help="Telefone do cliente não cadastrado.", key=f"wa_dis_{row['id']}")
+
+                                        with col_em:
+                                            if st.button("✉️ E-mail", key=f"btn_email_{row['id']}", help="Disparar aviso por e-mail", use_container_width=True):
+                                                modal_enviar_email(nome_cli, row['descricao'], row['valor'], venc_formatado)
+                                                
+                                        st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
+
+                                    
+
                                         if st.button(
                                             "Pagar / Baixar", 
                                             key=f"btn_baixa_prov_{row['id']}", 
                                             icon=ICONES.get("sucesso", ":material/check_circle:"),
+                                            type="primary",
                                             use_container_width=True
                                         ):
                                             conn_baixa = get_connection()
                                             cursor_baixa = conn_baixa.cursor()
                                             
-                                            # Atualiza status da provisão
+                                            # Atualiza status da obrigação
                                             cursor_baixa.execute("UPDATE provisoes SET status = 'Pago' WHERE id = %s", (row['id'],))
                                             
-                                            # Registra a saída no Livro Caixa financeiro
+                                            # Registra a saída correspondente no Livro Caixa
+                                            conta_saida_desc = "4.1.2 - Impostos e Taxas (DAS)" if eh_das else "4.1.1 - Despesas Operacionais"
                                             cursor_baixa.execute(
                                                 """
                                                 INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico)
-                                                VALUES (%s, CURRENT_DATE, '4.1.1 - Despesas Operacionais', '1.1.1 - Caixa Geral', %s, %s)
+                                                VALUES (%s, CURRENT_DATE, %s, '1.1.1.02 - Banco Conta Movimento', %s, %s)
                                                 """,
-                                                (cliente_ativo_id, row['valor'], f"Pagamento baixado de provisão: {row['descricao']}")
+                                                (cliente_ativo_id, conta_saida_desc, row['valor'], f"Pagamento baixado de provisão: {row['descricao']}")
                                             )
                                             conn_baixa.commit()
                                             conn_baixa.close()
                                             limpar_cache()
+                                            
+                                            st.success(f"Conta '{row['descricao']}' liquidada com sucesso!")
+                                            st.rerun()
                                             
                                             st.success(f"Conta '{row['descricao']}' liquidada com sucesso!")
                                             st.rerun()

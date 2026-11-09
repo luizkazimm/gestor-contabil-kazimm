@@ -269,6 +269,79 @@ def carregar_todos_clientes_completos():
     finally:
         conn.close()
 
+# ==============================================================
+# GESTÃO DE HISTÓRICOS PADRÃO DE LANÇAMENTO (POSTGRESQL NATIVO)
+# ==============================================================
+@st.cache_data(ttl=300)
+def carregar_historicos_padrao(cliente_id=None):
+    """
+    Retorna a lista de textos de históricos padrão.
+    Busca modelos globais do sistema e modelos criados pela empresa ativa.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        query = """
+            SELECT texto_padrao 
+            FROM historicos_padrao 
+            WHERE cliente_id IS NULL OR cliente_id = %s 
+            ORDER BY descricao ASC
+        """
+        cursor.execute(query, (cliente_id,))
+        linhas = cursor.fetchall()
+        
+        modelos_banco = [linha[0] for linha in linhas if linha[0]]
+        
+        # Opção inicial padrão + modelos reais do banco
+        return ["Digitar Histórico do Zero"] + modelos_banco
+    except Exception as e:
+        print(f"Erro ao carregar históricos padrão: {e}")
+        # Fallback de segurança se a tabela não existir
+        return [
+            "Digitar Histórico do Zero",
+            "Pg. Supermercado Premium de B.Roxo - NFc:",
+            "Pg. Supermercado Real de Eden - NFc:",
+            "Pg. Drogaria Ebenezer de Madureira - NFc",
+            "Pg. Remar Hortifruti Ltda - NFc:",
+            "Pg. Mercadinho Natural de B.Roxo - Recibo:",
+            "Pg. Supermercados Feira Nova Ltda - NFc:",
+            "Pg. Bazar Amigão de Madureita - NFc:"
+        ]
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def salvar_novo_historico_padrao(cliente_id=None, codigo="GERAL", descricao="", texto_padrao="", **kwargs):
+    """Insere um novo modelo de histórico para a empresa ativa via PostgreSQL."""
+    # Garante compatibilidade caso o parâmetro seja enviado como cliente_ativo_id
+    if not cliente_id and "cliente_ativo_id" in kwargs:
+        cliente_id = kwargs["cliente_ativo_id"]
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        query = """
+            INSERT INTO historicos_padrao (cliente_id, codigo, descricao, texto_padrao)
+            VALUES (%s, %s, %s, %s)
+        """
+        cursor.execute(
+            query, 
+            (cliente_id, codigo.strip().upper(), descricao.strip(), texto_padrao.strip())
+        )
+        conn.commit()
+        
+        # Invalida o cache para recarregar o selectbox na hora
+        carregar_historicos_padrao.clear()
+        return True, "Histórico padrão salvo com sucesso!"
+    except Exception as e:
+        conn.rollback()
+        return False, f"Erro ao cadastrar modelo: {e}"
+    finally:
+        cursor.close()
+        conn.close()
+
+        
 # -------------------------------------------------------------
 # 5. MÓDULO FISCAL & NFS-E (FOCUS NFE)
 # -------------------------------------------------------------
@@ -312,3 +385,84 @@ def limpar_cache_fiscal():
     """Invalida cirurgicamente apenas o cache de configurações e notas fiscais."""
     carregar_config_fiscal.clear()
     carregar_notas_fiscais.clear()
+
+# ==============================================================
+# GESTÃO AUTOMÁTICA DA GUIA DAS-MEI (CONTAS A PAGAR)
+# ==============================================================
+SALARIO_MINIMO_VIGENTE = 1518.00  # Base oficial para apuração MEI (5% INSS)
+
+def calcular_valor_das_mei(cnae_ou_atividade=""):
+    """
+    Calcula a contribuição mensal do MEI:
+    - 5% do Salário Mínimo (INSS)
+    - + R$ 1,00 de ICMS (Comércio/Indústria)
+    - + R$ 5,00 de ISS (Prestação de Serviços)
+    - + R$ 6,00 (Comércio + Serviços)
+    """
+    inss = SALARIO_MINIMO_VIGENTE * 0.05  # R$ 75,90
+    icms = 0.00
+    iss = 0.00
+    
+    txt = (cnae_ou_atividade or "").lower()
+    
+    # Identifica a atividade do MEI
+    eh_comercio = any(k in txt for k in ["comércio", "comercio", "loja", "venda", "mercadoria", "indústria", "industria"])
+    eh_servico = any(k in txt for k in ["serviço", "servico", "consultoria", "ti", "reparo", "manutenção", "transporte"])
+    
+    if eh_comercio and eh_servico:
+        icms, iss = 1.00, 5.00
+    elif eh_comercio:
+        icms = 1.00
+    else:
+        # Padrão MEI ou Prestação de Serviços
+        iss = 5.00
+        
+    return inss + icms + iss
+
+def verificar_e_agendar_das_mensal(cliente_id, cnae_atividade=""):
+    """
+    Verifica se a Guia DAS do mês vigente já está agendada no Contas a Pagar.
+    Se não estiver, cria automaticamente com vencimento fixo no dia 20.
+    """
+    from datetime import date
+    hoje = date.today()
+    mes_ano_ref = hoje.strftime("%m/%Y")
+    descricao_guia = f"Guia DAS-MEI - Competência {mes_ano_ref}"
+    data_vencimento = f"{hoje.year}-{hoje.month:02d}-20"
+    
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        # 1. Verifica se já existe a guia cadastrada para este mês
+        cursor.execute(
+            """
+            SELECT id FROM provisoes 
+            WHERE cliente_id = %s 
+              AND tipo = 'Guia DAS' 
+              AND descricao = %s
+            LIMIT 1
+            """,
+            (cliente_id, descricao_guia)
+        )
+        existe = cursor.fetchone()
+        
+        # 2. Se não existir, agenda a obrigação automaticamente
+        if not existe:
+            valor_das = calcular_valor_das_mei(cnae_atividade)
+            cursor.execute(
+                """
+                INSERT INTO provisoes (cliente_id, descricao, tipo, valor, data_vencimento, status)
+                VALUES (%s, %s, 'Guia DAS', %s, %s, 'Pendente')
+                """,
+                (cliente_id, descricao_guia, valor_das, data_vencimento)
+            )
+            conn.commit()
+            return True, valor_das
+        return False, 0.0
+    except Exception as e:
+        conn.rollback()
+        print(f"Aviso ao agendar DAS automático: {e}")
+        return False, 0.0
+    finally:
+        cursor.close()
+        conn.close()
