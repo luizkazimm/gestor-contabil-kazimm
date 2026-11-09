@@ -374,6 +374,77 @@ def aplicar_tema_global():
         color: #F8FAFC !important;
         text-decoration: none !important;
     }
+
+    /* ========================================================
+       BOTÕES UNIVERSAIS DO SISTEMA (st.button & st.form_submit_button)
+       ======================================================== */
+    /* 1. Botão Primário (Padrão Kazimm: Gradiente Ciano/Azul Petróleo) */
+    div[data-testid="stButton"] button[kind="primary"],
+    div[data-testid="stButton"] button[data-testid="baseButton-primary"],
+    div[data-testid="stFormSubmitButton"] button[kind="primary"],
+    div[data-testid="stFormSubmitButton"] button[data-testid="baseButton-primary"] {
+        background: linear-gradient(135deg, #00A3B4 0%, #007791 100%) !important;
+        border: 1px solid #007791 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 6px rgba(0, 119, 145, 0.25) !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+
+    /* Força texto, ícones e parágrafos em branco puro e nítido */
+    div[data-testid="stButton"] button[kind="primary"] *,
+    div[data-testid="stButton"] button[kind="primary"] p,
+    div[data-testid="stButton"] button[kind="primary"] span,
+    div[data-testid="stFormSubmitButton"] button[kind="primary"] *,
+    div[data-testid="stFormSubmitButton"] button[kind="primary"] p,
+    div[data-testid="stFormSubmitButton"] button[kind="primary"] span {
+        color: #FFFFFF !important;
+        fill: #FFFFFF !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.3px !important;
+    }
+
+    /* Hover do Botão Primário */
+    div[data-testid="stButton"] button[kind="primary"]:hover,
+    div[data-testid="stFormSubmitButton"] button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #008D9C 0%, #005F74 100%) !important;
+        border-color: #005F74 !important;
+        box-shadow: 0 4px 12px rgba(0, 119, 145, 0.35) !important;
+        transform: translateY(-1px) !important;
+    }
+
+    /* 2. Botão Secundário (Padrão Limpo Kazimm) */
+    div[data-testid="stButton"] button[kind="secondary"],
+    div[data-testid="stButton"] button[data-testid="baseButton-secondary"],
+    div[data-testid="stFormSubmitButton"] button[kind="secondary"],
+    div[data-testid="stFormSubmitButton"] button[data-testid="baseButton-secondary"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 8px !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+
+    div[data-testid="stButton"] button[kind="secondary"] *,
+    div[data-testid="stButton"] button[kind="secondary"] p,
+    div[data-testid="stButton"] button[kind="secondary"] span,
+    div[data-testid="stFormSubmitButton"] button[kind="secondary"] *,
+    div[data-testid="stFormSubmitButton"] button[kind="secondary"] p,
+    div[data-testid="stFormSubmitButton"] button[kind="secondary"] span {
+        color: #334155 !important;
+        font-weight: 600 !important;
+    }
+
+    /* Hover do Botão Secundário */
+    div[data-testid="stButton"] button[kind="secondary"]:hover,
+    div[data-testid="stFormSubmitButton"] button[kind="secondary"]:hover {
+        border-color: #00A3B4 !important;
+        background-color: #F0FDFA !important;
+        transform: translateY(-1px) !important;
+    }
+
+    div[data-testid="stButton"] button[kind="secondary"]:hover * {
+        color: #007791 !important;
+    }
+
     </style>
     """, unsafe_allow_html=True)
 

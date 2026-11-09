@@ -37,6 +37,9 @@ from ui_theme import (
     ICONES
 )
 
+from database import carregar_nfse_cliente
+from modals import modal_enviar_cobranca_nfse
+
 # -----------------------------------------------------------------------------
 # 1. CONFIGURAÇÃO DE SESSÃO E TEMA GLOBAL
 # -----------------------------------------------------------------------------
@@ -121,8 +124,10 @@ st.sidebar.markdown(f"### {ICONES.get('fiscal', ':material/receipt_long:')} Oper
 opcoes_menu_fiscal = [
     f"{ICONES.get('transmissao', ':material/rocket_launch:')} Emitir Nova NFS-e",
     f"{ICONES.get('relatorios', ':material/description:')} Histórico & Documentos",
-    f"{ICONES.get('configuracoes', ':material/settings:')} Configuração Fiscal"
-]
+    f"{ICONES.get('configuracoes', ':material/settings:')} Configuração Fiscal",
+    f"{ICONES.get('receita', ':material/trending_up:')} Cobranças & Envios"
+    ]
+
 
 opcao_selecionada = st.sidebar.radio("Selecione a Operação:", opcoes_menu_fiscal)
 
@@ -406,6 +411,50 @@ with st.container(height=580, border=True):
                         st.error(f"Erro ao salvar configurações no banco: {ex}")
                     finally:
                         conn_cfg.close()
+
+    # ==============================================================================
+    # BLOCO: COBRANÇAS & ENVIOS (NFS-E + BOLETO / PIX)
+    # ==============================================================================
+    elif "Cobranças & Envios" in str(opcao_selecionada):
+        st.markdown(f"#### {ICONES.get('receita', ':material/trending_up:')} Central de Cobrança e Envios")
+        st.caption("Gerencie e dispare comunicados formais de cobrança com NFS-e oficial e meios de pagamento.")
+
+        cliente_ativo_id = st.session_state.get("cliente_id_ativo")
+
+        if not cliente_ativo_id:
+            st.warning(f"{ICONES.get('alerta', ':material/warning:')} Nenhum cliente selecionado. Escolha um cliente ativo para prosseguir.")
+        else:
+            # Carrega as notas autorizadas deste cliente
+            df_notas = carregar_nfse_cliente(cliente_ativo_id)
+
+            if df_notas.empty:
+                st.info("Nenhuma NFS-e emitida encontrada para realizar disparos de cobrança.")
+            else:
+                st.markdown(f"##### Notas Disponíveis para Cobrança ({len(df_notas)})")
+
+                for idx, nota in df_notas.iterrows():
+                    with st.container(border=True):
+                        col_info, col_acao = st.columns([3.2, 1.4], vertical_alignment="center")
+
+                        with col_info:
+                            dt_fmt = pd.to_datetime(nota.get('data_emissao')).strftime('%d/%m/%Y') if pd.notna(nota.get('data_emissao')) else "-"
+                            num_nf = nota.get('numero') or nota.get('numero_nfse') or "Em Processamento"
+                            st.markdown(f"**NFS-e Nº {num_nf}** — Emissão: `{dt_fmt}`")
+                            st.write(f"**Tomador:** {nota.get('tomador_nome', 'Cliente')}")
+                            
+                            val_serv = float(nota.get('valor', 0.0) or nota.get('valor_total', 0.0))
+                            st_focus = nota.get('status', 'Autorizada')
+                            st.caption(f"Valor: **R$ {val_serv:,.2f}** | Status Focus: `{st_focus}`")
+
+                        with col_acao:
+                            if st.button(
+                                f"{ICONES.get('transmissao', ':material/rocket_launch:')} Cobrar / Enviar", 
+                                key=f"btn_cobrar_nf_{nota.get('id')}", 
+                                type="primary", 
+                                use_container_width=True,
+                                help="Enviar NFS-e e Boleto/Pix por E-mail ou WhatsApp"
+                            ):
+                                modal_enviar_cobranca_nfse(nota.to_dict())
 
 # -----------------------------------------------------------------------------
 # 6. RODAPÉ INSTITUCIONAL NATIVO

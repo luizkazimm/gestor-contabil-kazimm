@@ -466,3 +466,48 @@ def verificar_e_agendar_das_mensal(cliente_id, cnae_atividade=""):
     finally:
         cursor.close()
         conn.close()
+
+# ==============================================================
+# LEITURA DE NFS-e PARA COBRANÇA (COMPATIBILIDADE FOCUS NFE)
+# ==============================================================
+def carregar_nfse_cliente(cliente_id):
+    """Retorna as notas fiscais emitidas para a empresa ativa prontas para cobrança."""
+    conn = get_connection()
+    try:
+        query = """
+            SELECT * FROM notas_fiscais
+            WHERE cliente_id = %s
+            ORDER BY id DESC
+        """
+        df = pd.read_sql_query(query, conn, params=(cliente_id,))
+        
+        if not df.empty:
+            # 1. Mapeamento seguro do Valor da Nota
+            if 'valor' not in df.columns:
+                df['valor'] = df.get('valor_total', df.get('valor_servicos', 0.0))
+
+            # 2. Mapeamento seguro da URL do PDF da Focus NFe
+            if 'url_danfse' not in df.columns:
+                df['url_danfse'] = df.get('pdf_url', df.get('caminho_danfe', ''))
+
+            # 3. Mapeamento do Número da NFS-e
+            if 'numero' not in df.columns:
+                df['numero'] = df.get('numero_nfse', '')
+
+            # 4. Mapeamento da Descrição do Serviço
+            if 'discriminacao' not in df.columns:
+                df['discriminacao'] = df.get('descricao_servico', 'Prestação de Serviços')
+
+            # 5. Tratamento de campos de contato para não quebrar a tela com nulos
+            for col in ['tomador_nome', 'tomador_email', 'tomador_telefone', 'status']:
+                if col not in df.columns:
+                    df[col] = ""
+                else:
+                    df[col] = df[col].fillna("")
+
+        return df
+    except Exception as e:
+        print(f"Erro ao carregar notas fiscais para cobrança: {e}")
+        return pd.DataFrame()
+    finally:
+        conn.close()
