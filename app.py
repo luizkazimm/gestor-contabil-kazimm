@@ -1,103 +1,25 @@
 import streamlit as st
 from supabase import create_client
 from ui_theme import aplicar_estilo_moderno
+from ui_theme import aplicar_estilo_moderno, ICONES
 
+# -----------------------------------------------------------------------------
+# CONFIGURAÇÃO GERAL DA PÁGINA
+# -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Kazimm Gestao", 
+    page_title="Kazimm Gestão", 
     page_icon="assets/favicon.png",
     layout="wide",
     initial_sidebar_state="expanded"
-    )
-# Aplica o tema visual moderno
+)
+
+# Aplica o tema visual centralizado (ui_theme.py)
 aplicar_estilo_moderno()
 
+
 # -----------------------------------------------------------------------------
-# ESTILO ELEGANTE E PROPORCIONAL DA TELA DE LOGIN (APP.PY)
-# -----------------------------------------------------------------------------
-st.markdown("""
-    <!-- Carregamento das Fontes Montserrat e Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
-
-    <style>
-    /* 1. TÍTULO PRINCIPAL DE LOGIN */
-    h1, [data-testid="stMarkdownContainer"] h1, .stApp h1 {
-        font-family: 'Montserrat', sans-serif !important;
-        font-size: 1.35rem !important;
-        font-weight: 700 !important;
-        color: #0F172A !important;
-        margin-bottom: 0.25rem !important;
-        letter-spacing: -0.02em !important;
-    }
-
-    /* Subtítulo e descrições */
-    p, [data-testid="stMarkdownContainer"] p {
-        font-family: 'Inter', sans-serif !important;
-        font-size: 0.85rem !important;
-        color: #64748B !important;
-    }
-
-    /* 2. RÓTULOS DOS CAMPOS (E-mail / Senha) */
-    label, [data-testid="stWidgetLabel"] p {
-        font-family: 'Inter', sans-serif !important;
-        font-size: 0.85rem !important;
-        font-weight: 600 !important;
-        color: #1E293B !important;
-    }
-
-    /* 3. CAIXAS DE DADOS (Com borda visível e fundo grafite suave) */
-    div[data-baseweb="input"] {
-        background-color: #F8FAFC !important;
-        border: 1.5px solid #CBD5E1 !important;
-        border-radius: 8px !important;
-        transition: all 0.2s ease-in-out !important;
-    }
-
-    div[data-baseweb="input"]:focus-within {
-        border-color: #1E3A8A !important;
-        background-color: #FFFFFF !important;
-        box-shadow: 0px 0px 0px 3px rgba(30, 58, 138, 0.15) !important;
-    }
-
-    /* 4. BOTÃO ENTRAR COM ALTURA FIXA E PROPORCIONAL (42px) */
-    div.stButton > button, 
-    div.stFormSubmitButton > button {
-        background-color: #0176A1 !important;
-        color: #FFFFFF !important;
-        border-radius: 2px !important;
-        border: none !important;
-        font-family: 'Montserrat', sans-serif !important;
-        font-weight: 600 !important;
-        font-size: 0.95rem !important;
-        height: 42px !important;
-        min-height: 42px !important;
-        max-height: 42px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        padding: 0 1rem !important;
-        transition: all 0.25s ease-in-out !important;
-    }
-
-    /* Texto interno do botão em branco */
-    div.stButton > button *, 
-    div.stFormSubmitButton > button * {
-        color: #FFFFFF !important;
-    }
-
-    /* Efeito de destaque no Hover */
-    div.stButton > button:hover, 
-    div.stFormSubmitButton > button:hover {
-        background-color: #2563EB !important;
-        color: #FFFFFF !important;
-        box-shadow: 0px 4px 12px rgba(37, 99, 235, 0.35) !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-
 # 1. CONEXÃO COM SUPABASE
+# -----------------------------------------------------------------------------
 @st.cache_resource
 def init_connection():
     url = st.secrets["SUPABASE_URL"]
@@ -106,11 +28,17 @@ def init_connection():
 
 supabase = init_connection()
 
+
+# -----------------------------------------------------------------------------
 # 2. CONTROLE DE SESSÃO
+# -----------------------------------------------------------------------------
 if 'user' not in st.session_state:
     st.session_state.user = None
 
-# 3. FUNÇÕES DE LOGIN/LOGOUT
+
+# -----------------------------------------------------------------------------
+# 3. FUNÇÕES DE AUTENTICAÇÃO (LOGIN / LOGOUT)
+# -----------------------------------------------------------------------------
 def login(email, password):
     try:
         response = supabase.auth.sign_in_with_password({"email": email, "password": password})
@@ -124,57 +52,107 @@ def logout():
     st.session_state.user = None
     st.rerun()
 
-# 4. TELA DE LOGIN
+
+# -----------------------------------------------------------------------------
+# 4. TELA DE LOGIN HARMONIZADA E CENTRALIZADA
+# -----------------------------------------------------------------------------
 def login_screen():
-    #Cria 3 colunas e seleciona coluna central (col2)
-    col1, col2, col3 = st.columns([1,2,1])
+    # Proporção refinada [2.3, 1.4, 2.3] que encaixa o card perfeitamente em telas wide
+    col_esq, col_card, col_dir = st.columns([2.3, 1.4, 2.3])
 
-    with col2:
-        #Logo Kazimm Gestão
-        st.image("Logo.png", width=400)
+    with col_card:
+        # A logo passa a preencher exatamente 100% da largura do formulário (sem sobras)
+        st.image("Logo.png", use_container_width=True)
 
-        #st.title("🔐 Kazimm Gestor Contabil")
-        st.caption("Acesso restrito a clientes autorizados.")
+        # Cabeçalho integrado com a tipografia oficial Kazimm
+        st.markdown(
+            """
+            <div style="text-align: center; margin-top: -6px; margin-bottom: 16px;">
+                <h2 style="font-family: 'Montserrat', sans-serif; color: #007791; font-weight: 800; margin: 0; font-size: 1.35rem; letter-spacing: -0.4px;">
+                    GESTOR CONTÁBIL
+                </h2>
+                <p style="color: #64748B; font-size: 0.82rem; margin-top: 4px;">
+                    Acesso restrito a clientes autorizados.
+                </p>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
     
-        with st.form("login_form"):
-            email = st.text_input("E-mail")
-            senha = st.text_input("Senha", type="password")
-            if st.form_submit_button("Entrar", type="primary", use_container_width=True):
+        # Formulário com borda limpa controlada pelo ui_theme
+        with st.form("login_form", border=True):
+            email = st.text_input("E-mail", placeholder="seu.email@kazimm.com.br")
+            senha = st.text_input("Senha", type="password", placeholder="••••••••")
+            
+            st.write("")
+            btn_entrar = st.form_submit_button("Entrar", type="primary", use_container_width=True)
+            if btn_entrar:
                 login(email, senha)
-        st.caption("Versão - 1.01_a")
-        
-# 5. DEFINIÇÃO DAS PÁGINAS DO PORTAL
-login_page = st.Page(login_screen, title="Login", icon="🔐")
-gestor_page = st.Page("pages/1_Gestor_Contabil.py", title="Gestor Contábil", icon="📊")
-contratos_page = st.Page("pages/2_Gerador_Contratos.py", title="Gerador de Contratos", icon="📝")
-empregados_page = st.Page("pages/3_Empregados_Previdencia.py", title="Empregados / Previdência", icon="👥")
-fiscal_page = st.Page("pages/4_Gestor_Fiscal.py", title="Gestor FIscal", icon="🧾")
 
+        # Rodapé da versão centralizado
+        st.markdown(
+            """
+            <p style="text-align: center; color: #94A3B8; font-size: 0.74rem; margin-top: 10px;">
+                Versão - 1.01_a
+            </p>
+            """, 
+            unsafe_allow_html=True
+        )
+
+
+# -----------------------------------------------------------------------------
+# 5. DEFINIÇÃO DAS PÁGINAS DO PORTAL (COM MATERIAL SYMBOLS)
+# -----------------------------------------------------------------------------
+login_page = st.Page(
+    login_screen, 
+    title="Login", 
+    icon=":material/lock:"
+)
+
+gestor_page = st.Page(
+    "pages/1_Gestor_Contabil.py", 
+    title="Gestor Contábil", 
+    icon=ICONES.get("contabil", ":material/account_balance:")
+)
+
+contratos_page = st.Page(
+    "pages/2_Gerador_Contratos.py", 
+    title="Gerador de Contratos", 
+    icon=ICONES.get("contratos", ":material/contract:")
+)
+
+empregados_page = st.Page(
+    "pages/3_Empregados_Previdencia.py", 
+    title="Empregados / Previdência", 
+    icon=ICONES.get("previdencia", ":material/badge:")
+)
+
+fiscal_page = st.Page(
+    "pages/4_Gestor_Fiscal.py", 
+    title="Gestor Fiscal", 
+    icon=ICONES.get("fiscal", ":material/receipt_long:")
+)
+
+# -----------------------------------------------------------------------------
 # 6. CONTROLE DE NAVEGAÇÃO DINÂMICO
+# -----------------------------------------------------------------------------
 if st.session_state.user is None:
-    # Se deslogado: Oculta a barra lateral e exibe apenas a tela de login
+    # Se deslogado: oculta navegação e renderiza tela de login central
     pg = st.navigation([login_page], position="hidden")
 else:
-    # Se logado: Exibe os dados do usuário, botão de sair e o menu de sistemas
+    # Se logado: barra lateral com identificação do usuário e logout
     st.sidebar.write(f"👤 Logado como: **{st.session_state.user.email}**")
     if st.sidebar.button("Sair (Logout)"):
         logout()
-    #Lista de páginas para quem está logado
-    #pg = st.navigation([
-    #    gestor_page,
-    #    contratos_page, 
-    #    empregados_page,
-    #    fiscal_page
-    #])
+
     pg = st.navigation(
-            [
-                gestor_page,
-                contratos_page,
-                empregados_page,
-                fiscal_page
-            ],
-            position="hidden"
-        )
+        [
+            gestor_page,
+            contratos_page,
+            empregados_page,
+            fiscal_page
+        ],
+        position="hidden"
+    )
     
 pg.run()
-
