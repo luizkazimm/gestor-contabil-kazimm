@@ -401,20 +401,25 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
             
             salvar = st.form_submit_button(f"{ICONES['salvar']} Cadastrar Primeira Empresa", use_container_width=True)
 
+        
         if salvar:
             if nome and cnpj_cpf:
+                # [NOVO]: Recupera o UUID do usuário logado na sessão
+                user_id_logado = st.session_state.get("user_id") or getattr(st.session_state.get("user"), "id", None)
+                
                 logo_proc = processar_logo_empresa(arquivo_logo)
                 conn = get_connection()
                 cursor = conn.cursor()
                 try:
                     cursor.execute(
                         """
-                        INSERT INTO clientes (nome, cnpj_cpf, cpf, regime, capital_social, data_abertura, limite_faturamento, telefone, cnae_atividade, user_id) 
+                        INSERT INTO clientes (nome, cnpj_cpf, cpf, regime, capital_social, data_abertura, limite_faturamento, telefone, cnae, user_id)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """,
-                        (nome, cnpj_cpf, cpf, regime, cap_social, dt_abertura.strftime("%Y-%m-%d"), limite_fat, telefone, cnae, user_id_atual),
+                        (nome, cnpj_cpf, cpf, regime, cap_social, dt_abertura.strftime("%Y-%m-%d"), limite_fat, telefone, cnae, str(user_id_logado))
                     )
                     conn.commit()
+                    limpar_cache()
                     st.success(f"Empresa '{nome}' cadastrada com sucesso!")
                     st.rerun()
                 except Exception as e:
@@ -720,15 +725,18 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
                             if btn_cad_novo:
                                 if n_nome and n_cnpj:
+                                    # [NOVO]: Recupera o UUID do usuário logado na sessão
+                                    user_id_logado = st.session_state.get("user_id") or getattr(st.session_state.get("user"), "id", None)
+                                    
                                     logo_b64 = processar_logo_empresa(arquivo_novo_logo)
                                     conn_add = get_connection()
                                     cursor_add = conn_add.cursor()
                                     cursor_add.execute(
                                         """
-                                        INSERT INTO clientes (nome, cnpj_cpf, cpf, regime, capital_social, data_abertura, limite_faturamento, telefone, cnae_atividade, user_id, logo_base64)
-                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                        INSERT INTO clientes (nome, cnpj_cpf, cpf, regime, capital_social, data_abertura, limite_faturamento, telefone, cnae, user_id)
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                                         """,
-                                        (n_nome, n_cnpj, n_cpf, n_regime, n_cap_social, n_dt_abertura.strftime("%Y-%m-%d"), n_limite, n_tel, n_cnae, user_id_atual, logo_b64)
+                                        (n_nome, n_cnpj, n_cpf, n_regime, n_cap_social, n_dt_abertura.strftime("%Y-%m-%d"), n_limite_fat, n_telefone, n_cnae, str(user_id_logado))
                                     )
                                     conn_add.commit()
                                     conn_add.close()
@@ -1212,29 +1220,33 @@ elif opcao == "Lançamentos":
                 cliente_selecionado = nome_empresa if 'nome_empresa' in locals() else "Cliente"
                 df_contas = carregar_plano_contas(cliente_ativo_id)
 
+                # -------------------------------------------------------------------------
+                # FILTRAGEM INTELIGENTE DO PLANO DE CONTAS (SEM ALTERAR O BANCO)
+                # -------------------------------------------------------------------------
+                # 1. Contas Financeiras: Apenas Caixas e Bancos do Grupo 1.1.1 (ignorando títulos pai)
                 df_fin = df_contas[
-                    df_contas["tipo"].str.contains("Ativo", case=False, na=False) | 
-                    df_contas["codigo"].str.startswith("1.1") |
-                    df_contas["descricao"].str.contains("Caixa|Banco", case=False, na=False)
+                    df_contas["codigo"].str.startswith("1.1.1.") &
+                    ~df_contas["codigo"].isin(["1.1.1", "1.1.1.02", "1.1.1.03"])
                 ]
                 if not df_fin.empty:
                     opcoes_financeiras = [f"{row['codigo']} - {row['descricao']}" for _, row in df_fin.iterrows()]
                 else:
-                    opcoes_financeiras = ["1.1.1.01 - Caixa Geral", "1.1.1.02 - Banco Conta Movimento"]
+                    opcoes_financeiras = ["1.1.1.01 - Caixa Geral", "1.1.1.02.01 - Banco CORA"]
 
+                # 2. Despesas: Apenas contas analíticas do Grupo 4 (com 4 ou 5 níveis, ex: 4.1.1.03.01)
                 df_desp = df_contas[
-                    df_contas["tipo"].str.contains("Despesa|Passivo", case=False, na=False) | 
-                    df_contas["codigo"].str.startswith("4") |
-                    df_contas["codigo"].str.startswith("2")
+                    df_contas["codigo"].str.startswith("4.1.1.") &
+                    (df_contas["codigo"].str.count(r"\.") >= 3)
                 ]
                 if not df_desp.empty:
                     opcoes_fornecedores_despesa = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_desp.iterrows()]
                 else:
                     opcoes_fornecedores_despesa = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_contas.iterrows()]
 
+                # 3. Receitas: Apenas contas analíticas do Grupo 3 (ex: 3.1.1.01, 3.2.1.01)
                 df_rec = df_contas[
-                    df_contas["tipo"].str.contains("Receita", case=False, na=False) | 
-                    df_contas["codigo"].str.startswith("3")
+                    df_contas["codigo"].str.startswith("3.") &
+                    (df_contas["codigo"].str.count(r"\.") >= 2)
                 ]
                 if not df_rec.empty:
                     opcoes_rec = [""] + [f"{row['codigo']} - {row['descricao']}" for _, row in df_rec.iterrows()]
@@ -1274,7 +1286,7 @@ elif opcao == "Lançamentos":
 
 
                 # Roteamento por Regime Tributário
-                if "Lançamento Simples" in regime_cliente:
+                if "Lançamento Simples" in regime_cliente or "MEI" in str(regime_cliente):
                     tab_entrada, tab_saida = st.tabs([
                         "(+) ENTRADAS / RECEITAS", 
                         "(-) SAÍDAS / DESPESAS E ESTOQUE"
@@ -1282,7 +1294,7 @@ elif opcao == "Lançamentos":
 
                     with tab_entrada:
                         with st.form("form_entrada", clear_on_submit=True):
-                            st.markdown(f"{ICONES['transmissao']} ##### Registrar Entrada de Caixas / Receitas")
+                            st.markdown(f"{ICONES['transmissao']} ####Registrar Entrada de Caixas / Receitas")
                             data = st.date_input("Data do Lançamento", format="DD/MM/YYYY", key="dt_ent")
 
                             c_doc1, c_doc2, c_doc3 = st.columns(3)
@@ -1333,14 +1345,20 @@ elif opcao == "Lançamentos":
                                     
                                     hist_final = " ".join(partes)
 
-                                    supabase.table("lancamentos").insert({
-                                        "cliente_id": cliente_ativo_id,
-                                        "data": str(data),
-                                        "conta_debito": conta_financeira,
-                                        "conta_credito": categoria,
-                                        "valor": float(valor),
-                                        "historico": hist_final.strip()
-                                    }).execute()
+                                    conn = get_connection()
+                                    cursor = conn.cursor()
+                                    try:
+                                        cursor.execute(
+                                            """
+                                            INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) 
+                                            VALUES (%s, %s, %s, %s, %s, %s)
+                                            """,
+                                            (cliente_ativo_id, str(data), conta_financeira, categoria, float(valor), hist_final.strip())
+                                        )
+                                        conn.commit()
+                                    finally:
+                                        cursor.close()
+                                        conn.close()
 
                                     limpar_cache()
                                     st.success(f"{ICONES['sucesso']} Entrada registrada com sucesso!")
@@ -1394,14 +1412,20 @@ elif opcao == "Lançamentos":
                                     info_doc = f"[{tipo_doc}" + (f" nº {num_doc.strip()}" if num_doc.strip() else "") + "]"
                                     hist_final = f"{info_doc} {comp_hist.strip()}" if hist_sel == "Digitar Histórico do Zero" else f"{info_doc} {hist_sel} {comp_hist.strip()}"
 
-                                    supabase.table("lancamentos").insert({
-                                        "cliente_id": cliente_ativo_id,
-                                        "data": str(data),
-                                        "conta_debito": categoria,
-                                        "conta_credito": conta_financeira,
-                                        "valor": float(valor),
-                                        "historico": hist_final.strip()
-                                    }).execute()
+                                    conn = get_connection()
+                                    cursor = conn.cursor()
+                                    try:
+                                        cursor.execute(
+                                            """
+                                            INSERT INTO lancamentos (cliente_id, data, conta_debito, conta_credito, valor, historico) 
+                                            VALUES (%s, %s, %s, %s, %s, %s)
+                                            """,
+                                            (cliente_ativo_id, str(data), categoria, conta_financeira, float(valor), hist_final.strip())
+                                        )
+                                        conn.commit()
+                                    finally:
+                                        cursor.close()
+                                        conn.close()
 
                                     limpar_cache()
                                     st.success(f"{ICONES['sucesso']} Saída registrada com sucesso!")
@@ -1665,10 +1689,17 @@ elif opcao == "Lançamentos":
                                     key=f"btn_excluir_lanc_{id_alvo}",
                                     type="primary"
                                 ):
-                                    supabase.table("lancamentos").delete().eq("id", id_alvo).eq("cliente_id", cliente_ativo_id).execute()
-                                    limpar_cache()
-                                    st.success(f"Lançamento ID #{id_alvo} excluído com sucesso!")
-                                    st.rerun() 
+                                    conn_del = get_connection()
+                                    cur_del = conn_del.cursor()
+                                    try:
+                                        cur_del.execute(
+                                            "DELETE FROM lancamentos WHERE id = %s AND cliente_id = %s",
+                                            (id_alvo, cliente_ativo_id)
+                                        )
+                                        conn_del.commit()
+                                    finally:
+                                        cur_del.close()
+                                        conn_del.close() 
                 
 # FINAL DO BLOCO
                         

@@ -536,3 +536,109 @@ def carregar_nfse_cliente(cliente_id):
         return pd.DataFrame()
     finally:
         conn.close()
+# ==============================================================
+#verifica se o usuário logado já possui uma empresa configurada e pronta para operar
+# ==============================================================
+def obter_empresa_usuario(user_id: str, email_usuario: str = None):
+    """
+    Localiza a empresa do usuário logado por user_id ou por email (com auto-vínculo).
+    Protegido contra ausência de colunas opcionais na tabela.
+    """
+    if not user_id and not email_usuario:
+        return None
+        
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        # 1. Busca prioritária pelo user_id vinculado
+        cursor.execute("SELECT * FROM clientes WHERE user_id = %s LIMIT 1", (str(user_id),))
+        row = cursor.fetchone()
+        
+        # 2. Se não encontrou por user_id, verifica se a coluna 'email' existe na tabela antes de buscar
+        if not row and email_usuario:
+            cursor.execute(
+                """
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'clientes' AND column_name = 'email'
+                """
+            )
+            possui_coluna_email = cursor.fetchone() is not None
+            
+            if possui_coluna_email:
+                cursor.execute("SELECT * FROM clientes WHERE email = %s LIMIT 1", (str(email_usuario).strip(),))
+                row = cursor.fetchone()
+                
+                # Se achou pelo email, vincula o user_id no banco
+                if row:
+                    colunas_temp = [desc[0] for desc in cursor.description]
+                    emp_temp = dict(zip(colunas_temp, row))
+                    cli_id = emp_temp.get("id")
+                    
+                    cursor.execute(
+                        "UPDATE clientes SET user_id = %s WHERE id = %s",
+                        (str(user_id), cli_id)
+                    )
+                    conn.commit()
+        
+        if not row:
+            return None
+            
+        colunas = [desc[0] for desc in cursor.description]
+        empresa = dict(zip(colunas, row))
+        
+        empresa["nome_normalizado"] = (
+            empresa.get("razao_social") 
+            or empresa.get("nome") 
+            or empresa.get("nome_fantasia") 
+            or "Minha Empresa MEI"
+        )
+        empresa["regime_normalizado"] = (
+            empresa.get("regime_contabil") 
+            or empresa.get("regime") 
+            or empresa.get("regime_tributario") 
+            or "MEI (Microempreendedor Individual)"
+        )
+        empresa["plano_normalizado"] = empresa.get("plano") or "gratis"
+        
+        return empresa
+        
+    except Exception as e:
+        print(f"Aviso ao consultar empresa: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+        
+def salvar_empresa_onboarding(user_id: str, nome: str, cnpj_cpf: str, telefone: str, email: str):
+    """
+    Cadastra a empresa inicial do MEI vinculada ao seu user_id no primeiro acesso.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO clientes (user_id, nome, cnpj_cpf, regime, plano, email, telefone)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (
+                str(user_id),
+                nome.strip(),
+                cnpj_cpf.strip(),
+                "MEI (Microempreendedor Individual)",
+                "gratis",
+                email.strip(),
+                telefone.strip()
+            )
+        )
+        novo_id = cursor.fetchone()[0]
+        conn.commit()
+        return True, novo_id
+    except Exception as e:
+        conn.rollback()
+        return False, f"Erro ao cadastrar empresa: {e}"
+    finally:
+        cursor.close()
+        conn.close()

@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client
 from ui_theme import aplicar_estilo_moderno
 from ui_theme import aplicar_estilo_moderno, ICONES
+from database import obter_empresa_usuario, salvar_empresa_onboarding
 
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO GERAL DA PÁGINA
@@ -138,22 +139,44 @@ fiscal_page = st.Page(
 # 6. CONTROLE DE NAVEGAÇÃO DINÂMICO
 # -----------------------------------------------------------------------------
 if st.session_state.user is None:
-    # Se deslogado: oculta navegação e renderiza tela de login central
+    # Se deslogado: renderiza estritamente a tela de login
     pg = st.navigation([login_page], position="hidden")
+    pg.run()
+    
 else:
-    # Se logado: barra lateral com identificação do usuário e logout
-    st.sidebar.write(f"👤 Logado como: **{st.session_state.user.email}**")
+    usuario_atual = st.session_state.user
+    user_id = getattr(usuario_atual, "id", None) or st.session_state.get("user_id")
+    user_email = getattr(usuario_atual, "email", None)
+    
+    # Consulta se o usuário já possui empresa ativa no banco
+    empresa = obter_empresa_usuario(user_id, email_usuario=user_email)
+    
+    # Barra lateral essencial
+    st.sidebar.write(f"👤 Logado como: **{usuario_atual.email}**")
     if st.sidebar.button("Sair (Logout)"):
         logout()
 
-    pg = st.navigation(
-        [
-            gestor_page,
-            contratos_page,
-            empregados_page,
-            fiscal_page
-        ],
-        position="hidden"
-    )
-    
-pg.run()
+    if not empresa:
+        # USUÁRIO NOVO: Exibe exclusivamente a ficha de cadastro oficial
+        # Oculta Gerador de Contratos, Empregados e Gestor Fiscal do menu
+        pg = st.navigation([gestor_page], position="hidden")
+    else:
+        # USUÁRIO COM EMPRESA: Grava os dados na sessão e libera o sistema completo
+        st.session_state["cliente_id_ativo"] = empresa["id"]
+        st.session_state["nome_empresa_ativa"] = empresa["nome_normalizado"]
+        st.session_state["regime_ativo"] = empresa["regime_normalizado"]
+        st.session_state["plano_ativo"] = empresa["plano_normalizado"]
+        
+        st.sidebar.caption(f"🏢 Empresa ativa: **{empresa['nome_normalizado']}**")
+        
+        pg = st.navigation(
+            [
+                gestor_page,
+                contratos_page,
+                empregados_page,
+                fiscal_page
+            ],
+            position="hidden"
+        )
+        
+    pg.run()
