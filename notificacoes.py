@@ -57,7 +57,7 @@ def modal_enviar_email(nome_cliente, descricao, valor, vencimento):
     st.write("")
     email_dest = st.text_input("E-mail de Destino do Cliente", placeholder="cliente@email.com").strip()
     
-    if st.button("Disparar E-mail via Resend", type="primary", use_container_width=True):
+    if st.button("Disparar E-mail", type="primary", use_container_width=True):
         if not validar_email(email_dest):
             st.warning("Informe um e-mail válido (ex: contato@empresa.com) para o disparo.")
             return

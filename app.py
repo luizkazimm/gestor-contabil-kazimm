@@ -160,7 +160,7 @@ else:
     # -------------------------------------------------------------------------
     if not empresa:
         # Barra lateral limpa apenas com identificação e logout
-        st.sidebar.write(f"👤 Logado como: **{usuario_atual.email}**")
+        st.sidebar.markdown(f"{ICONES.get('cliente', ':material/person:')} Logado como: **{usuario_atual.email}**")
         st.sidebar.caption("🔒 Configuração Inicial Obrigatória")
         if st.sidebar.button("Sair (Logout)"):
             logout()
@@ -267,10 +267,10 @@ else:
     st.session_state["regime_ativo"] = regime_ativo
     st.session_state["plano_ativo"] = plano_ativo
 
-    st.sidebar.write(f"👤 Logado como: **{usuario_atual.email}**")
-    st.sidebar.caption(f"🏢 Empresa ativa: **{empresa['nome_normalizado']}**")
+    st.sidebar.markdown(f"{ICONES.get('cliente', ':material/person:')} Logado como: **{usuario_atual.email}**")
+    #st.sidebar.caption(f"🏢 Empresa ativa: **{empresa['nome_normalizado']}**")
     if st.sidebar.button("Sair (Logout)"):
-        logout()
+       logout()
 
     # Registra todas as páginas para garantir o funcionamento do st.page_link nos módulos
     pg = st.navigation(

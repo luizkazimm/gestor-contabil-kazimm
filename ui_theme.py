@@ -84,6 +84,39 @@ def aplicar_tema_global():
     }
 
     /* ========================================================
+       TÍTULOS DE MÓDULOS E SEÇÕES (####) - AZUL KAZIMM SUAVE
+       ======================================================== */
+    h4, [data-testid="stMarkdownContainer"] h4 {
+        font-family: 'Montserrat', sans-serif !important;
+        color: #0176A1 !important;
+        font-weight: 600 !important;      /* Reduz o peso pesado para uma espessura elegante */
+        font-size: 1.15rem !important;     /* Proporção harmoniosa sem poluir a tela */
+        letter-spacing: -0.2px !important;
+        margin-top: 4px !important;
+        margin-bottom: 12px !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+
+    /* Garante que o ícone acompanhe exatamente o mesmo azul institucional */
+    h4 span[data-testid="stIconMaterial"],
+    [data-testid="stMarkdownContainer"] h4 span[data-testid="stIconMaterial"] {
+        color: #0176A1 !important;
+        font-size: 1.35rem !important;
+        vertical-align: middle !important;
+    }
+
+    /* Subtítulos menores (#####) */
+    h5, [data-testid="stMarkdownContainer"] h5 {
+        font-family: 'Inter', sans-serif !important;
+        color: #334155 !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+        margin-bottom: 8px !important;
+    }
+
+    /* ========================================================
        REDUÇÃO DE MARGENS E APROVEITAMENTO DE TELA
        ======================================================== */
     .block-container {
@@ -243,7 +276,7 @@ def aplicar_tema_global():
         background-color: #FFFFFF !important;
         border: 1px solid #E2E8F0 !important;
         border-radius: 10px !important;
-        padding: 12px 16px !important;
+        padding: 10px 14px !important;
         box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
         transition: all 0.2s ease-in-out !important;
     }
@@ -253,14 +286,35 @@ def aplicar_tema_global():
         box-shadow: 0 4px 12px rgba(0, 163, 180, 0.08) !important;
     }
 
-    div[data-testid="stHorizontalBlock"] {
-        gap: 10px !important;
+    /* Rótulo superior da métrica (Ex: SALDO INICIAL, TOTAL ENTRADAS) */
+    [data-testid="stMetricLabel"] p,
+    [data-testid="stMetricLabel"] label,
+    div[data-testid="stMetricLabel"] {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.72rem !important;
+        font-weight: 700 !important;
+        color: #64748B !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.6px !important;
+        margin-bottom: 2px !important;
     }
 
-    div[data-testid="column"] {
-        padding: 0 !important;
+    /* Valor numérico principal da métrica */
+    [data-testid="stMetricValue"] div,
+    [data-testid="stMetricValue"] {
+        font-family: 'Montserrat', sans-serif !important;
+        font-size: 1.25rem !important; /* Reduz de 2.0rem para um tamanho corporativo elegante */
+        font-weight: 700 !important;
+        color: #0F172A !important;
+        letter-spacing: -0.3px !important;
+        line-height: 1.2 !important;
     }
 
+    /* Indicador de variação/delta (se houver) */
+    [data-testid="stMetricDelta"] {
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+    }
     /* ========================================================
        BOTÕES DE MÓDULOS NO TOPO (st.page_link)
        ======================================================== */
@@ -412,25 +466,36 @@ def aplicar_tema_global():
         transform: translateY(-1px) !important;
     }
 
-    /* 2. Botão Secundário (Padrão Limpo Kazimm) */
+    /* ========================================================
+       BOTÃO SECUNDÁRIO PADRÃO KAZIMM (ESTILO PGMEI / OUTLINE SUAVE)
+       ======================================================== */
     div[data-testid="stButton"] button[kind="secondary"],
-    div[data-testid="stButton"] button[data-testid="baseButton-secondary"],
-    div[data-testid="stFormSubmitButton"] button[kind="secondary"],
-    div[data-testid="stFormSubmitButton"] button[data-testid="baseButton-secondary"] {
-        background-color: #FFFFFF !important;
-        border: 1px solid #CBD5E1 !important;
-        border-radius: 8px !important;
+    div[data-testid="stButton"] button[data-testid="baseButton-secondary"] {
+        background-color: #F0F7FA !important;
+        border: 1.5px solid #0176A1 !important;
+        border-radius: 6px !important;
+        min-height: 34px !important;
+        height: 34px !important;
+        padding: 4px 10px !important;
         transition: all 0.2s ease-in-out !important;
     }
 
     div[data-testid="stButton"] button[kind="secondary"] *,
     div[data-testid="stButton"] button[kind="secondary"] p,
-    div[data-testid="stButton"] button[kind="secondary"] span,
-    div[data-testid="stFormSubmitButton"] button[kind="secondary"] *,
-    div[data-testid="stFormSubmitButton"] button[kind="secondary"] p,
-    div[data-testid="stFormSubmitButton"] button[kind="secondary"] span {
-        color: #334155 !important;
+    div[data-testid="stButton"] button[kind="secondary"] span {
+        color: #0176A1 !important;
         font-weight: 600 !important;
+        font-size: 13px !important;
+    }
+
+    div[data-testid="stButton"] button[kind="secondary"]:hover {
+        background-color: #E0F2FE !important;
+        border-color: #007791 !important;
+        transform: translateY(-1px) !important;
+    }
+
+    div[data-testid="stButton"] button[kind="secondary"]:hover * {
+        color: #007791 !important;
     }
 
     /* Hover do Botão Secundário */
@@ -492,6 +557,15 @@ def aplicar_tema_global():
     .viewerBadge_container__1QSob {display: none !important;}
     #manage-app-button {display: none !important;}
     
+    /* ========================================================
+       DIVISORES E LINHAS HORIZONTAIS COMPACTAS (st.divider / ---)
+       ======================================================== */
+    hr, [data-testid="stDivider"] {
+        margin-top: 8px !important;
+        margin-bottom: 10px !important;
+        border: none !important;
+        border-top: 1px solid #E2E8F0 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 

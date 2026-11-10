@@ -315,10 +315,11 @@ if cliente_ativo_id:
 else:
     st.warning(" Nenhum cliente selecionado. Escolha um cliente ativo na barra lateral para prosseguir.")
 
-st.markdown("---")
+st.markdown("<hr style='margin: 8px 0 10px 0; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
 
 if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
-    st.subheader("Gestão do Cliente - CADASTRO")
+    icone_cli = ICONES.get("cliente", ":material/person:")
+    st.markdown(f"#### {icone_cli} Gestão do Cliente - CADASTRO")
 
     user_id_atual = st.session_state.user.id
     cliente_ativo_id = st.session_state.get("cliente_id_ativo")
@@ -454,36 +455,57 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
 
     
             if not df_clientes_cad.empty:
+                import textwrap
+
                 row_cli = df_clientes_cad.iloc[0]
                 
                 dt_abertura_str = row_cli['Data Abertura'].strftime('%d/%m/%Y') if pd.notna(row_cli['Data Abertura']) else '-'
                 cap_social_val = float(row_cli['Capital Social']) if row_cli['Capital Social'] else 0.0
                 limite_val = float(row_cli['Limite Faturamento (R$)']) if row_cli['Limite Faturamento (R$)'] else 81000.0
 
-                with st.container(border=True):
-                    st.caption("Ficha Cadastral do Cliente Ativo (Dados CCMEI)")
-                    col_logo, col_c1, col_c2, col_c3 = st.columns([1, 2, 2, 2])
-                    
-                    with col_logo:
-                        if pd.notna(row_cli.get('logo_base64')) and row_cli.get('logo_base64'):
-                            st.image(row_cli['logo_base64'], use_container_width=True)
-                        else:
-                            st.info("Sem Logo")
-                    
-                    with col_c1:
-                        st.write(f"**Empresa:** {row_cli['Razão Social']}")
-                        st.write(f"**CNPJ:** {row_cli['CNPJ']}")
-                        st.write(f"**CPF Titular:** {row_cli['CPF Titular']}")
-                    with col_c2:
-                        st.write(f"**Regime:** {row_cli['Regime Contábil']}")
-                        st.write(f"**Capital Social:** {formatar_brl(cap_social_val)}")
-                        st.write(f"**Data de Abertura:** {dt_abertura_str}")
-                    with col_c3:
-                        st.write(f"**Telefone:** {row_cli['Telefone']}")
-                        st.write(f"**CNAE:** {row_cli['CNAE / Atividade']}")
-                        st.write(f"**Teto MEI:** {formatar_brl(limite_val)}")
+                # Logotipo seguro em HTML
+                logo_b64 = row_cli.get('logo_base64')
+                if pd.notna(logo_b64) and logo_b64:
+                    tag_logo = f'<img src="{logo_b64}" style="max-height: 44px; max-width: 68px; object-fit: contain; border-radius: 4px;">'
+                else:
+                    tag_logo = (
+                        '<div style="background-color: #F1F5F9; border: 1px dashed #CBD5E1; border-radius: 6px; '
+                        'width: 64px; height: 44px; display: flex; align-items: center; justify-content: center; '
+                        'color: #94A3B8; font-size: 0.68rem; font-weight: 600;">Sem Logo</div>'
+                    )
 
-            st.divider()
+                # dedent remove os espaços de recuo da string multilinhas
+                html_ficha = textwrap.dedent(f"""
+                <div style="background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px 18px; margin-bottom: 6px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);">
+                    <div style="font-size: 0.70rem; color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">
+                        Ficha Cadastral do Cliente Ativo (Dados CCMEI)
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 18px; width: 100%;">
+                        <div style="flex: 0 0 68px; display: flex; align-items: center; justify-content: center;">
+                            {tag_logo}
+                        </div>
+                        <div style="flex: 1.1; font-size: 0.78rem; line-height: 1.5; color: #0F172A;">
+                            <div><span style="color: #64748B; font-weight: 600;">Empresa:</span> <strong>{row_cli['Razão Social']}</strong></div>
+                            <div><span style="color: #64748B; font-weight: 600;">CNPJ:</span> <strong>{row_cli['CNPJ']}</strong></div>
+                            <div><span style="color: #64748B; font-weight: 600;">CPF Titular:</span> <strong>{row_cli['CPF Titular']}</strong></div>
+                        </div>
+                        <div style="flex: 1.1; font-size: 0.78rem; line-height: 1.5; color: #0F172A;">
+                            <div><span style="color: #64748B; font-weight: 600;">Regime:</span> <strong>{row_cli['Regime Contábil']}</strong></div>
+                            <div><span style="color: #64748B; font-weight: 600;">Capital Social:</span> <strong>{formatar_brl(cap_social_val)}</strong></div>
+                            <div><span style="color: #64748B; font-weight: 600;">Data de Abertura:</span> <strong>{dt_abertura_str}</strong></div>
+                        </div>
+                        <div style="flex: 1.2; font-size: 0.78rem; line-height: 1.5; color: #0F172A;">
+                            <div><span style="color: #64748B; font-weight: 600;">Telefone:</span> <strong>{row_cli['Telefone']}</strong></div>
+                            <div><span style="color: #64748B; font-weight: 600;">CNAE:</span> <strong>{row_cli['CNAE / Atividade']}</strong></div>
+                            <div><span style="color: #64748B; font-weight: 600;">Teto MEI:</span> <strong>{formatar_brl(limite_val)}</strong></div>
+                        </div>
+                    </div>
+                </div>
+                """)
+
+                st.markdown(html_ficha, unsafe_allow_html=True)
+
+            st.markdown("<hr style='margin: 8px 0 12px 0; border: none; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
 
     
             st.markdown("##### Painel de Controle Financeiro (MEI)")
@@ -1256,7 +1278,7 @@ elif opcao == "Lançamentos":
 
                     with tab_entrada:
                         with st.form("form_entrada", clear_on_submit=True):
-                            st.markdown(f"{ICONES['transmissao']} ####Registrar Entrada de Caixas / Receitas")
+                            st.markdown(f"{ICONES['transmissao']} Registrar Entrada de Caixas / Receitas")
                             data = st.date_input("Data do Lançamento", format="DD/MM/YYYY", key="dt_ent")
 
                             c_doc1, c_doc2, c_doc3 = st.columns(3)
@@ -2383,10 +2405,10 @@ elif opcao == "Conciliação Bancária":
 
                         # Cartões de métricas compactos
                         m1, m2, m3, m4 = st.columns(4)
-                        m1.metric("Saldo Inicial", f"R$ {saldo_ini:,.2f}")
-                        m2.metric("Total Entradas", f"R$ {tot_ent:,.2f}")
-                        m3.metric("Total Saídas", f"R$ {tot_sai:,.2f}")
-                        m4.metric("Saldo Atual", f"R$ {saldo_atual:,.2f}")
+                        m1.metric("Saldo Inicial", formatar_brl(saldo_ini))
+                        m2.metric("Total Entradas", formatar_brl(tot_ent))
+                        m3.metric("Total Saídas", formatar_brl(tot_sai))
+                        m4.metric("Saldo Atual", formatar_brl(saldo_atual))
 
                         st.markdown("##### Resumo de Saldos e Resultados")
                         df_exib = df_conciliado.copy()
