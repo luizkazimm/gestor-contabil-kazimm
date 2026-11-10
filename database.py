@@ -275,8 +275,8 @@ def carregar_dados_cliente_ativo(cliente_id):
         conn.close()
 
 def limpar_cache():
-    """Invalida apenas o cache de movimentações contábeis."""
-    carregar_lancamentos.clear()
+    """Invalida completamente todos os dados em cache da memória RAM do Streamlit."""
+    st.cache_data.clear()
     
 @st.cache_data(ttl=300)
 def carregar_todos_clientes_completos():

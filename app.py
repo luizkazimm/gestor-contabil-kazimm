@@ -1,6 +1,5 @@
 import streamlit as st
 from supabase import create_client
-from ui_theme import aplicar_estilo_moderno
 from ui_theme import aplicar_estilo_moderno, ICONES
 from database import obter_empresa_usuario, salvar_empresa_onboarding
 
@@ -50,8 +49,13 @@ def login(email, password):
         st.error("Login inválido. Verifique seu e-mail e senha.")
         
 def logout():
-    supabase.auth.sign_out()
-    st.session_state.user = None
+    try:
+        supabase.auth.sign_out()
+    except Exception:
+        pass
+    # Limpa 100% das chaves da sessão para evitar vazamento entre contas
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
     st.rerun()
 
 

@@ -46,27 +46,43 @@ from modals import modal_enviar_cobranca_nfse
 st.set_page_config(page_title="Gestor Fiscal | Kazimm ERP", layout="wide")
 aplicar_tema_global()
 
-# Recuperação segura do ID do usuário logado
+# -----------------------------------------------------------------------------
+# RECUPERAÇÃO E VALIDAÇÃO DE SEGURANÇA MULTI-TENANT
+# -----------------------------------------------------------------------------
 user_obj = st.session_state.get("user")
-user_id_atual = st.session_state.get("user_id")
-if not user_id_atual and user_obj:
-    user_id_atual = getattr(user_obj, "id", None) or (user_obj.get("id") if isinstance(user_obj, dict) else None)
+user_id_atual = st.session_state.get("user_id") or (getattr(user_obj, "id", None) if user_obj else None)
+
+if not user_id_atual:
+    st.warning("⚠️ Você precisa fazer login para acessar o módulo fiscal.")
+    st.stop()
+
+# Importa a trava de pertencimento
+from database import validar_pertencimento_cliente
 
 # Sincronização de chaves de cliente ativo
 cliente_ativo_id = st.session_state.get("cliente_id_ativo") or st.session_state.get("cliente_ativo_id")
 
-if not cliente_ativo_id:
-    meus_clientes = carregar_clientes(user_id_atual) if user_id_atual else []
-    tem_clientes = len(meus_clientes) > 0 if isinstance(meus_clientes, (list, tuple)) else not meus_clientes.empty
+# 1. Se já existe cliente_id na sessão, valida se ele realmente pertence ao usuário logado
+if cliente_ativo_id:
+    if not validar_pertencimento_cliente(cliente_ativo_id, user_id_atual):
+        # Se NÃO pertencer, anula a sessão para evitar vazamento
+        cliente_ativo_id = None
+        st.session_state["cliente_id_ativo"] = None
+        st.session_state["cliente_ativo_id"] = None
 
-    if not tem_clientes:
-        st.warning("⚠️ Nenhuma empresa vinculada ao usuário atual. Cadastre ou selecione um cliente no menu anterior.")
+# 2. Se não há cliente validado, busca apenas as empresas do usuário logado
+if not cliente_ativo_id:
+    meus_clientes = carregar_clientes(user_id_atual)
+    
+    if not meus_clientes:
+        st.warning("⚠️ Nenhuma empresa vinculada ao usuário atual. Cadastre uma empresa no painel inicial.")
         st.stop()
     else:
-        if isinstance(meus_clientes, list):
-            if meus_clientes and isinstance(meus_clientes[0], (list, tuple)):
+        # Monta as opções com base no retorno seguro [(id, nome), ...]
+        if isinstance(meus_clientes, list) and len(meus_clientes) > 0:
+            if isinstance(meus_clientes[0], (list, tuple)):
                 opcoes_cli = {cli[0]: cli[1] for cli in meus_clientes}
-            elif meus_clientes and isinstance(meus_clientes[0], dict):
+            elif isinstance(meus_clientes[0], dict):
                 opcoes_cli = {cli["id"]: cli["nome"] for cli in meus_clientes}
             else:
                 opcoes_cli = {cli: f"Cliente #{cli}" for cli in meus_clientes}

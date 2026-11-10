@@ -435,16 +435,16 @@ if "contrato_editar" in st.session_state and st.session_state["contrato_editar"]
                         clausulas_extras=%s, representante_nome=%s, representante_cpf=%s, endereco_mei=%s,
                         mei_bairro=%s, mei_cidade=%s, mei_uf=%s, mei_cep=%s, 
                         banco_conta=%s, chave_pix=%s, prazo_vigencia=%s, prazo_aviso_previo=%s
-                    WHERE id = %s
+                    WHERE id = %s AND cliente_id = %s
                 """, (
                     modelo_escolhido_ed,
                     contratante_nome_ed, contratante_doc_ed, contratante_end_ed, 
                     contratante_bairro_ed, contratante_cidade_ed, contratante_uf_ed, contratante_cep_ed,
                     objeto_servico_ed, valor_total_ed, forma_pagamento_ed, data_inicio_ed, cidade_foro_ed, 
                     clausulas_extras_ed, representante_nome_ed, representante_cpf_ed, endereco_mei_ed,
-                    mei_bairro_ed, mei_cidade_ed, mei_uf_ed, mei_cep_ed,
+                    mei_bairro_ed, mei_cidade_ed, mei_uf_ed, mei_cep_ed, 
                     banco_conta_ed, chave_pix_ed, prazo_vigencia_ed, prazo_aviso_previo_ed, 
-                    dados_edit['id']
+                    dados_edit['id'], cliente_ativo_id
                 ))
                 conn.commit()
                 st.success("✅ Contrato atualizado com sucesso!")

@@ -354,49 +354,10 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
                 help="Envie um arquivo PNG ou JPG de até 2MB. Recomenda-se imagem com fundo transparente."
             )
 
-
             if arquivo_upd_logo:
                 st.image(arquivo_upd_logo, width=140, caption="Prévia do arquivo selecionado")
             btn_atualizar = st.form_submit_button(f"{ICONES['salvar']} Salvar Alterações do Cliente", use_container_width=True)
 
-            if btn_atualizar:
-                logo_b64 = processar_logo_empresa(arquivo_upd_logo)
-                conn_up = get_connection()
-                cursor_up = conn_up.cursor()
-
-                try:
-                    if logo_b64:
-                        cursor_up.execute(
-                            """
-                            UPDATE clientes 
-                            SET nome = %s, cnpj_cpf = %s, cpf = %s, regime = %s, 
-                                capital_social = %s, data_abertura = %s, limite_faturamento = %s, 
-                                telefone = %s, cnae_atividade = %s, logo_base64 = %s 
-                            WHERE id = %s
-                            """,
-                            (e_nome, e_cnpj, e_cpf, e_regime, e_cap_social, e_dt_abertura.strftime("%Y-%m-%d"), e_limite, e_tel, e_cnae, logo_b64, id_cli_editar)
-                        )
-                    else:
-                        cursor_up.execute(
-                            """
-                            UPDATE clientes 
-                            SET nome = %s, cnpj_cpf = %s, cpf = %s, regime = %s, 
-                            capital_social = %s, data_abertura = %s, limite_faturamento = %s, 
-                            telefone = %s, cnae_atividade = %s 
-                            WHERE id = %s
-                            """,
-                            (e_nome, e_cnpj, e_cpf, e_regime, e_cap_social, e_dt_abertura.strftime("%Y-%m-%d"), e_limite, e_tel, e_cnae, id_cli_editar)
-                        )
-                    conn_up.commit()
-                                        
-
-                    st.session_state["msg_sucesso"] = "Logotipo e dados atualizados com sucesso!"
-                    st.rerun()
-                except Exception as err_up:
-                    conn_up.rollback()
-                    st.error(f"Erro ao salvar no banco: {err_up}")
-                finally:
-                    conn_up.close()      
             st.caption(f"{ICONES['dicas']} **Dica:** Prefira imagens em formato **PNG com fundo transparente** e tamanho de até **2 MB** para melhor enquadramento nos contratos e relatórios.")
             
             salvar = st.form_submit_button(f"{ICONES['salvar']} Cadastrar Primeira Empresa", use_container_width=True)
@@ -404,19 +365,20 @@ if "Dashboard" in opcao or opcao == "Cadasrar Clientes":
         
         if salvar:
             if nome and cnpj_cpf:
-                # [NOVO]: Recupera o UUID do usuário logado na sessão
                 user_id_logado = st.session_state.get("user_id") or getattr(st.session_state.get("user"), "id", None)
                 
-                logo_proc = processar_logo_empresa(arquivo_logo)
+                # Converte o arquivo carregado
+                logo_proc = processar_logo_empresa(arquivo_upd_logo)
+                
                 conn = get_connection()
                 cursor = conn.cursor()
                 try:
                     cursor.execute(
                         """
-                        INSERT INTO clientes (nome, cnpj_cpf, cpf, regime, capital_social, data_abertura, limite_faturamento, telefone, cnae, user_id)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        INSERT INTO clientes (nome, cnpj_cpf, cpf, regime, capital_social, data_abertura, limite_faturamento, telefone, cnae, logo_base64, user_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """,
-                        (nome, cnpj_cpf, cpf, regime, cap_social, dt_abertura.strftime("%Y-%m-%d"), limite_fat, telefone, cnae, str(user_id_logado))
+                        (nome, cnpj_cpf, cpf, regime, cap_social, dt_abertura.strftime("%Y-%m-%d"), limite_fat, telefone, cnae, logo_proc, str(user_id_logado))
                     )
                     conn.commit()
                     limpar_cache()
@@ -983,8 +945,8 @@ elif opcao == "Cadastrar Contas":
                                         cursor = conn.cursor()
                                         try:
                                             cursor.execute(
-                                                "UPDATE plano_contas SET codigo = %s, descricao = %s, tipo = %s WHERE id = %s",
-                                                (novo_codigo, novo_nome, novo_tipo, id_conta_sel),
+                                                "UPDATE plano_contas SET codigo = %s, descricao = %s, tipo = %s WHERE id = %s AND cliente_id = %s",
+                                                (novo_codigo, novo_nome, novo_tipo, id_conta_sel, cliente_ativo_id),
                                             )
                                             conn.commit()
                                             st.success("Conta atualizada com sucesso!")
@@ -1009,7 +971,7 @@ elif opcao == "Cadastrar Contas":
                                     ):
                                         conn = get_connection()
                                         cursor = conn.cursor()
-                                        cursor.execute("DELETE FROM plano_contas WHERE id = %s", (id_conta_sel,))
+                                        cursor.execute("DELETE FROM plano_contas WHERE id = %s AND cliente_id = %s", (id_conta_sel, cliente_ativo_id))
                                         conn.commit()
                                         conn.close()
                                         st.success("Conta excluída com sucesso!")
@@ -2214,7 +2176,7 @@ elif "Contas a Pagar" in str(opcao) or opcao == item_provisoes:
                                             cursor_baixa = conn_baixa.cursor()
                                             
                                             # Atualiza status da obrigação
-                                            cursor_baixa.execute("UPDATE provisoes SET status = 'Pago' WHERE id = %s", (row['id'],))
+                                            cursor_baixa.execute("UPDATE provisoes SET status = 'Pago' WHERE id = %s AND cliente_id = %s", (row['id'], cliente_ativo_id))
                                             
                                             # Registra a saída correspondente no Livro Caixa
                                             conta_saida_desc = "4.1.2 - Impostos e Taxas (DAS)" if eh_das else "4.1.1 - Despesas Operacionais"

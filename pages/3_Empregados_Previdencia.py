@@ -66,23 +66,33 @@ def exibir_bloqueio_upgrade(nome_recurso: str):
 )
 
 # -----------------------------------------------------------------------------
-# 3. VALIDAÇÃO DE SESSÃO E CLIENTE ATIVO
+# 3. VALIDAÇÃO DE SESSÃO E CLIENTE ATIVO (BLINDAGEM MULTI-TENANT)
 # -----------------------------------------------------------------------------
 if 'user' not in st.session_state or st.session_state.user is None:
     st.warning("⚠️ Você precisa fazer login para acessar este módulo.")
     st.stop()
 
+user_id_atual = st.session_state.get("user_id") or getattr(st.session_state.user, "id", None)
 cliente_ativo_id = st.session_state.get("cliente_id_ativo")
+
 if not cliente_ativo_id:
     st.warning(f"{ICONES['alerta']} Selecione um cliente ativo no Gestor Contábil antes de gerenciar a folha de pagamento.")
     st.stop()
 
-# Carregamento dos dados cadastrais do cliente
+# Trava anti-tampering: impede manipulação de cliente_id via sessão
+from database import validar_pertencimento_cliente
+
+if not user_id_atual or not validar_pertencimento_cliente(cliente_ativo_id, user_id_atual):
+    st.error("🚨 Acesso Não Autorizado: Esta empresa não pertence à sua conta.")
+    st.session_state["cliente_id_ativo"] = None
+    st.stop()
+
+# Carregamento seguro da empresa
 conn = get_connection()
 try:
     df_cli = pd.read_sql_query(
-        "SELECT id, nome, regime, COALESCE(plano, 'gratis') AS plano FROM clientes WHERE id = %s",
-        conn, params=(cliente_ativo_id,)
+        "SELECT id, nome, regime, COALESCE(plano, 'gratis') AS plano FROM clientes WHERE id = %s AND user_id = %s",
+        conn, params=(cliente_ativo_id, str(user_id_atual))
     )
 finally:
     conn.close()
@@ -90,6 +100,7 @@ finally:
 if df_cli.empty:
     st.error("Cliente não localizado.")
     st.stop()
+
 
 nome_cliente = df_cli.iloc[0]["nome"]
 regime_cliente = df_cli.iloc[0]["regime"] or "MEI (Microempreendedor Individual)"
@@ -185,7 +196,7 @@ with st.container(height=580, border=True):
                         conn_res = get_connection()
                         try:
                             with conn_res.cursor() as cur:
-                                cur.execute("UPDATE empregados SET status = 'Inativo' WHERE id = %s", (int(dados['id']),))
+                                cur.execute("UPDATE empregados SET status = 'Inativo' WHERE id = %s AND cliente_id = %s", (int(dados['id']), cliente_ativo_id))
                             conn_res.commit()
                             limpar_cache()
                             st.success("Contrato encerrado. O colaborador foi marcado como Inativo.")
