@@ -480,6 +480,18 @@ def aplicar_tema_global():
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04) !important;
     }
 
+    }
+
+    /* Oculta marca d'água e menus nativos do Streamlit */
+    #MainMenu {visibility: hidden; display: none !important;}
+    header[data-testid="stHeader"] {visibility: hidden; display: none !important;}
+    footer {visibility: hidden; display: none !important;}
+    div[data-testid="stDecoration"] {display: none !important;}
+    div[data-testid="stToolbar"] {display: none !important;}
+    div[class*="viewerBadge"] {display: none !important;}
+    .viewerBadge_container__1QSob {display: none !important;}
+    #manage-app-button {display: none !important;}
+    
     </style>
     """, unsafe_allow_html=True)
 
