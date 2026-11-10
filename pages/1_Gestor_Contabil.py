@@ -1323,7 +1323,7 @@ elif opcao == "Lançamentos":
                                         conn.close()
 
                                     limpar_cache()
-                                    st.success(f"{ICONES['sucesso']} Entrada registrada com sucesso!")
+                                    st.toast(f"{ICONES['sucesso']} Entrada registrada com sucesso!")
                                     st.rerun()
 
                     with tab_saida:
@@ -1390,7 +1390,7 @@ elif opcao == "Lançamentos":
                                         conn.close()
 
                                     limpar_cache()
-                                    st.success(f"{ICONES['sucesso']} Saída registrada com sucesso!")
+                                    st.toast(f"{ICONES['sucesso']} Saída registrada com sucesso!")
                                     st.rerun()
 
                 else:

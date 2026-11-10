@@ -177,12 +177,12 @@ def carregar_clientes(user_id):
         cursor.close()
         conn.close()
 
-# MÉTODO VERIFICADOR (Segurança do Sistema)
+# -------------------------------------------------------------
+# 2. TRAVA DE SEGURANÇA COM CACHE (0 ms nas re-renderizações)
+# -------------------------------------------------------------
+@st.cache_data(ttl=300)
 def validar_pertencimento_cliente(cliente_id, user_id):
-    """
-    Trava de segurança Multi-tenant:
-    Retorna True se e somente se o cliente_id pertencer de fato ao user_id logado.
-    """
+    """Valida permissão e guarda o resultado na RAM por 5 minutos."""
     if not cliente_id or not user_id:
         return False
         
@@ -195,7 +195,7 @@ def validar_pertencimento_cliente(cliente_id, user_id):
         )
         return cursor.fetchone() is not None
     except Exception as e:
-        print(f"Erro na validação de segurança de empresa: {e}")
+        print(f"Erro na validação de segurança: {e}")
         return False
     finally:
         cursor.close()
@@ -276,7 +276,8 @@ def carregar_dados_cliente_ativo(cliente_id):
 
 def limpar_cache():
     """Invalida completamente todos os dados em cache da memória RAM do Streamlit."""
-    st.cache_data.clear()
+    carregar_lancamentos.clear()
+    carregar_provisoes_pendentes.clear()
     
 @st.cache_data(ttl=300)
 def carregar_todos_clientes_completos():
@@ -536,25 +537,21 @@ def carregar_nfse_cliente(cliente_id):
         return pd.DataFrame()
     finally:
         conn.close()
-# ==============================================================
-#verifica se o usuário logado já possui uma empresa configurada e pronta para operar
-# ==============================================================
+# -------------------------------------------------------------
+# 3. BUSCA DE EMPRESA COM CACHE EM MEMÓRIA
+# -------------------------------------------------------------
+@st.cache_data(ttl=300)
 def obter_empresa_usuario(user_id: str, email_usuario: str = None):
-    """
-    Localiza a empresa do usuário logado por user_id ou por email (com auto-vínculo).
-    Protegido contra ausência de colunas opcionais na tabela.
-    """
+    """Busca a empresa do usuário em RAM, evitando bater no banco em todo rerun."""
     if not user_id and not email_usuario:
         return None
         
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        # 1. Busca prioritária pelo user_id vinculado
         cursor.execute("SELECT * FROM clientes WHERE user_id = %s LIMIT 1", (str(user_id),))
         row = cursor.fetchone()
         
-        # 2. Se não encontrou por user_id, verifica se a coluna 'email' existe na tabela antes de buscar
         if not row and email_usuario:
             cursor.execute(
                 """
@@ -568,7 +565,6 @@ def obter_empresa_usuario(user_id: str, email_usuario: str = None):
                 cursor.execute("SELECT * FROM clientes WHERE email = %s LIMIT 1", (str(email_usuario).strip(),))
                 row = cursor.fetchone()
                 
-                # Se achou pelo email, vincula o user_id no banco
                 if row:
                     colunas_temp = [desc[0] for desc in cursor.description]
                     emp_temp = dict(zip(colunas_temp, row))
@@ -609,6 +605,7 @@ def obter_empresa_usuario(user_id: str, email_usuario: str = None):
         cursor.close()
         conn.close()
 
+#Fim de Bloco
         
 def salvar_empresa_onboarding(user_id: str, nome: str, cnpj_cpf: str, telefone: str, email: str):
     """
@@ -635,6 +632,12 @@ def salvar_empresa_onboarding(user_id: str, nome: str, cnpj_cpf: str, telefone: 
         )
         novo_id = cursor.fetchone()[0]
         conn.commit()
+
+        # [NOVO]: Invalida pontualmente apenas os caches de autenticação/empresa
+        obter_empresa_usuario.clear()
+        carregar_clientes.clear()
+        validar_pertencimento_cliente.clear()
+
         return True, novo_id
     except Exception as e:
         conn.rollback()
