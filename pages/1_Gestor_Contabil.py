@@ -2150,10 +2150,9 @@ elif "Contas a Pagar" in str(opcao) or opcao == item_provisoes:
                                             if cnpj_raw:
                                                 st.code(cnpj_raw, language=None)
                                         # ==============================================================
-                                        # RÉGUA DE AVISOS (WHATSAPP E E-MAIL)
+                                        # RÉGUA DE AVISOS (WHATSAPP E E-MAIL) - PADRÃO KAZIMM
                                         # ==============================================================
-                                        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
-                                        col_wa, col_em = st.columns(2, gap="small")
+                                        st.markdown("<div style='margin-top: 6px;'></div>", unsafe_allow_html=True)
                                         
                                         # 1. Recupera dados do cliente logado
                                         telefone_cli = df_cliente.iloc[0].get("telefone", "")
@@ -2162,29 +2161,56 @@ elif "Contas a Pagar" in str(opcao) or opcao == item_provisoes:
                                         status_wa = "VENCIDA" if dias_restantes < 0 else ("HOJE" if dias_restantes == 0 else "AVENCER")
                                         link_wa = gerar_link_whatsapp(telefone_cli, nome_cli, row['descricao'], row['valor'], dt_venc, status_wa)
                                         
-                                        # 2. Renderiza os botões (Estilo Pill / Pílula)
+                                        # 2. Grid de 2 colunas proporcionais
+                                        col_wa, col_em = st.columns(2, gap="small")
+                                        
                                         with col_wa:
                                             if link_wa:
                                                 st.markdown(
                                                     f"""
                                                     <a href="{link_wa}" target="_blank" style="
-                                                        display: flex; align-items: center; justify-content: center; gap: 4px;
-                                                        background-color: #25D366; color: white; border-radius: 4px; padding: 6px 0;
-                                                        font-weight: 600; font-size: 13px; text-decoration: none; transition: 0.2s;
-                                                    " title="Cobrar via WhatsApp">
+                                                        display: flex;
+                                                        align-items: center;
+                                                        justify-content: center;
+                                                        gap: 6px;
+                                                        width: 100%;
+                                                        height: 34px;
+                                                        box-sizing: border-box;
+                                                        background-color: #F0F7FA;
+                                                        color: #0176A1;
+                                                        border: 1.5px solid #0176A1;
+                                                        border-radius: 6px;
+                                                        font-weight: 600;
+                                                        font-size: 13px;
+                                                        text-decoration: none;
+                                                        transition: all 0.2s ease;
+                                                    " onmouseover="this.style.backgroundColor='#E0F2FE'" onmouseout="this.style.backgroundColor='#F0F7FA'" title="Cobrar via WhatsApp">
                                                         💬 Whats
                                                     </a>
-                                                    """, unsafe_allow_html=True
+                                                    """, 
+                                                    unsafe_allow_html=True
                                                 )
                                             else:
-                                                st.button("💬 Whats", disabled=True, help="Telefone do cliente não cadastrado.", key=f"wa_dis_{row['id']}")
+                                                st.button(
+                                                    "Whats", 
+                                                    icon=":material/chat:", 
+                                                    disabled=True, 
+                                                    help="Telefone do cliente não cadastrado.", 
+                                                    key=f"wa_dis_{row['id']}", 
+                                                    use_container_width=True
+                                                )
 
                                         with col_em:
-                                            if st.button("✉️ E-mail", key=f"btn_email_{row['id']}", help="Disparar aviso por e-mail", use_container_width=True):
+                                            if st.button(
+                                                "E-mail", 
+                                                key=f"btn_email_{row['id']}", 
+                                                icon=":material/mail:", 
+                                                help="Disparar aviso por e-mail", 
+                                                use_container_width=True
+                                            ):
                                                 modal_enviar_email(nome_cli, row['descricao'], row['valor'], venc_formatado)
                                                 
-                                        st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
-
+                                        st.markdown("<div style='margin-bottom: 6px;'></div>", unsafe_allow_html=True)
                                     
 
                                         if st.button(

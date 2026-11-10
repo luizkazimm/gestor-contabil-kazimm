@@ -360,6 +360,27 @@ def aplicar_tema_global():
         transform: translateY(-1px);
     }
 
+    /* ========================================================
+       BLOQUEIO FÍSICO DE CLIQUE PARA MÓDULOS DESABILITADOS
+       ======================================================== */
+    div[data-testid="stPageLink"] a[aria-disabled="true"],
+    div[data-testid="stPageLink"] a[disabled],
+    div[data-testid="stPageLink"] [aria-disabled="true"] {
+        pointer-events: none !important; /* Desativa 100% da resposta ao clique no navegador */
+        cursor: not-allowed !important;
+        opacity: 0.55 !important;
+        background-color: #F8FAFC !important;
+        border: 1px solid #CBD5E1 !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    div[data-testid="stPageLink"] a[aria-disabled="true"] *,
+    div[data-testid="stPageLink"] a[disabled] * {
+        color: #94A3B8 !important;
+    }  
+
+
     /* MÓDULO ATIVO (DESTAQUE CIANO SUAVE KAZIMM) */
     [data-testid="stPageLink"] a[aria-current="page"],
     [data-testid="stPageLink-NavLink"][aria-current="page"],
@@ -470,30 +491,39 @@ def aplicar_tema_global():
        BOTÃO SECUNDÁRIO PADRÃO KAZIMM (ESTILO PGMEI / OUTLINE SUAVE)
        ======================================================== */
     div[data-testid="stButton"] button[kind="secondary"],
-    div[data-testid="stButton"] button[data-testid="baseButton-secondary"] {
+    div[data-testid="stButton"] button[data-testid="baseButton-secondary"],
+    div[data-testid="stButton"] button:not([kind="primary"]) {
         background-color: #F0F7FA !important;
         border: 1.5px solid #0176A1 !important;
         border-radius: 6px !important;
-        min-height: 34px !important;
         height: 34px !important;
-        padding: 4px 10px !important;
+        min-height: 34px !important;
+        padding: 0px 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
         transition: all 0.2s ease-in-out !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     div[data-testid="stButton"] button[kind="secondary"] *,
-    div[data-testid="stButton"] button[kind="secondary"] p,
-    div[data-testid="stButton"] button[kind="secondary"] span {
+    div[data-testid="stButton"] button[data-testid="baseButton-secondary"] *,
+    div[data-testid="stButton"] button:not([kind="primary"]) * {
         color: #0176A1 !important;
         font-weight: 600 !important;
         font-size: 13px !important;
+        line-height: 1 !important;
     }
 
-    div[data-testid="stButton"] button[kind="secondary"]:hover {
+    div[data-testid="stButton"] button[kind="secondary"]:hover,
+    div[data-testid="stButton"] button:not([kind="primary"]):hover {
         background-color: #E0F2FE !important;
         border-color: #007791 !important;
         transform: translateY(-1px) !important;
     }
-
+    
     div[data-testid="stButton"] button[kind="secondary"]:hover * {
         color: #007791 !important;
     }
@@ -545,7 +575,7 @@ def aplicar_tema_global():
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04) !important;
     }
 
-    }
+    
 
     /* Oculta marca d'água e menus nativos do Streamlit */
     #MainMenu {visibility: hidden; display: none !important;}
@@ -663,25 +693,34 @@ def exibir_botoes_modulos_navegacao(modulo_atual: str = "contabil"):
             "id": "contabil",
             "nome": "Gestor Contábil",
             "page": "pages/1_Gestor_Contabil.py",
-            "icon": ICONES.get("contabil", ":material/account_balance:")
+            "icon": ICONES.get("contabil", ":material/account_balance:"),
+            "disable": False,
+            "help":None
         },
         {
             "id": "contratos",
             "nome": "Gerador de Contratos",
             "page": "pages/2_Gerador_Contratos.py",
-            "icon": ICONES.get("contratos", ":material/contract:")
+            "icon": ICONES.get("contratos", ":material/contract:"),
+            "disabled": True,
+            "help": "Estamos trabalhando neste módulo. Em breve disponível!"
+
         },
         {
             "id": "previdencia",
             "nome": "Empregados / Folha",
             "page": "pages/3_Empregados_Previdencia.py",
-            "icon": ICONES.get("previdencia", ":material/badge:")
+            "icon": ICONES.get("previdencia", ":material/badge:"),
+            "disabled": False,
+            "help":None
         },
         {
             "id": "fiscal",
             "nome": "Gestor Fiscal",
             "page": "pages/4_Gestor_Fiscal.py",
-            "icon": ICONES.get("fiscal", ":material/receipt_long:")
+            "icon": ICONES.get("fiscal", ":material/receipt_long:"),
+            "disabled": False,
+            "help": None
         },
     ]
 
@@ -689,7 +728,14 @@ def exibir_botoes_modulos_navegacao(modulo_atual: str = "contabil"):
     for col, m in zip([col1, col2, col3, col4], modulos):
         with col:
             rotulo = f"**{m['nome']}**" if m["id"] == modulo_atual else m["nome"]
-            st.page_link(m["page"], label=rotulo, icon=m["icon"], use_container_width=True)
+            st.page_link(
+                m["page"], 
+                label=rotulo, 
+                icon=m["icon"], 
+                disabled=m.get("disabled", False),
+                help=m.get("help"),
+                use_container_width=True
+            )
 
 # =============================================================================
 # BARRA SUPERIOR UNIFICADA (NAVBAR)
